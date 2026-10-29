@@ -17,7 +17,6 @@ never take a word away and break a command that used to work.
 """
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QDialog, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QMessageBox, QPushButton, QVBoxLayout, QWidget,

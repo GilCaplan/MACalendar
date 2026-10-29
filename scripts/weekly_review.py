@@ -17,7 +17,6 @@ import argparse
 import collections
 import datetime as dt
 import os
-import statistics
 import sys
 import time
 

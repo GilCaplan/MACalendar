@@ -316,11 +316,6 @@ def icons(title: str, count: int, groups: "set[str] | None" = None) -> list[str]
     return list(_icons(title, count, None if groups is None else frozenset(groups)))
 
 
-def for_config(title: str, config) -> list[str]:
-    """`icons(title)` as the user's `title_emoji` settings ask."""
-    return icons(title, count_from(config), groups_from(config))
-
-
 def groups_from(config) -> "set[str]":
     """The kinds switched on in `title_emoji` (each a bool, on unless set off)."""
     section = getattr(config, "title_emoji", None)

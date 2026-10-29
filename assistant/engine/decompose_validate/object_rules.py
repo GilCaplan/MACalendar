@@ -25,11 +25,10 @@ import re
 
 from assistant.engine.decompose_validate.targeting import _CREATE_VERB
 from assistant.engine.decompose_validate.text_helpers import unsupported_cadence
-from assistant.engine.state import EngineState
 
 #: "now" said as a time — one definition with its vetoes ("for now", "two
 #: weeks from now", "now that" …), shared with the tagger and FastRule.
-from assistant.intent.now_word import NOW_RE as _NOW_RE, says_now as _says_now  # noqa: E402
+from assistant.intent.now_word import says_now as _says_now  # noqa: E402
 
 
 _JUNK_TITLES = {"task", "tasks", "todo", "event", "events", "reminder",

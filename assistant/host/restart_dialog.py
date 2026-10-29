@@ -16,7 +16,7 @@ from __future__ import annotations
 import threading
 from typing import Callable
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (QDialog, QHBoxLayout, QLabel, QPushButton,
                              QSpinBox, QVBoxLayout)
 

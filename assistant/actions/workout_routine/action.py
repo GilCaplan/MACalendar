@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import datetime
 import uuid
-from typing import ClassVar, List, Optional, Type
+from typing import TYPE_CHECKING, ClassVar, List, Optional, Type
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -24,6 +24,9 @@ from assistant.actions import register
 from assistant.actions.base import BaseAction, BaseIntent
 from assistant.actions.workout_routine.intent import GenerateWorkoutRoutineIntent
 from assistant.exceptions import ParseError
+
+if TYPE_CHECKING:
+    from assistant.intent.parser import IntentParser
 
 # ---------------------------------------------------------------------------
 # Structured-output schema the first LLM call must fill in. Mirrors the shape

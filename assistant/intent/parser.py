@@ -71,7 +71,6 @@ def _normalize_time_fields(parameters: dict) -> dict:
 
 class UnknownIntent(BaseIntent):
     """Placeholder for cases where the LLM's response couldn't be parsed."""
-    pass
 
 
 def _refuse_if_disabled() -> None:

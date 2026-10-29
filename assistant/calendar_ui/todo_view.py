@@ -1971,9 +1971,6 @@ class _TagBar(QWidget):
 
     # -- public ---------------------------------------------------------
 
-    def active_filter(self) -> list[str]:
-        return list(self._active)
-
     def auto_tag(self) -> str:
         return self._auto_tag
 

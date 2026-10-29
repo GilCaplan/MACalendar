@@ -6,7 +6,6 @@ import datetime
 
 from PyQt6.QtCore import (
     QDate,
-    QPointF,
     QSize,
     QEasingCurve,
     QEvent,
@@ -321,6 +320,3 @@ class Sidebar(QWidget):
     def _on_date_selected(self) -> None:
         qd = self._mini_cal.selectedDate()
         self.date_selected.emit(datetime.date(qd.year(), qd.month(), qd.day()))
-
-    def set_date(self, date: datetime.date) -> None:
-        self._mini_cal.setSelectedDate(QDate(date.year, date.month, date.day))

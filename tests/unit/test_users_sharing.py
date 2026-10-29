@@ -9,7 +9,6 @@ collide; a write runs AS the owner.
 from __future__ import annotations
 
 import datetime as dt
-import os
 import pathlib
 
 import pytest

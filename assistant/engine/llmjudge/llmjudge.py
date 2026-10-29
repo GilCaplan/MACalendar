@@ -46,7 +46,7 @@ run. The slot check still runs; it never needed a model.
 
 from __future__ import annotations
 
-from assistant.engine.llmjudge import findings as F, rewrite, verdict
+from assistant.engine.llmjudge import findings as F, verdict
 from assistant.engine.llmjudge.findings import ROUTE            # noqa: F401
 from assistant.engine.llmjudge.rewrite import rewrite_for_retry  # noqa: F401
 

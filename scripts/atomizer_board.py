@@ -75,7 +75,6 @@ import argparse
 import collections
 import datetime as _dt
 import json
-import os
 import pathlib
 import re
 import sys

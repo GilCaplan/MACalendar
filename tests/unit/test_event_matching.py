@@ -10,7 +10,6 @@ directly via `db._conn()`.
 """
 from __future__ import annotations
 
-import datetime
 
 import pytest
 

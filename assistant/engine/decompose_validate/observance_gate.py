@@ -19,7 +19,6 @@ from __future__ import annotations
 import datetime as _dt
 import re
 
-from assistant.engine.state import EngineState
 
 _LEYNING_RE = re.compile(
     r"\b(leyn|leyning|laining|kriah|kriat|torah reading|parsha|megillah?|shiur)\b", re.I)

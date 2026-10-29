@@ -206,12 +206,3 @@ def sync_outlook(db: CalendarDB, config: AppConfig) -> dict:
         db.update_calendar_source(outlook_source["id"], last_error=out["error"])
     return out
 
-
-def run_full_sync(db: CalendarDB, config: AppConfig) -> dict:
-    """Refresh every connected calendar source (ICS, Outlook, Google).
-
-    Kept for existing callers; the one implementation is
-    `calendar_sync.scheduler.run_all`, which the brain's periodic loop and
-    every "Sync now" button share."""
-    from assistant.calendar_sync.scheduler import run_all
-    return run_all(db, config)

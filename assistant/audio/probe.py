@@ -129,7 +129,6 @@ def _run_probe() -> AudioDeviceProfile:
     # Attempt a very short real recording — catches macOS permission denial
     # which only shows up at stream-open time, not at query time.
     try:
-        import numpy as np
         buf: list = []
 
         def _cb(indata, frames, t, status):

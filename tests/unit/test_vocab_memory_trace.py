@@ -3,8 +3,6 @@ vocab/memory/pending API endpoints (Flask test client, no LLM needed)."""
 
 from __future__ import annotations
 
-import json
-import os
 
 import pytest
 

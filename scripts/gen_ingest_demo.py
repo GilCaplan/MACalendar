@@ -30,7 +30,6 @@ import argparse
 import json
 import os
 import pathlib
-import re
 import sys
 
 from assistant.common.scratch_env import scratch_env

@@ -29,10 +29,8 @@ from assistant.calendar_ui.styles import (
     BLUE_LIGHT,
     GRAY_BORDER,
     GRAY_DARK,
-    GRAY_LIGHT,
     GRAY_TEXT,
     TODAY_BG,
-    TODAY_TEXT,
     WEEKEND_BG,
     WHITE,
 )

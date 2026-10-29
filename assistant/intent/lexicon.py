@@ -45,7 +45,6 @@ from __future__ import annotations
 import json
 import os
 import threading
-import time
 
 LEXICON_PATH = (os.environ.get("MACALENDAR_LEXICON")
                 or os.path.expanduser("~/.assistant_tools/lexicon.json"))

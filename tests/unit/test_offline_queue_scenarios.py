@@ -16,7 +16,6 @@ two people in a house, a command nothing can parse.
 """
 from __future__ import annotations
 
-import time
 
 import pytest
 

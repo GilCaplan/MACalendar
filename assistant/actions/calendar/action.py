@@ -1,7 +1,7 @@
 """Calendar voice actions — create, update, and delete events."""
 
 import datetime as _dt_module
-from typing import ClassVar, List, Optional, Type
+from typing import ClassVar, Optional, Type
 
 from assistant.actions import register
 from assistant.exceptions import TargetNotFound
@@ -423,7 +423,6 @@ def _find_event(db, match_title: str, match_date: Optional[str], match_start_tim
     Implements token-based fuzzy matching with stop-word filtering.
     Resolves anaphoric pronouns via context memory.
     """
-    import datetime as dt
     import re
 
     # Empty title: use date/time context directly (no title-based scoring)

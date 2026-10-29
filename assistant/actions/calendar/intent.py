@@ -1,4 +1,3 @@
-import datetime
 import json
 from typing import Any, List, Optional
 
@@ -161,7 +160,6 @@ class CalendarIntent(BaseIntent):
         # actually understood.
         if t in ("now", "right now", "immediately", "asap",
                  "straight away", "right away", "at once"):
-            import datetime as _dt
             return _clock.now().strftime("%H:%M")
         m = (_re.fullmatch(r"(\d{1,2})(?::(\d{2}))?\s*(am|pm|a:m|p:m)?", t)
              or _re.fullmatch(r"(\d{2})(\d{2})()", t)

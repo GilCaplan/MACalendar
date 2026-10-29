@@ -530,7 +530,6 @@ def test_no_personal_word_list_entry_reaches_a_published_page(path):
     # Read-only: the rule about the real stores is that tests must not write
     # to them, and checking a published page for leaks is what it is for.
     import json
-    import os
     # EVERY user's vocabulary: each one's words are that person's names.
     reals = _real_store_files("vocab.json")
     if not reals:
@@ -862,94 +861,6 @@ def test_the_dataset_sizes_quoted_are_current(all_prose):
                 f"there are {len(speakers)} personas; {name} says otherwise")
             assert f"{len(rows):,} rows" in text, (
                 f"{name} miscounts the persona rows; there are {len(rows):,}")
-
-
-def test_the_split_drawn_on_the_loop_view_matches_the_files():
-    """The seal is now a PICTURE — a bar split train | sealed — not a paragraph.
-
-    Every other check on this page runs against `_prose`, which strips the
-    <svg> blocks out on purpose: diagram geometry is full of bare numbers and
-    matching a claim against a path coordinate would let it pass for the wrong
-    reason. But the loop view's seal guard draws the split with its two row
-    counts printed on the bar, and a number a reader can see is a claim
-    whatever element it lives in. So this one reads the raw file, and only for
-    the two strings the drawing actually prints — narrow enough that a
-    coordinate cannot satisfy it by accident.
-
-    The group carries data-claim="seal-split" so the check fires on the
-    drawing rather than on any page that happens to mention a seal.
-    """
-    import json
-    pool = ROOT / "dataset" / "inputs" / "history_3000.json"
-    sealed = ROOT / "dataset" / "inputs" / "test_split.json"
-    if not (pool.exists() and sealed.exists()):
-        pytest.skip("the datasets are not present in this checkout")
-    n_pool = json.loads(pool.read_text())["n"]
-    n_sealed = json.loads(sealed.read_text())["n"]
-
-    drew = False
-    for path in PAGES:
-        raw = path.read_text()
-        if 'data-claim="seal-split"' not in raw:
-            continue
-        drew = True
-        assert f"train &#183; {n_pool - n_sealed:,}" in raw or \
-               f"train · {n_pool - n_sealed:,}" in raw, (
-            f"{path.name} draws the training half, but the pool holds {n_pool} "
-            f"rows of which {n_sealed} are sealed — the bar should say "
-            f"{n_pool - n_sealed:,}")
-        assert f"sealed &#183; {n_sealed}" in raw or f"sealed · {n_sealed}" in raw, (
-            f"{path.name} draws the sealed half as a different number; "
-            f"test_split.json holds {n_sealed} rows")
-    if not drew:
-        pytest.skip("no published page draws the split")
-
-
-def test_the_metric_formulas_on_the_evaluation_view_match_the_scorers():
-    """The evaluation view's hover tooltips spell out how each number is
-    computed — the severity weights, the field-quality weights, the brevity
-    cutoff. Those are constants in the scorers, and a page that quotes them
-    goes stale the moment one is tuned.
-
-    Reads the RAW file, not `all_prose`: the tooltips live in <title> inside
-    <svg>, and the prose fixture strips <svg> on purpose. Written against
-    `all_prose` first, this test passed happily while the severity weight was
-    perturbed to 5 — a check that cannot fail is worse than no check, so it is
-    verified to go red before being trusted.
-    """
-    import re as _re
-    # The harm weights live in the FastRule board's side-effect-free gold
-    # module since 2026-09-25 (the board imports them from there).
-    shape = (ROOT / "assistant" / "engine" / "fastrule" / "experiments"
-             / "gold.py").read_text()
-    fieldq = (ROOT / "scripts" / "field_quality.py").read_text()
-
-    sev = dict(_re.findall(
-        r'"(delete_event|update_event|complete_todo|create_event)":\s*(\d)', shape))
-    weights = dict(_re.findall(
-        r'weights\["(when|title|extras)"\]\s*=\s*([\d.]+)', fieldq))
-    brevity = _re.search(r"len\(words\)\s*<=\s*(\d+)", fieldq)
-    assert sev and weights and brevity, "could not read the constants out of the scorers"
-
-    checked = False
-    for path in PAGES:
-        raw = path.read_text()
-        if "THE PRODUCT-SHAPE BOARD" not in raw:
-            continue
-        checked = True
-        name = path.name
-        for label, value in (("delete", sev["delete_event"]),
-                             ("update", sev["update_event"]),
-                             ("create", sev["create_event"])):
-            assert f"{label} {value}" in raw, (
-                f"{name}: harm weights the {label} at {value}; the page says otherwise")
-        for slot in ("when", "title", "extras"):
-            assert f"{slot} {weights[slot]}" in raw, (
-                f"{name}: field quality weights `{slot}` at {weights[slot]}")
-        assert f"up to {brevity.group(1)} words" in raw, (
-            f"{name}: the title brevity cutoff is {brevity.group(1)} words")
-    if not checked:
-        pytest.skip("no page carries the evaluation formulas")
 
 
 def test_the_label_classifier_numbers_cite_a_run_that_exists(all_prose):

@@ -1,6 +1,5 @@
 import datetime
 import os
-import sqlite3
 import sys
 
 # Ensure assistant is in path

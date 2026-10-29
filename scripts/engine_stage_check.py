@@ -17,7 +17,6 @@ stores; the real ~/.assistant_tools is never touched.
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 
 from assistant.common.scratch_env import scratch_env

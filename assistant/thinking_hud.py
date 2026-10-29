@@ -40,7 +40,7 @@ from PyQt6.QtWidgets import (
 
 from assistant import trace_bus
 from assistant.config import THINKING_HIDE_MAX_SEC
-from assistant.calendar_ui.thinking_panel import PANEL_WIDTH, ThinkingPanel
+from assistant.calendar_ui.thinking_panel import ThinkingPanel
 
 logger = logging.getLogger(__name__)
 

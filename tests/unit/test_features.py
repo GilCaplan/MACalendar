@@ -7,7 +7,6 @@ somebody else's program — `test_integrations.py` covers that one.
 
 from __future__ import annotations
 
-import os
 import pathlib
 
 import pytest

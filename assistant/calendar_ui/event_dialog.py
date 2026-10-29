@@ -25,7 +25,7 @@ from PyQt6.QtCore import QDate, QTime
 
 import assistant.calendar_ui.styles as _styles
 from assistant.calendar_ui import icons
-from assistant.calendar_ui.styles import BLUE, EVENT_COLORS, GRAY_BORDER, GRAY_TEXT
+from assistant.calendar_ui.styles import BLUE, EVENT_COLORS, GRAY_TEXT
 from assistant.calendar_ui.dialog_utils import install_enter_confirms
 
 

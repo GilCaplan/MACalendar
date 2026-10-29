@@ -13,7 +13,7 @@ import re
 import datetime
 import logging
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
@@ -48,6 +48,10 @@ _stt = None
 # ---------------------------------------------------------------------------
 import threading as _threading
 import time as _time
+
+if TYPE_CHECKING:
+    from assistant.trace import Trace
+
 _verify_store: dict = {}
 _verify_lock = _threading.Lock()
 

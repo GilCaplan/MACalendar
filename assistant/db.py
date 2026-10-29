@@ -2803,18 +2803,6 @@ class CalendarDB:
             ).fetchone()
             return row["payout_at"] if row else None
 
-    def clear_all(self) -> None:
-        """Wipe all events from the database."""
-        with self._conn() as conn:
-            conn.execute("DELETE FROM events")
-            conn.execute("DELETE FROM sqlite_sequence WHERE name='events'")  # reset IDs
-
-    def clear_all_todos(self) -> None:
-        """Wipe all todos from the database."""
-        with self._conn() as conn:
-            conn.execute("DELETE FROM todos")
-            conn.execute("DELETE FROM sqlite_sequence WHERE name='todos'")  # reset IDs
-
     # ------------------------------------------------------------------
     # Courses
     # ------------------------------------------------------------------

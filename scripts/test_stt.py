@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # paths are read at import time. See tests/isolation.py for why.
 from tests.isolation import isolate  # noqa: E402
 isolate("macalendar-stt-")
-from assistant.config import load_config, WhisperConfig, GoogleSTTConfig
+from assistant.config import load_config
 from assistant.audio.capture import AudioCapture
 
 

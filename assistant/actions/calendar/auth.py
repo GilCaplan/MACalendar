@@ -109,14 +109,6 @@ class MSALAuth:
         print(flow["message"])
         return self.complete_device_flow(flow)
 
-    def force_reauth(self) -> str:
-        """Wipe the token cache and run a fresh device-code flow."""
-        if os.path.exists(self.cache_path):
-            os.remove(self.cache_path)
-        self._cache = msal.SerializableTokenCache()
-        self._app.token_cache = self._cache
-        return self.device_code_flow()
-
     def _save_cache(self) -> None:
         if self._cache.has_state_changed:
             os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)

@@ -21,7 +21,7 @@ seeded block, so a phone-dictated run is indistinguishable from a planned one.
 from __future__ import annotations
 
 import datetime
-from typing import ClassVar, List, Optional, Type
+from typing import TYPE_CHECKING, ClassVar, List, Optional, Type
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -32,6 +32,9 @@ from assistant.actions.base import BaseAction, BaseIntent
 from assistant.actions.schedule_workout.intent import ScheduleWorkoutIntent
 from assistant.exceptions import ParseError
 from assistant import clock as _clock  # the moment the command was SAID
+
+if TYPE_CHECKING:
+    from assistant.intent.parser import IntentParser
 
 # How far ahead the planner is allowed to reach when the request doesn't say.
 _DEFAULT_HORIZON_DAYS = 56
