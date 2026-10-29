@@ -118,6 +118,14 @@ struct SettingsView: View {
                             }
                         }
                     }
+                    Toggle(isOn: $settings.reviewReminder) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Remind me at the top of the screen")
+                            Text("A strip on every tab once 5 commands are waiting for a thumbs up or down")
+                                .font(.caption).foregroundColor(.secondary)
+                        }
+                    }
+                    .accessibilityIdentifier("review-reminder-toggle")
                     row("Voice & recording", "waveform", .purple, voiceSummary) { voicePage }
                     row("Vocabulary", "character.book.closed", .purple, "Names & words") { VocabularyView() }
                     row("How I say things", "text.book.closed", .purple, "Words it acts on") { LexiconView() }
