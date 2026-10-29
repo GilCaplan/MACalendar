@@ -309,7 +309,7 @@ def test_the_hud_does_not_redraw_a_run_it_already_streamed(qapp, tmp_path,
     # The fade-after-a-command hooks (test_thinking_hud.py covers them).
     hud._on_begin = lambda: None
     hud._on_step = lambda step: None
-    hud._on_result = lambda res: None
+    hud._on_result = lambda res, steps=(): None
     apply = hud_mod.ThinkingHUD.apply_entry
 
     apply(hud, {"kind": "begin", "run": "r1", "source": "Mac"})

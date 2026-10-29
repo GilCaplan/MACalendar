@@ -1487,12 +1487,20 @@ def open_settings(self) -> None:
     thinking_hide_row = QHBoxLayout()
     thinking_hide_row.addSpacing(20)
     thinking_hide_row.addWidget(QLabel("Fade it away"))
-    thinking_hide_spin = QSpinBox()
+    # A float box over the HUD's whole range, so opening and saving Settings
+    # never rewrites a hand-set value (2.5 s, 300 s) to what an int box holds.
+    from PyQt6.QtWidgets import QDoubleSpinBox
+    from assistant.config import THINKING_HIDE_MAX_SEC
+    thinking_hide_spin = QDoubleSpinBox()
     thinking_hide_spin.setObjectName("thinking_hide_spin")
-    thinking_hide_spin.setRange(0, 120)
+    thinking_hide_spin.setDecimals(1)
+    thinking_hide_spin.setRange(0, THINKING_HIDE_MAX_SEC)
     thinking_hide_spin.setSuffix(" s")
     thinking_hide_spin.setSpecialValueText("never")
-    thinking_hide_spin.setValue(int(getattr(self._config.ui, "thinking_hide_after_sec", 6)))
+    try:
+        thinking_hide_spin.setValue(float(getattr(self._config.ui, "thinking_hide_after_sec", 6)))
+    except (TypeError, ValueError):
+        thinking_hide_spin.setValue(6)
     thinking_hide_spin.setToolTip(
         "How long the card stays after a command finishes. It stays while\n"
         "the pointer is on it, and when the result needs you (an error, a\n"

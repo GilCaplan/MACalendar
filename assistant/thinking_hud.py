@@ -39,6 +39,7 @@ from PyQt6.QtWidgets import (
 )
 
 from assistant import trace_bus
+from assistant.config import THINKING_HIDE_MAX_SEC
 from assistant.calendar_ui.thinking_panel import PANEL_WIDTH, ThinkingPanel
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,7 @@ SCREEN_MARGIN = 24               # gap from the screen edge
 IDLE_OPACITY = 0.94
 HOVER_OPACITY = 1.0
 FADE_MS = 140
+FADE_AWAY_MS = 400   # the auto-hide's fade (ui.thinking_hide_after_sec)
 
 # Where the user dragged it, if they did. Kept out of config.yaml: it is window
 # state, not a setting, and it changes every time the card is moved.
@@ -181,6 +183,15 @@ class ThinkingHUD(QWidget):
         self._auto_hide.setSingleShot(True)
         self._auto_hide.timeout.connect(self._hide_if_idle)
         self._hold = False              # the result on screen needs the user
+        self._fade_away = QPropertyAnimation(self, b"windowOpacity", self)
+        self._fade_away.setDuration(FADE_AWAY_MS)
+        self._fade_away.setEasingCurve(QEasingCurve.Type.InCubic)
+        # The hide rides its own timer rather than the animation's finished
+        # signal: Qt's animation clock can stall (seen under the offscreen
+        # platform), and a card that never finishes fading never goes.
+        self._fade_away_done = QTimer(self)
+        self._fade_away_done.setSingleShot(True)
+        self._fade_away_done.timeout.connect(self._faded_away)
 
         self._fit()
         self.hide()
@@ -194,41 +205,86 @@ class ThinkingHUD(QWidget):
     def _hide_after_sec(self) -> float:
         ui = getattr(self._config, "ui", None)
         try:
-            return max(0.0, float(getattr(ui, "thinking_hide_after_sec", 6)))
+            secs = float(getattr(ui, "thinking_hide_after_sec", 6))
         except (TypeError, ValueError):
             return 6.0
+        if secs != secs:                # NaN
+            return 6.0
+        return min(THINKING_HIDE_MAX_SEC, max(0.0, secs))
 
-    def _on_result(self, res: dict) -> None:
-        """A command's result is on the card: arm the fade, or hold it."""
-        self._hold = (res.get("parse") in self.NEEDS_YOU or bool(res.get("pending_id"))
-                      or bool(res.get("error")))
-        self._arm_auto_hide()
+    @staticmethod
+    def _needs_you(res: dict, steps=()) -> bool:
+        """The result asks something of the user: an error, a word to fix
+        (needs_edit, or the advisory chips uncertain_words draws), a create
+        question, a queued command, or a Revert from the background check."""
+        return (res.get("parse") in ThinkingHUD.NEEDS_YOU
+                or bool(res.get("pending_id")) or bool(res.get("error"))
+                or bool(res.get("uncertain_words"))
+                or any((st.get("data") or {}).get("revert") for st in steps))
+
+    # The card's own record of where the run on it stands. Not the panel's
+    # `running`: a late background step flips that back to running though
+    # the command is done.
+    _done = False
 
     def _on_begin(self) -> None:
+        """A run starts on the card — however it arrived (begin, an orphan
+        step or boundary, a whole-run trace)."""
         self._auto_hide.stop()
+        self._cancel_fade_out()
         self._hold = False
+        self._done = False
+
+    def _on_result(self, res: dict, steps=()) -> None:
+        """A command's result is on the card: arm the fade, or hold it."""
+        self._done = True
+        self._hold = self._hold or self._needs_you(res, steps)
+        self._arm_auto_hide()
 
     def _on_step(self, step: dict) -> None:
-        """A step after the result is the background check speaking."""
-        if (step.get("data") or {}).get("revert"):
-            self._hold = True           # a Revert waits for the user
+        """A step after the result is the background check speaking: it
+        restarts the countdown, and a Revert holds the card for the user."""
+        if self._needs_you({}, (step,)):
+            self._hold = True
             self._auto_hide.stop()
-        elif self.panel._finished:
+        elif self._done:
             self._arm_auto_hide()
 
     def _arm_auto_hide(self) -> None:
         secs = self._hide_after_sec()
-        if secs <= 0 or self._hold or not self.isVisible():
+        if secs <= 0 or self._hold or not self._done or not self.isVisible():
             self._auto_hide.stop()
             return
         self._auto_hide.start(int(secs * 1000))
 
+    # Set by enterEvent / leaveEvent: what the card was told, not Qt's
+    # underMouse(), which reads a pointer position left over from elsewhere.
+    _hovered = False
+
     def _hide_if_idle(self) -> None:
-        if self.underMouse():
+        if self._hovered:
             return                      # leaveEvent re-arms it
-        # Not _on_panel_closed: fading is not closing, so the next command
-        # brings the card back.
+        if getattr(self.panel, "_view", "timeline") not in ("timeline", "graph"):
+            self._arm_auto_hide()       # reading History or the LLM log: later
+            return
+        # Fade, then hide. Not _on_panel_closed: fading is not closing, so
+        # the next command brings the card back.
+        self._fade.stop()
+        self._fade_away.stop()
+        self._fade_away.setStartValue(self.windowOpacity())
+        self._fade_away.setEndValue(0.0)
+        self._fade_away.start()
+        self._fade_away_done.start(FADE_AWAY_MS)
+
+    def _faded_away(self) -> None:
         self.hide()
+        self.setWindowOpacity(IDLE_OPACITY)
+
+    def _cancel_fade_out(self) -> None:
+        if self._fade_away_done.isActive():
+            self._fade_away_done.stop()
+            self._fade_away.stop()
+            self.setWindowOpacity(IDLE_OPACITY)
 
     def _follow_every_space(self) -> None:
         """Show on every Space, including over another app's full-screen window.
@@ -298,13 +354,15 @@ class ThinkingHUD(QWidget):
 
     def enterEvent(self, event):            # noqa: N802 - Qt naming
         self._fade_to(HOVER_OPACITY)
+        self._hovered = True
         self._auto_hide.stop()
+        self._cancel_fade_out()
         super().enterEvent(event)
 
     def leaveEvent(self, event):            # noqa: N802 - Qt naming
         self._fade_to(IDLE_OPACITY)
-        if self.panel._finished:
-            self._arm_auto_hide()
+        self._hovered = False
+        self._arm_auto_hide()
         super().leaveEvent(event)
 
     # ----------------------------------------------------------- geometry
@@ -405,6 +463,7 @@ class ThinkingHUD(QWidget):
             # the entry and the card never appears at all.
             if run and run in getattr(self, "_rendered_runs", ()):
                 return
+            self._on_begin()
             self.panel.begin(source=entry.get("source") or "Mac")
             for step in entry.get("steps") or []:
                 self.panel.add_step(step)
@@ -418,7 +477,7 @@ class ThinkingHUD(QWidget):
                 self.panel.add_boundary(b)
             self.panel.finish(res)
             self._start(run)
-            self._on_result(res)
+            self._on_result(res, entry.get("steps") or ())
         elif kind == "begin":
             self._on_begin()
             self.panel.begin(source=entry.get("source") or "Mac")
@@ -427,6 +486,7 @@ class ThinkingHUD(QWidget):
             # A trim can rewrite the file between the producer's begin and our
             # poll, so a step for a run we never saw open starts one.
             if run != self._current_run:
+                self._on_begin()
                 self.panel.begin(source=entry.get("source") or "Mac")
                 self._start(run)
             step = entry.get("step") or {}
@@ -436,6 +496,7 @@ class ThinkingHUD(QWidget):
             # Same tolerance as a step: a trim between the producer's begin and
             # our poll can leave us seeing a boundary for a run we never opened.
             if run != self._current_run:
+                self._on_begin()
                 self.panel.begin(source=entry.get("source") or "Mac")
                 self._start(run)
             self.panel.add_boundary(entry.get("boundary") or {})
@@ -482,6 +543,7 @@ class ThinkingHUD(QWidget):
         if self._dismissed_run is not None and self._sticky_hide:
             return                      # you closed it; it stays closed
         self._park()
+        self._hovered = False           # Qt sends Enter if the pointer is there
         self.setWindowOpacity(0.0)
         self.show()
         # The NSWindow only exists once shown, and macOS resets the behaviour
@@ -510,6 +572,8 @@ class ThinkingHUD(QWidget):
         # was on screen, so the very next command popped the card straight back
         # up and closing it achieved nothing.
         self._dismissed_run = self._current_run or "closed"
+        self._auto_hide.stop()
+        self._cancel_fade_out()
         self.hide()
 
     def allow_reappear_without_tray(self) -> None:
@@ -522,14 +586,20 @@ class ThinkingHUD(QWidget):
         self._sticky_hide = False
 
     def reopen(self) -> None:
-        """Show the card again after it was closed, with its history intact."""
+        """Show the card again after it was closed, with its history intact.
+
+        Asked for by hand, so no countdown left over from before hides it.
+        """
         self._dismissed_run = None
+        self._auto_hide.stop()
+        self._cancel_fade_out()
         # Size to what is actually in it. Reopening skipped this, so an idle
         # card opened at whatever height the last run had left behind — a
         # one-line "press the mic" message in a half-screen of empty panel.
         self.panel.show()
         self._fit()
         self._park()
+        self._hovered = False
         self.show()
         self._follow_every_space()
         self._order_front_without_activating()
@@ -693,7 +763,11 @@ class _BusReader:
             try:
                 self._hud.apply_entry(entry)
             except Exception as exc:         # a malformed line must not kill the HUD
-                logger.debug("bad trace entry: %s", exc)
+                # Warning, not debug: a KeyError in the result card hid here
+                # unnoticed, dropping every command with a doubted word from
+                # the card (found 2026-10-29).
+                logger.warning("Could not draw a trace entry (%s): %s",
+                               entry.get("kind"), exc, exc_info=True)
 
         m = self._mtime()
         if m != self._cfg_mtime:
@@ -705,6 +779,7 @@ class _BusReader:
                 return
             self._hud._config = cfg
             self._hud.set_dark(cfg.theme == "dark")
+            self._hud._arm_auto_hide()      # a new fade delay, or none
             if not self._hud._enabled():
                 self._hud.hide()
 

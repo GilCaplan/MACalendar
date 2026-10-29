@@ -957,7 +957,7 @@ def _fast_fade(widget, secs=0.05):
                                                         thinking_hide_after_sec=secs))
 
 
-def _wait(ms=250):
+def _wait(ms=700):            # the delay below + the 400 ms fade-out
     from PyQt6.QtTest import QTest
     QTest.qWait(ms)
 
@@ -1039,3 +1039,133 @@ def test_the_setting_is_mirrored_in_the_example_config():
     assert UIConfig().thinking_hide_after_sec == 6
     example = (Path(__file__).resolve().parents[2] / "config.example.yaml").read_text()
     assert "thinking_hide_after_sec: 6" in example
+
+
+# --- the cases the 2026-10-29 review found ---------------------------------
+
+def test_a_late_background_step_restarts_the_countdown_and_hover_still_rearms(hud, bus):
+    """The panel flips back to running on a late step; the card used to read
+    that and never re-arm after a hover, so it stayed up for good."""
+    widget, reader, _ = hud
+    _fast_fade(widget, secs=0.3)
+    run = bus.publish_begin("Mac")
+    bus.publish_result(run, {"message": "ok"})
+    reader.poll()
+    bus.publish_step(run, _step("verify", "Reviewed the answer"))
+    reader.poll()
+    widget.enterEvent(_enter_event())
+    _wait()
+    assert widget.isVisible()
+    widget.leaveEvent(_leave_event())
+    _wait(1000)
+    assert not widget.isVisible()
+
+
+def test_reopening_by_hand_is_not_undone_by_an_old_countdown(hud, bus):
+    widget, reader, _ = hud
+    _fast_fade(widget, secs=0.2)
+    bus.publish("iPhone", [_step()], {"message": "Added"})
+    reader.poll()
+    widget.panel._on_close()
+    widget.reopen()
+    _wait()
+    assert widget.isVisible()
+
+
+def test_a_reminder_trace_does_not_hide_a_command_still_running(hud, bus):
+    """A whole-run trace (a reminder firing) arms the fade; the live command's
+    next step must stop it."""
+    widget, reader, _ = hud
+    _fast_fade(widget, secs=0.2)
+    run = bus.publish_begin("Mac")
+    reader.poll()
+    bus.publish("Mac", [_step("notify", "Reminder fired")], {"message": "Reminder"})
+    reader.poll()
+    bus.publish_step(run, _step("execute", "Create Todo"))
+    reader.poll()
+    _wait()
+    assert widget.isVisible()
+
+
+def test_advisory_fix_a_word_chips_hold_the_card(hud, bus):
+    widget, reader, _ = hud
+    _fast_fade(widget)
+    bus.publish("Mac", [_step()], {"message": "Added", "uncertain_words": ["Dragan"]})
+    reader.poll()
+    _wait()
+    assert widget.isVisible()
+
+
+def test_a_revert_inside_a_whole_run_trace_holds_the_card(hud, bus):
+    widget, reader, _ = hud
+    _fast_fade(widget)
+    revert = {**_step("verify", "Removed a duplicate"), "data": {"revert": [{"op": "restore", "id": 1}]}}
+    bus.publish("Mac", [_step(), revert], {"message": "ok"})
+    reader.poll()
+    _wait()
+    assert widget.isVisible()
+
+
+def test_reading_history_is_not_interrupted(hud, bus):
+    widget, reader, _ = hud
+    _fast_fade(widget)
+    bus.publish("iPhone", [_step()], {"message": "Added"})
+    reader.poll()
+    widget.panel._set_view("history")
+    _wait()
+    assert widget.isVisible()
+
+
+def test_it_fades_rather_than_vanishing(hud, bus):
+    widget, reader, _ = hud
+    _fast_fade(widget)
+    bus.publish("iPhone", [_step()], {"message": "Added"})
+    reader.poll()
+    _wait(120)
+    assert widget._fade_away.state() == widget._fade_away.State.Running
+    assert widget._fade_away.endValue() == 0.0
+
+
+def test_switching_the_fade_off_cancels_a_pending_one(hud, bus):
+    widget, reader, _ = hud
+    _fast_fade(widget, secs=0.3)
+    bus.publish("iPhone", [_step()], {"message": "Added"})
+    reader.poll()
+    _fast_fade(widget, secs=0)
+    widget._arm_auto_hide()             # what a config reload does
+    _wait()
+    assert widget.isVisible()
+
+
+@pytest.mark.parametrize("value", [float("inf"), 1e12, float("nan"), "soon", -5])
+def test_a_wild_setting_never_breaks_the_card(hud, bus, value):
+    widget, reader, _ = hud
+    _fast_fade(widget, secs=value)
+    bus.publish("iPhone", [_step()], {"message": "Added"})
+    reader.poll()                       # must not raise
+    assert widget.isVisible()
+    assert 0 <= widget._hide_after_sec() <= 3600
+
+
+def test_a_result_with_doubted_words_is_drawn_at_all(hud, bus):
+    """The fix-a-word note's colour role ("muted") was missing from the
+    result card's theme map: KeyError, and the card dropped the command."""
+    widget, reader, _ = hud
+    bus.publish("Mac", [_step()], {"message": "Added", "uncertain_words": ["Dragan"]})
+    reader.poll()
+    assert widget.isVisible()
+    assert widget.panel._result_card is not None
+    widget.set_dark(not widget._dark)   # a theme switch re-colours it too
+
+
+def test_back_from_history_it_still_fades(hud, bus):
+    widget, reader, _ = hud
+    _fast_fade(widget, secs=0.1)
+    bus.publish("iPhone", [_step()], {"message": "Added"})
+    reader.poll()
+    widget.panel._set_view("history")
+    _wait(300)
+    assert widget.isVisible()
+    widget.panel._set_view("timeline")
+    _wait()
+    assert not widget.isVisible()
