@@ -368,6 +368,60 @@ class TodosMixin:
                     (pos, todo_id, list_name),
                 )
 
+    def todo_titles(self) -> List[str]:
+        """Every to-do's title (non-empty), for mining the user's own words."""
+        with self._conn() as conn:
+            return [r[0] for r in conn.execute("SELECT title FROM todos") if r[0]]
+
+    def todo_titles_and_tags(self) -> List[dict]:
+        """Every to-do's title and its tags (decoded), for tag discovery."""
+        with self._conn() as conn:
+            rows = conn.execute("SELECT title, tags FROM todos").fetchall()
+        out = []
+        for r in rows:
+            try:
+                tags = json.loads(r["tags"] or "[]")
+            except json.JSONDecodeError:
+                tags = []
+            out.append({"title": r["title"] or "", "tags": tags})
+        return out
+
+    # ------------------------------------------------------------------
+    # Tag suggestions: what the discovery popup asked and was told
+    # (rules in actions/todo/tag_discovery.py; this is only the record)
+    # ------------------------------------------------------------------
+
+    def tag_suggestion(self, name: str) -> Optional[dict]:
+        """The record for one name: {name, status, ts, hidden}, or None."""
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM tag_suggestion_state WHERE name = ?",
+                               (name,)).fetchone()
+        return dict(row) if row else None
+
+    def record_tag_suggestion(self, name: str, status: str, ts: str,
+                              keep_status: bool = False) -> None:
+        """Write a verdict (or an ask stamp). `keep_status` updates only the
+        time of a name already recorded, leaving its status as it was."""
+        on_conflict = ("ts = excluded.ts" if keep_status
+                       else "status = excluded.status, ts = excluded.ts")
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO tag_suggestion_state (name, status, ts) VALUES (?, ?, ?) "
+                f"ON CONFLICT(name) DO UPDATE SET {on_conflict}", (name, status, ts))
+
+    def hide_tag_suggestion(self, name: str, hidden: bool) -> None:
+        with self._conn() as conn:
+            conn.execute("UPDATE tag_suggestion_state SET hidden = ? WHERE name = ?",
+                         (1 if hidden else 0, name))
+
+    def tag_suggestions(self, exclude: str = "") -> List[dict]:
+        """Every record except `exclude`, newest first."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT name, status, ts, hidden FROM tag_suggestion_state "
+                "WHERE name != ? ORDER BY ts DESC", (exclude,)).fetchall()
+        return [dict(r) for r in rows]
+
     # ------------------------------------------------------------------
     # Todo tags: CRUD
     # ------------------------------------------------------------------

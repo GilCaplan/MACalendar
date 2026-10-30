@@ -1260,9 +1260,7 @@ def _has_candidates(item) -> bool:
     ~40 s recheck call was pure cost on 25 of 30 slow fast-path rows.
     """
     from assistant.db import get_db
-    table = "events" if "event" in (item.action or "") else "todos"
-    with get_db()._conn() as conn:
-        return conn.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone() is not None
+    return get_db().has_rows("events" if "event" in (item.action or "") else "todos")
 
 
 _ANAPHOR_TARGETS = frozenset(
@@ -1327,12 +1325,8 @@ def _other_store(state: EngineState, item) -> "tuple | None":
             if action == "update_todo" and any(getattr(intent, f, None) for f in
                                                ("new_list", "new_priority", "new_notes")):
                 return None                 # a list or a priority is the to-do list's alone
-            import datetime as _dt
-            today = _clock.today().isoformat()
-            with db._conn() as conn:
-                rows = conn.execute("SELECT DISTINCT title FROM events WHERE date >= ?",
-                                    (today,)).fetchall()
-            hits = {r[0] for r in rows if strong(r[0])}
+            hits = {t for t in db.upcoming_event_titles(_clock.today().isoformat())
+                    if strong(t)}
             if len(hits) != 1:
                 return None
             title = hits.pop()

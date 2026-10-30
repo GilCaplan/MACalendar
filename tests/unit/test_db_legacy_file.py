@@ -65,3 +65,48 @@ def test_the_store_reads_the_old_file_through_its_own_calls(legacy):
     assert db.get_timers() and db.get_counters() and db.get_courses()
     presses = db.get_counter_presses(db.get_counters()[0]["id"])
     assert sorted(presses, key=lambda p: p["pressed_at"])[1].get("amount") == 5.0
+
+
+def test_the_old_file_is_stamped_with_the_schema_and_gains_the_tag_table(legacy):
+    import sqlite3
+    from assistant.db import CalendarDB, SCHEMA_VERSION
+    with sqlite3.connect(legacy) as c:
+        assert c.execute("PRAGMA user_version").fetchone()[0] == 0     # never stamped
+    CalendarDB(str(legacy))
+    with sqlite3.connect(legacy) as c:
+        assert c.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
+        cols = {r[1] for r in c.execute("PRAGMA table_info(tag_suggestion_state)")}
+    assert cols == {"name", "status", "ts", "hidden"}
+
+
+def test_a_file_from_newer_code_is_opened_with_a_warning_not_rewritten(legacy, caplog):
+    import logging
+    import sqlite3
+    from assistant.db import CalendarDB, SCHEMA_VERSION
+    with sqlite3.connect(legacy) as c:
+        c.execute(f"PRAGMA user_version = {SCHEMA_VERSION + 1}")
+    with caplog.at_level(logging.WARNING, logger="assistant.db.base"):
+        CalendarDB(str(legacy))
+    assert any("written by newer code" in r.message for r in caplog.records)
+    with sqlite3.connect(legacy) as c:
+        assert c.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION + 1
+
+
+def test_the_mac_checker_passes_the_old_file_and_never_writes_it(capsys):
+    """`python -m assistant.db.verify` is what the Mac session runs on the
+    real calendar.db before restarting the apps; it must work on a copy."""
+    import hashlib
+    from assistant.db import verify
+    src = FIX / "legacy_calendar.db"
+    digest = hashlib.sha256(src.read_bytes()).hexdigest()
+    assert verify.main([str(src)]) == 0
+    assert "OK: every row reads back unchanged" in capsys.readouterr().out
+    assert hashlib.sha256(src.read_bytes()).hexdigest() == digest   # the original untouched
+
+
+def test_the_checker_names_what_was_lost():
+    from assistant.db.verify import compare
+    before = {"events": [{"id": 1, "title": "Dentist"}], "todos": [{"id": 1}]}
+    after = {"events": [{"id": 1, "title": "Dentist!"}]}
+    assert compare(before, after) == ["events row 1: title changed",
+                                      "todos: table missing after opening"]

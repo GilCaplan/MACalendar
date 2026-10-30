@@ -15,6 +15,10 @@ cleaner and better"). Each area's code lives in its own module and
     workout.py     exercises, templates, plans, sessions
     sources.py     connected calendars and sync bookkeeping
     series.py / observance.py / colours.py / common.py   shared helpers
+    verify.py      `python -m assistant.db.verify`: check a real file, on a copy
+
+Only this package opens calendar.db (test_db_is_the_only_door); anything
+else that needs a query asks for a CalendarDB method in its area.
 
 The file on disk is unchanged by the split: same tables, same columns.
 `tests/unit/test_db_legacy_file.py` opens a file written by the single-file
@@ -43,6 +47,7 @@ from assistant.db.todos import TodosMixin
 from assistant.db.workout import WorkoutMixin
 
 # Every name the single-file module had stays importable from here.
+from assistant.db.schema import SCHEMA_VERSION  # noqa: F401
 from assistant.db.schema import (  # noqa: F401
     _LEGACY_LINK_SOURCE, _CREATE_TODOS_TABLE, _TODO_MIGRATIONS, _IDEMPOTENT_TABLES, _CREATE_TAGS_TABLE, DEFAULT_TODO_TAGS, _CREATE_SUBTASKS_TABLE, _CREATE_TABLE, _MIGRATIONS, _CREATE_CALENDAR_SOURCES_TABLE, _CALENDAR_SOURCE_MIGRATIONS, TWO_WAY_SOURCES, _CREATE_SYNC_DELETES_TABLE, _CREATE_TIMERS_TABLE, _TIMER_MIGRATIONS, _CREATE_TIMER_SESSIONS_TABLE, _CREATE_COUNTERS_TABLE, _CREATE_COUNTER_PRESSES_TABLE, _COUNTER_PRESS_MIGRATIONS, _CREATE_COUNTER_PAYOUTS_TABLE, _CREATE_COURSES_TABLE, _CREATE_REMINDER_LOG_TABLE, _CREATE_ASSIGNMENTS_TABLE, _CREATE_WORKOUT_EXERCISES_TABLE, _CREATE_WORKOUT_TEMPLATES_TABLE, _CREATE_WORKOUT_TEMPLATE_BLOCKS_TABLE, _CREATE_WORKOUT_TEMPLATE_SETS_TABLE, _CREATE_WORKOUT_SESSIONS_TABLE, _CREATE_WORKOUT_SET_LOGS_TABLE, _WORKOUT_MIGRATIONS, _CREATE_WORKOUT_PLANS_TABLE, _CREATE_WORKOUT_PLAN_ITEMS_TABLE, _CREATE_INDEXES,
 )

@@ -385,6 +385,64 @@ class EventsMixin:
                 (event_id, fires_at)).fetchone()
         return row is not None
 
+    def find_events_at(self, date: str = "", start_time: str = "") -> List[dict]:
+        """Events on `date` and/or starting at `start_time`, earliest first.
+        Neither given is no filter at all, so it returns [] rather than
+        every event."""
+        if not date and not start_time:
+            return []
+        query, params = "SELECT * FROM events WHERE 1=1", []
+        if date:
+            query += " AND date = ?"
+            params.append(date)
+        if start_time:
+            query += " AND start_time = ?"
+            params.append(start_time)
+        with self._conn() as conn:
+            rows = conn.execute(query + " ORDER BY start_time", params).fetchall()
+        return [dict(r) for r in rows]
+
+    def events_nearest(self, day: str) -> List[dict]:
+        """Every event, nearest `day` first (then by start time): how the
+        assistant ranks candidates when a command names an event."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM events ORDER BY ABS(julianday(date) - julianday(?)), start_time",
+                (day,)).fetchall()
+        return [dict(r) for r in rows]
+
+    def upcoming_event_titles(self, since: str) -> "set[str]":
+        """The distinct titles of events on or after `since`."""
+        with self._conn() as conn:
+            return {r[0] for r in conn.execute(
+                "SELECT DISTINCT title FROM events WHERE date >= ?", (since,))}
+
+    def series_first_date(self, series_id: int) -> str:
+        """The date a repeating series starts on, "" when it has no rows."""
+        with self._conn() as conn:
+            row = conn.execute("SELECT MIN(date) FROM events WHERE series_id = ?",
+                               (series_id,)).fetchone()
+        return (row[0] if row else "") or ""
+
+    def event_titles(self) -> List[str]:
+        """Every event's title (non-empty), for mining the user's own words."""
+        with self._conn() as conn:
+            return [r[0] for r in conn.execute("SELECT title FROM events") if r[0]]
+
+    def event_keys(self) -> "set[tuple]":
+        """(title, date, start_time) of every event: what an import checks
+        before adding a row, so the same event is not imported twice."""
+        with self._conn() as conn:
+            return {tuple(r) for r in conn.execute("SELECT title, date, start_time FROM events")}
+
+    def has_rows(self, table: str) -> bool:
+        """Does `events` or `todos` hold any row at all? A cheap existence
+        check, not a match."""
+        if table not in ("events", "todos"):
+            raise ValueError(f"has_rows: not a store table: {table!r}")
+        with self._conn() as conn:
+            return conn.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone() is not None
+
     def get_series_events(self, series_id: int) -> List[dict]:
         """Return all events belonging to a recurring series."""
         with self._conn() as conn:

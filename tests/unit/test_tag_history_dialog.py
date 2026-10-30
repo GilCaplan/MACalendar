@@ -58,7 +58,6 @@ def seeded_db():
             except Exception:
                 pass
         conn.execute("DELETE FROM todo_tags WHERE builtin = 0")
-        disc._ensure(conn)
         now = datetime.datetime.now().isoformat()
         for name, status in (("terrarium", "accepted"),
                              ("pharmacy", "refused"),

@@ -4,6 +4,7 @@ and the client-token lookups every area's creates share."""
 from __future__ import annotations
 
 import datetime
+import logging
 import os
 import sqlite3
 from contextlib import contextmanager
@@ -22,6 +23,7 @@ from assistant.db.schema import (
     _CREATE_INDEXES,
     _CREATE_REMINDER_LOG_TABLE,
     _CREATE_SUBTASKS_TABLE,
+    _CREATE_TAG_SUGGESTION_STATE_TABLE,
     _CREATE_SYNC_DELETES_TABLE,
     _CREATE_TABLE,
     _CREATE_TAGS_TABLE,
@@ -38,6 +40,8 @@ from assistant.db.schema import (
     _CREATE_WORKOUT_TEMPLATES_TABLE,
     _IDEMPOTENT_TABLES,
     _LEGACY_LINK_SOURCE,
+    _TAG_SUGGESTION_MIGRATIONS,
+    SCHEMA_VERSION,
     _MIGRATIONS,
     _TIMER_MIGRATIONS,
     _TODO_MIGRATIONS,
@@ -45,6 +49,8 @@ from assistant.db.schema import (
     DEFAULT_TODO_TAGS,
 )
 
+
+logger = logging.getLogger(__name__)
 
 class StoreBase:
     """Opening the file: the test guard, the connection, the schema and its migrations,
@@ -99,25 +105,13 @@ and the client-token lookups every area's creates share."""
             conn.execute(_CREATE_TIMER_SESSIONS_TABLE)
             conn.execute(_CREATE_COUNTERS_TABLE)
             conn.execute(_CREATE_COUNTER_PRESSES_TABLE)
-            existing_cp = {r[1] for r in conn.execute("PRAGMA table_info(counter_presses)")}
-            for stmt in _COUNTER_PRESS_MIGRATIONS:
-                if stmt.split("ADD COLUMN")[1].strip().split()[0] not in existing_cp:
-                    try:
-                        conn.execute(stmt)
-                    except sqlite3.OperationalError:
-                        pass
+            self._add_columns(conn, "counter_presses", _COUNTER_PRESS_MIGRATIONS)
             conn.execute(_CREATE_COUNTER_PAYOUTS_TABLE)
             conn.execute(_CREATE_COURSES_TABLE)
             conn.execute(_CREATE_ASSIGNMENTS_TABLE)
             conn.execute(_CREATE_REMINDER_LOG_TABLE)
             conn.execute(_CREATE_CALENDAR_SOURCES_TABLE)
-            existing_cs = {r[1] for r in conn.execute("PRAGMA table_info(calendar_sources)")}
-            for stmt in _CALENDAR_SOURCE_MIGRATIONS:
-                if stmt.split("ADD COLUMN")[1].strip().split()[0] not in existing_cs:
-                    try:
-                        conn.execute(stmt)
-                    except sqlite3.OperationalError:
-                        pass
+            self._add_columns(conn, "calendar_sources", _CALENDAR_SOURCE_MIGRATIONS)
             conn.execute(_CREATE_SYNC_DELETES_TABLE)
             conn.execute(_CREATE_WORKOUT_EXERCISES_TABLE)
             conn.execute(_CREATE_WORKOUT_TEMPLATES_TABLE)
@@ -129,10 +123,33 @@ and the client-token lookups every area's creates share."""
             conn.execute(_CREATE_WORKOUT_PLAN_ITEMS_TABLE)
             self._migrate_workouts(conn)
             self._migrate_client_tokens(conn)
+            conn.execute(_CREATE_TAG_SUGGESTION_STATE_TABLE)
+            self._add_columns(conn, "tag_suggestion_state", _TAG_SUGGESTION_MIGRATIONS)
             for stmt in _CREATE_INDEXES.strip().splitlines():
                 stmt = stmt.strip()
                 if stmt:
                     conn.execute(stmt)
+            self._stamp_version(conn)
+
+    @staticmethod
+    def _add_columns(conn: sqlite3.Connection, table: str, statements) -> None:
+        """Run each `ALTER TABLE … ADD COLUMN` whose column is not there yet."""
+        existing = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+        for stmt in statements:
+            if stmt.split("ADD COLUMN")[1].strip().split()[0] not in existing:
+                try:
+                    conn.execute(stmt)
+                except sqlite3.OperationalError:
+                    pass                    # another process added it first
+
+    def _stamp_version(self, conn: sqlite3.Connection) -> None:
+        """Record the schema in the file (see `schema.SCHEMA_VERSION`)."""
+        found = conn.execute("PRAGMA user_version").fetchone()[0]
+        if found > SCHEMA_VERSION:
+            logger.warning("%s was written by newer code (schema %d, this code knows %d)",
+                           self.path, found, SCHEMA_VERSION)
+        elif found < SCHEMA_VERSION:
+            conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     def row_by_client_token(self, table: str, client_token: str) -> "Optional[dict]":
         """The row a client already created with this token, or None.

@@ -456,6 +456,28 @@ CREATE TABLE IF NOT EXISTS workout_plan_items (
 )
 """
 
+#: What the tag-discovery popup has asked and been told
+#: (`assistant/actions/todo/tag_discovery.py`). It used to create this table
+#: itself, from outside the store, the first time it ran.
+_CREATE_TAG_SUGGESTION_STATE_TABLE = """
+CREATE TABLE IF NOT EXISTS tag_suggestion_state (
+    name    TEXT PRIMARY KEY,
+    status  TEXT NOT NULL,          -- refused | accepted | asked
+    ts      TEXT NOT NULL,
+    hidden  INTEGER NOT NULL DEFAULT 0
+)
+"""
+_TAG_SUGGESTION_MIGRATIONS = [
+    "ALTER TABLE tag_suggestion_state ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0",
+]
+
+#: The schema this code writes, stamped into the file as `PRAGMA user_version`
+#: once every migration has run. Bump it with any migration you add. A file
+#: stamped HIGHER was written by newer code than this, which is worth a
+#: warning: this code may not know a column the newer code relies on.
+#: 1 = the schema at the per-area split (2026-10-30), tag suggestions included.
+SCHEMA_VERSION = 1
+
 _CREATE_INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_events_date      ON events(date);
 CREATE INDEX IF NOT EXISTS idx_events_series    ON events(series_id);

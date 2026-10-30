@@ -226,9 +226,7 @@ def from_calendar(known: set[str] | None = None) -> list[dict[str, Any]]:
     try:
         from assistant.db import get_db
         db = get_db()
-        with db._conn() as conn:  # noqa: SLF001 — read-only mining
-            titles = [r[0] for r in conn.execute("SELECT title FROM events") if r[0]]
-            titles += [r[0] for r in conn.execute("SELECT title FROM todos") if r[0]]
+        titles = db.event_titles() + db.todo_titles()
     except Exception:
         return []
     # Titles are short; treat each as one line so every word is "mid-sentence"

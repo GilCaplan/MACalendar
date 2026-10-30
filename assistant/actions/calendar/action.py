@@ -427,46 +427,20 @@ def _find_event(db, match_title: str, match_date: Optional[str], match_start_tim
 
     # Empty title: use date/time context directly (no title-based scoring)
     if not match_title:
-        if match_date or match_start_time:
-            with db._conn() as conn:
-                query = "SELECT * FROM events WHERE 1=1"
-                params = []
-                if match_date:
-                    query += " AND date = ?"
-                    params.append(match_date)
-                if match_start_time:
-                    query += " AND start_time = ?"
-                    params.append(match_start_time)
-                query += " ORDER BY start_time"
-                rows = conn.execute(query, tuple(params)).fetchall()
-            return dict(rows[0]) if rows else None
-        return None
+        rows = db.find_events_at(match_date or "", match_start_time or "")
+        return rows[0] if rows else None
 
     # Anaphor resolution
     if match_title.lower() in _ANAPHORS:
         # If a date/time is given alongside an anaphor ("the event on Thursday at 6"),
         # prefer searching by explicit filters over memory.
         if match_date or match_start_time:
-            with db._conn() as conn:
-                query = "SELECT * FROM events WHERE 1=1"
-                params = []
-                if match_date:
-                    query += " AND date = ?"
-                    params.append(match_date)
-                if match_start_time:
-                    query += " AND start_time = ?"
-                    params.append(match_start_time)
-                query += " ORDER BY start_time"
-                rows = conn.execute(query, tuple(params)).fetchall()
+            rows = db.find_events_at(match_date or "", match_start_time or "")
             if rows:
-                return dict(rows[0])
+                return rows[0]
             # Filter given but nothing matches — fall through to global search below
         elif context_memory.last_event_id is not None:
-            with db._conn() as conn:
-                row = conn.execute("SELECT * FROM events WHERE id = ?", (context_memory.last_event_id,)).fetchone()
-            if row:
-                return dict(row)
-            return None
+            return db.get_event(context_memory.last_event_id)
         else:
             return None
 
@@ -483,10 +457,8 @@ def _find_event(db, match_title: str, match_date: Optional[str], match_start_tim
         return " ".join(re.findall(r"\w+", (t or "").lower()))
     whole = _norm(match_title)
     if whole:
-        with db._conn() as conn:
-            exact = [dict(r) for r in conn.execute(
-                "SELECT * FROM events ORDER BY ABS(julianday(date) - julianday(?)), start_time",
-                (match_date or today,)).fetchall() if _norm(r["title"]) == whole]
+        exact = [r for r in db.events_nearest(match_date or today)
+                 if _norm(r["title"]) == whole]
         if match_date:
             # A named day is part of the name: the gym on SUNDAY is not the
             # gym on Monday ("naming something that is not on that day finds
@@ -516,18 +488,8 @@ def _find_event(db, match_title: str, match_date: Optional[str], match_start_tim
         if not re.fullmatch(r"\d{1,4}(?::\d{2})?(?:am|pm)?", w)
     }
     if not meaningful_words and (match_date or match_start_time):
-        with db._conn() as conn:
-            query = "SELECT * FROM events WHERE 1=1"
-            params: list = []
-            if match_date:
-                query += " AND date = ?"
-                params.append(match_date)
-            if match_start_time:
-                query += " AND start_time = ?"
-                params.append(match_start_time)
-            query += " ORDER BY start_time"
-            rows = conn.execute(query, tuple(params)).fetchall()
-        return dict(rows[0]) if rows else None
+        rows = db.find_events_at(match_date or "", match_start_time or "")
+        return rows[0] if rows else None
 
     # Score on the *distinctive* words only: "meeting" alone must not pick some
     # random meeting — that is how "fix the event I just made" ended up editing
@@ -550,28 +512,11 @@ def _find_event(db, match_title: str, match_date: Optional[str], match_start_tim
 
         return overlap
 
-    with db._conn() as conn:
-        if match_date:
-            rows = conn.execute(
-                "SELECT * FROM events WHERE date = ? ORDER BY start_time",
-                (match_date,),
-            ).fetchall()
-            rows = [dict(r) for r in rows]
-            # If the LLM gave a wrong date, fall back to all events
-            if not rows:
-                rows = conn.execute(
-                    "SELECT * FROM events ORDER BY ABS(julianday(date) - julianday(?)), start_time",
-                    (today,),
-                ).fetchall()
-                rows = [dict(r) for r in rows]
-        else:
-            # Search ALL events ordered by proximity to today so upcoming events
-            # win ties over distant past/future ones.
-            rows = conn.execute(
-                "SELECT * FROM events ORDER BY ABS(julianday(date) - julianday(?)), start_time",
-                (today,),
-            ).fetchall()
-            rows = [dict(r) for r in rows]
+    # On the named day; if the model gave a wrong date, or none, every event
+    # ordered by nearness to today, so upcoming events win ties over distant ones.
+    rows = db.find_events_at(match_date) if match_date else []
+    if not rows:
+        rows = db.events_nearest(today)
 
     best_match = None
     best_score = 0
@@ -599,12 +544,8 @@ def _find_event(db, match_title: str, match_date: Optional[str], match_start_tim
     # Sunday and silently moved whatever else was there. Naming something we
     # cannot find has to mean "not found", not "near enough".
     if best_match is None and match_date and not meaningful_words:
-        with db._conn() as conn:
-            rows = conn.execute(
-                "SELECT * FROM events WHERE date = ? ORDER BY start_time",
-                (match_date,),
-            ).fetchall()
+        rows = db.find_events_at(match_date)
         if rows:
-            return dict(rows[0])
+            return rows[0]
 
     return best_match if best_score > 0 else None

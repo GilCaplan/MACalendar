@@ -216,6 +216,12 @@ branch and scrubbing to prompt for when mac Claude session runs"). Both
 delete or rewrite things on GitHub, so the session raises them with Gil at
 the start, gets one yes, and then runs them through, 3 before 4.
 
+0. **Check the real calendar before restarting on the db split** (PR for
+   `db-split`, 2026-10-30). After pulling, run `./.venv/bin/python -m
+   assistant.db.verify`: it copies the admin's `calendar.db`, opens the copy
+   with the new code and compares every row. "OK" means restart the apps as
+   usual; "NOT OK" means keep the old checkout running and report what it
+   lists. The original file is only read.
 3. **Old branches:** 57 are fully merged (re-checked 2026-10-29 against the
    full history, `tips-on-ios` included; PRs #53 and #45 merged that day, so
    their branches go too). The cloud session's git proxy refuses deletes.
