@@ -132,7 +132,7 @@ _BOUNDS = {"default_minutes": (5, 24 * 60), "chain_gap_minutes": (0, 24 * 60)}
 _UNSET: Any = object()
 
 
-def _minutes_or_none(field: str, value: Any) -> "int | None":
+def _minutes_or_none(field: str, value: Any) -> int | None:
     """A stored value read back leniently: out of range or not a number is
     treated as absent (the global applies), never as an error."""
     if value is None or isinstance(value, bool):
@@ -163,7 +163,7 @@ def _check_minutes(field: str, value: Any) -> int:
 
 _lock = threading.RLock()
 _cache: dict[str, Any] | None = None
-_mtime: "tuple | float" = -1.0
+_mtime: tuple | float = -1.0
 
 
 def _load() -> dict[str, Any]:

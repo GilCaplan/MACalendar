@@ -32,17 +32,19 @@ CASES = HERE / "judge_cases.jsonl"
 
 
 def main() -> int:
+    import argparse
+
     from freezegun import freeze_time
+
     from assistant.engine import llm as _llm
     from assistant.engine.decompose_validate import stage as _dv
     from assistant.engine.fastrule.build import Built, build_all
-    from assistant.engine.state import EngineState, Item
-    from assistant.engine.llmjudge.datasets.generate import CLOCK
     from assistant.engine.llmjudge import render
+    from assistant.engine.llmjudge.datasets.generate import CLOCK
     from assistant.engine.llmjudge.experiments.judge_board import _mutate
-
-    import argparse
-    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    from assistant.engine.state import EngineState, Item
+    from scripts.dataset_tiers import add_argument as _add_tier
+    from scripts.dataset_tiers import resolve as _resolve
     ap = argparse.ArgumentParser()
     _add_tier(ap)
     a = ap.parse_args()

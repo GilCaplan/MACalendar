@@ -5,7 +5,8 @@ fast-path voice action after an LLM judges it wrong."""
 
 from __future__ import annotations
 
-from typing import Callable, List, NamedTuple, Optional
+from collections.abc import Callable
+from typing import NamedTuple
 
 MAX_DEPTH = 20
 
@@ -18,8 +19,8 @@ class ActionRecord(NamedTuple):
 
 class UndoManager:
     def __init__(self) -> None:
-        self._undo_stack: List[ActionRecord] = []
-        self._redo_stack: List[ActionRecord] = []
+        self._undo_stack: list[ActionRecord] = []
+        self._redo_stack: list[ActionRecord] = []
 
     def push(self, description: str, undo_fn: Callable[[], None], redo_fn: Callable[[], None]) -> None:
         self._undo_stack.append(ActionRecord(description, undo_fn, redo_fn))
@@ -29,7 +30,7 @@ class UndoManager:
         # standard undo/redo semantics (matches every other app's Cmd+Z/⇧⌘Z).
         self._redo_stack.clear()
 
-    def undo(self) -> Optional[str]:
+    def undo(self) -> str | None:
         """Pop and run the most recent action's undo function, moving it to
         the redo stack. Returns its description, or None if empty."""
         if not self._undo_stack:
@@ -39,7 +40,7 @@ class UndoManager:
         self._redo_stack.append(record)
         return record.description
 
-    def redo(self) -> Optional[str]:
+    def redo(self) -> str | None:
         """Pop and run the most recently undone action's redo function,
         moving it back to the undo stack. Returns its description, or None
         if there's nothing to redo."""

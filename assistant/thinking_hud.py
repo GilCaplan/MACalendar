@@ -31,16 +31,27 @@ import os
 import sys
 
 from PyQt6.QtCore import (
-    QEasingCurve, QEvent, QObject, QPoint, QPropertyAnimation, Qt, QTimer,
+    QEasingCurve,
+    QEvent,
+    QObject,
+    QPoint,
+    QPropertyAnimation,
+    Qt,
+    QTimer,
 )
 from PyQt6.QtGui import QAction, QCursor, QIcon
 from PyQt6.QtWidgets import (
-    QApplication, QLineEdit, QMenu, QSystemTrayIcon, QVBoxLayout, QWidget,
+    QApplication,
+    QLineEdit,
+    QMenu,
+    QSystemTrayIcon,
+    QVBoxLayout,
+    QWidget,
 )
 
 from assistant import trace_bus
-from assistant.config import THINKING_HIDE_MAX_SEC
 from assistant.calendar_ui.thinking_panel import ThinkingPanel
+from assistant.config import THINKING_HIDE_MAX_SEC
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +101,7 @@ DRAG_SLOP = 4
 class _DragFilter(QObject):
     """Drag the frameless window by its header, the way a title bar would."""
 
-    def __init__(self, window: "ThinkingHUD") -> None:
+    def __init__(self, window: ThinkingHUD) -> None:
         super().__init__(window)
         self._window = window
         self._grab: QPoint | None = None

@@ -30,7 +30,7 @@ class TableError(ValueError):
     """A file that holds no table this can read, said as a sentence."""
 
 
-def number(text) -> "float | None":
+def number(text) -> float | None:
     """`3.62B` -> 3.62e9, `1,234` -> 1234, `12%` -> 12; None for words."""
     if isinstance(text, (int, float)) and not isinstance(text, bool):
         return float(text)
@@ -46,12 +46,12 @@ class Table:
     """Columns (name, label) and rows of {name: value}; a value is a float
     when the cell reads as a number, else the text."""
 
-    def __init__(self, columns: "list[tuple[str, str]]", rows: "list[dict]") -> None:
+    def __init__(self, columns: list[tuple[str, str]], rows: list[dict]) -> None:
         self.columns = columns
         self.rows = rows
 
     @property
-    def names(self) -> "list[str]":
+    def names(self) -> list[str]:
         return [n for n, _ in self.columns]
 
     def label(self, name: str) -> str:
@@ -68,10 +68,10 @@ class _HTML(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.tables = 0
         self.depth = 0            # inside the first table
-        self.header: "list[tuple[str, str]]" = []
-        self.rows: "list[list[tuple[str, str | None]]]" = []
-        self._row: "list | None" = None
-        self._cell: "dict | None" = None
+        self.header: list[tuple[str, str]] = []
+        self.rows: list[list[tuple[str, str | None]]] = []
+        self._row: list | None = None
+        self._cell: dict | None = None
         self._in_head = False
         self._header_done = False
 
@@ -123,7 +123,7 @@ class _HTML(HTMLParser):
             self._cell["text"] += data
 
 
-def _cell_value(text: str, raw: "str | None"):
+def _cell_value(text: str, raw: str | None):
     shown = number(text)
     r = number(raw) if raw is not None else None
     if r is not None and shown is not None and abs(r - shown) <= max(1.0, abs(shown) * 0.01):
@@ -133,7 +133,7 @@ def _cell_value(text: str, raw: "str | None"):
     return text
 
 
-def _unique(names: "list[str]") -> "list[str]":
+def _unique(names: list[str]) -> list[str]:
     seen: dict = {}
     out = []
     for n in names:
@@ -184,7 +184,7 @@ def from_json(text: str) -> Table:
                 break
     if not isinstance(data, list) or not data or not all(isinstance(r, dict) for r in data):
         raise TableError("A JSON table is a list of objects, one per row.")
-    names: "list[str]" = []
+    names: list[str] = []
     for r in data:
         for k in r:
             if k not in names:

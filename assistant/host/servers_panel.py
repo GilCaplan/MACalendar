@@ -12,13 +12,23 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
-from typing import Callable
+from collections.abc import Callable
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QFontDatabase
-from PyQt6.QtWidgets import (QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit,
-                             QListWidget, QListWidgetItem, QPlainTextEdit,
-                             QPushButton, QVBoxLayout, QWidget)
+from PyQt6.QtWidgets import (
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QPlainTextEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 Api = Callable[..., dict]
 

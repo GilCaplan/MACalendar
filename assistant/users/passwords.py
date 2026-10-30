@@ -49,7 +49,7 @@ def hash_password(password: str, min_length: int = MIN_LENGTH) -> dict:
             "salt": _b64(salt), "hash": _b64(_scrypt(password, salt, N, R, P, DKLEN))}
 
 
-def verify(password: str, record: "dict | None") -> bool:
+def verify(password: str, record: dict | None) -> bool:
     """Constant-time check of `password` against a stored record."""
     if not record or record.get("algo") != "scrypt" or not isinstance(password, str):
         return False

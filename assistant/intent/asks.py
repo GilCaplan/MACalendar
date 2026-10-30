@@ -72,7 +72,7 @@ _FUNCTIONAL = frozenset(
     "from to of and or but so please just do done all any some more".split())
 
 
-def is_an_ask(text: str, verbs: "frozenset[str] | None" = None) -> bool:
+def is_an_ask(text: str, verbs: frozenset[str] | None = None) -> bool:
     """Does this fragment ask for something?
 
     `verbs` is the caller's own action-verb inventory when it has one
@@ -120,8 +120,8 @@ def is_an_ask(text: str, verbs: "frozenset[str] | None" = None) -> bool:
     return any(w.strip(".,;:'\"").lower() not in _FUNCTIONAL for w in words)
 
 
-def every_part_is_an_ask(parts: "list[str]",
-                         verbs: "frozenset[str] | None" = None) -> bool:
+def every_part_is_an_ask(parts: list[str],
+                         verbs: frozenset[str] | None = None) -> bool:
     """True when a proposed split is safe to take.
 
     Callers reject the WHOLE split rather than dropping the offending part:

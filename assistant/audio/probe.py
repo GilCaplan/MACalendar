@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +52,7 @@ class AudioDeviceProfile:
 
 
 # Module-level cache — probe_audio() only runs the full detection once
-_cached_profile: Optional[AudioDeviceProfile] = None
+_cached_profile: AudioDeviceProfile | None = None
 
 
 def probe_audio(force: bool = False) -> AudioDeviceProfile:
@@ -100,7 +99,7 @@ def _run_probe() -> AudioDeviceProfile:
     candidates = [native_rate] + [r for r in _CANDIDATE_RATES if r != native_rate]
 
     # --- 2. Find first working sample rate ---
-    working_rate: Optional[int] = None
+    working_rate: int | None = None
     for rate in candidates:
         if _can_open_stream(sd, rate, profile.channels, profile.dtype):
             working_rate = rate

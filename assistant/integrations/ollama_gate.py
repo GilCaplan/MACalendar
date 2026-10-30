@@ -79,7 +79,7 @@ _HOP_BY_HOP = frozenset({
     "te", "trailers", "transfer-encoding", "upgrade", "content-length",
 })
 
-_servers: "dict[int, ThreadingHTTPServer]" = {}
+_servers: dict[int, ThreadingHTTPServer] = {}
 _lock = threading.Lock()
 
 

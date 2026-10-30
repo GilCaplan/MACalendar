@@ -22,7 +22,7 @@ class _SeriesSeed:
     `reminder_minutes`. One seed, built the same way everywhere.
     """
 
-    def __init__(self, row: dict, date: "str | None" = None):
+    def __init__(self, row: dict, date: str | None = None):
         self.title = row.get("title", "")
         self.date = date or row["date"]
         self.start_time = row.get("start_time", "")
@@ -39,7 +39,7 @@ class _SeriesSeed:
         self.reminder_minutes = row.get("reminder_minutes")
 
 def _next_date(d: datetime.date, recurrence: str, anchor_day: int | None = None,
-               recur_days: "list[str] | None" = None) -> datetime.date:
+               recur_days: list[str] | None = None) -> datetime.date:
     """Advance d by one recurrence period.
 
     `recur_days` makes a WEEKLY series able to name several weekdays — "gym

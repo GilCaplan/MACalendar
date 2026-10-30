@@ -24,7 +24,7 @@ class ActionRegistry:
     # Registration
     # ------------------------------------------------------------------
 
-    def register(self, action_cls: Type[BaseAction]) -> Type[BaseAction]:
+    def register(self, action_cls: type[BaseAction]) -> type[BaseAction]:
         """Register an action class. Can be used as a decorator or called directly."""
         name = action_cls.action_name
         if name in self._actions:
@@ -38,7 +38,7 @@ class ActionRegistry:
     # Lookup
     # ------------------------------------------------------------------
 
-    def get(self, action_name: str) -> Type[BaseAction] | None:
+    def get(self, action_name: str) -> type[BaseAction] | None:
         return self._actions.get(action_name)
 
     def all_names(self) -> list[str]:
@@ -194,6 +194,6 @@ class ActionRegistry:
 registry = ActionRegistry()
 
 
-def register(cls: Type[BaseAction]) -> Type[BaseAction]:
+def register(cls: type[BaseAction]) -> type[BaseAction]:
     """Convenience decorator: @register on a BaseAction subclass."""
     return registry.register(cls)

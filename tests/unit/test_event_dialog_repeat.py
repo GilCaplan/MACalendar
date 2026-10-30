@@ -19,16 +19,23 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-from PyQt6.QtCore import QDate, Qt                                    # noqa: E402
-from PyQt6.QtTest import QTest                                        # noqa: E402
-from PyQt6.QtWidgets import (                                         # noqa: E402
-    QApplication, QComboBox, QDateEdit, QDialogButtonBox, QLabel,
+from PyQt6.QtCore import QDate, Qt  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import (  # noqa: E402
+    QApplication,
+    QComboBox,
+    QDateEdit,
+    QDialogButtonBox,
+    QLabel,
 )
 
-from assistant.calendar_ui.event_dialog import (                      # noqa: E402
-    EventDialog, repeat_hint, repeat_rule_changed, series_badge,
+from assistant.calendar_ui.event_dialog import (  # noqa: E402
+    EventDialog,
+    repeat_hint,
+    repeat_rule_changed,
+    series_badge,
 )
-from assistant.db import CalendarDB                                   # noqa: E402
+from assistant.db import CalendarDB  # noqa: E402
 
 START = dt.date(2026, 10, 5)          # a Monday
 

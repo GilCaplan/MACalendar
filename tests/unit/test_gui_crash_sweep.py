@@ -74,6 +74,7 @@ def quarantine(monkeypatch):
         pass
     import subprocess
     import webbrowser
+
     from PyQt6.QtGui import QColor, QDesktopServices
     from PyQt6.QtWidgets import QColorDialog, QFileDialog, QFontDialog, QInputDialog
 
@@ -129,11 +130,12 @@ def quarantine(monkeypatch):
 def _seed() -> None:
     """A calendar with something in every view: events today, this week, a
     series, a late one, an all-day one; to-dos due and undated; an occasion."""
+    import os
+
     from assistant.actions.calendar.intent import CalendarIntent
     from assistant.db import CalendarDB
     from assistant.occasions import store as occasions
     from assistant.users import paths
-    import os
     db = CalendarDB(paths.resolve(os.environ["MACALENDAR_DB"]))
     t = datetime.date.today()
     for d, s, e, title, rec in [
@@ -203,9 +205,8 @@ class _Sweep:
     def controls(self, root):
         """Everything clickable under ``root`` — the ones that usually CLOSE
         a dialog or destroy a row last, so the rest are reached first."""
-        from PyQt6.QtWidgets import (QAbstractButton, QAbstractSpinBox, QComboBox,
-                                     QLineEdit)
         from PyQt6 import sip
+        from PyQt6.QtWidgets import QAbstractButton, QAbstractSpinBox, QComboBox, QLineEdit
         if sip.isdeleted(root):
             return []            # a click closed it (WA_DeleteOnClose): nothing left to walk
         out = []
@@ -281,8 +282,7 @@ class _Sweep:
         from PyQt6 import sip
         from PyQt6.QtCore import Qt
         from PyQt6.QtTest import QTest
-        from PyQt6.QtWidgets import (QAbstractButton, QAbstractSpinBox, QComboBox,
-                                     QLineEdit, QToolButton)
+        from PyQt6.QtWidgets import QAbstractButton, QAbstractSpinBox, QComboBox, QLineEdit, QToolButton
         if sip.isdeleted(w) or not w.isVisible() or not w.isEnabled() or self.skip(w):
             return
         self.path.append(self.label(w))
@@ -355,7 +355,6 @@ class _Sweep:
         """Every page of every stack under ``root`` (each shown in turn), then
         the loose controls, then the widgets with their own mouse handlers."""
         from PyQt6 import sip
-        from PyQt6.QtWidgets import QTabWidget
         stacks = [sw for sw in root.findChildren(self._stack_types())
                   if self._nearest_stack(sw, root) is None]
         for sw in stacks:
@@ -631,8 +630,9 @@ _TRAY_SKIP = ("open at login", "show thinking card", "open jude", "quit")
 
 
 def test_the_card_and_the_menu_bar_app_survive_every_click(app, quarantine, monkeypatch, tmp_path):
-    import assistant.thinking_hud as hud_mod
     from PyQt6.QtCore import QSettings
+
+    import assistant.thinking_hud as hud_mod
     from assistant.host import tray as tray_mod
     s = _Sweep(app)
     monkeypatch.setattr(sys, "excepthook", s.hook)

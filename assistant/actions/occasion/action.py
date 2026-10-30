@@ -10,7 +10,7 @@ Two ways in, one date reading (assistant/occasions/voice.py):
 
 from __future__ import annotations
 
-from typing import ClassVar, Optional, Type
+from typing import ClassVar
 
 from pydantic import field_validator
 
@@ -23,7 +23,7 @@ class AddOccasionIntent(BaseIntent):
     kind: str
     name: str
     date_text: str
-    year: Optional[int] = None
+    year: int | None = None
 
     @field_validator("kind")
     @classmethod
@@ -47,7 +47,7 @@ class AddOccasionAction(BaseAction):
         "\"birthday dinner Tuesday at 8\", \"book a table for our anniversary\" are events "
         "(create_event)."
     )
-    intent_model: ClassVar[Type[BaseIntent]] = AddOccasionIntent
+    intent_model: ClassVar[type[BaseIntent]] = AddOccasionIntent
     #: Its banner is drawn by the calendar views, so they redraw.
     refreshes: ClassVar[str] = "events"
     #: Rules only, for now: offering it to the model changes the prompt of

@@ -22,15 +22,21 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-from PyQt6.QtCore import QPoint, Qt, QTimer                           # noqa: E402
-from PyQt6.QtTest import QTest                                        # noqa: E402
-from PyQt6.QtWidgets import (                                         # noqa: E402
-    QApplication, QCheckBox, QLabel, QPushButton, QWidget,
+from PyQt6.QtCore import QPoint, Qt, QTimer  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import (  # noqa: E402
+    QApplication,
+    QCheckBox,
+    QLabel,
+    QPushButton,
+    QWidget,
 )
 
-import assistant.actions.todo.tag_discovery as disc                   # noqa: E402
-from assistant.calendar_ui.tag_history_dialog import (                # noqa: E402
-    TagHistoryDialog, _TagHistoryRow, open_tag_history,
+import assistant.actions.todo.tag_discovery as disc  # noqa: E402
+from assistant.calendar_ui.tag_history_dialog import (  # noqa: E402
+    TagHistoryDialog,
+    _TagHistoryRow,
+    open_tag_history,
 )
 
 
@@ -78,7 +84,7 @@ def _drive(interact, failures):
     forever, so it is recorded and the dialog closed; the test re-raises it.
     """
     def _go():
-        from PyQt6 import sip as _sip   # a stale wrapper segfaulted Linux CI (TASKS 53)
+        from PyQt6 import sip as _sip  # a stale wrapper segfaulted Linux CI (TASKS 53)
         dlg = QApplication.activeModalWidget()
         if dlg is None or _sip.isdeleted(dlg) or not dlg.isVisible():
             QTimer.singleShot(10, _go)
@@ -103,7 +109,7 @@ def _rows(dlg) -> dict:
             if row.isVisible()}
 
 
-def _badge(row) -> "str | None":
+def _badge(row) -> str | None:
     for lbl in row.findChildren(QLabel):
         if lbl.text() in ("Accepted", "Declined", "Pending"):
             return lbl.text()

@@ -1,14 +1,13 @@
 """MSAL authentication for Microsoft Graph API."""
 
 import os
-from typing import List
 
 import msal
 
 from assistant.config import MicrosoftConfig
 from assistant.exceptions import AuthError, AuthExpiredError
 
-SCOPES: List[str] = ["Calendars.ReadWrite", "User.Read"]
+SCOPES: list[str] = ["Calendars.ReadWrite", "User.Read"]
 
 
 class MSALAuth:

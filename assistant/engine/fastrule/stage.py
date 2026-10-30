@@ -37,9 +37,7 @@ exist, which is not true until this stage has run.
 from __future__ import annotations
 
 from assistant.engine.decompose_validate import stage as _decompose_validate
-from assistant.engine.fastrule.build import (
-    BadItem, Built, Defer, NotAnObject, build_all, hint_fields)
-
+from assistant.engine.fastrule.build import BadItem, Built, Defer, NotAnObject, build_all, hint_fields
 
 #: WHICH BUILT OBJECTS THIS STAGE MAY COMMIT — a commit decision, deliberately
 #: here and not in `build` (PLAN.md §2c: the converter has "no opinion about

@@ -286,7 +286,7 @@ def test_study_mixes_one_some_or_all_sets(store):
 
 def test_smart_puts_due_first_and_hides_what_is_not_due(store):
     a, _ = _two_sets(store)
-    t0 = dt.datetime(2026, 10, 1, tzinfo=dt.timezone.utc)
+    t0 = dt.datetime(2026, 10, 1, tzinfo=dt.UTC)
     cards = store.get_set(a)["cards"]
     store.review(cards[0]["id"], "", 3, at=t0.isoformat())     # due in days
     store.review(cards[1]["id"], "", 1, at=t0.isoformat())     # due in 10 minutes
@@ -299,7 +299,7 @@ def test_smart_puts_due_first_and_hides_what_is_not_due(store):
 def test_fsrs_grows_on_success_and_shrinks_on_a_lapse(store):
     sid = store.import_doc(_doc(BASIC[:1]))[0]["set_id"]
     cid = store.get_set(sid)["cards"][0]["id"]
-    t = dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc)
+    t = dt.datetime(2026, 1, 1, tzinfo=dt.UTC)
     gaps = []
     for _ in range(4):
         p = store.review(cid, "", 3, at=t.isoformat())
@@ -315,7 +315,7 @@ def test_fsrs_grows_on_success_and_shrinks_on_a_lapse(store):
 def test_a_replayed_or_late_review_does_not_move_the_card_twice(store):
     sid = store.import_doc(_doc(BASIC[:1]))[0]["set_id"]
     cid = store.get_set(sid)["cards"][0]["id"]
-    t = dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc)
+    t = dt.datetime(2026, 1, 1, tzinfo=dt.UTC)
     first = store.review(cid, "", 3, at=t.isoformat(), client_token="r1")
     assert store.review(cid, "", 3, at=t.isoformat(), client_token="r1") == first
     later = store.review(cid, "", 4, at=(t + dt.timedelta(days=5)).isoformat())

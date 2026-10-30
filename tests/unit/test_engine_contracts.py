@@ -11,14 +11,18 @@ in the same commit — the assertion failure text says so on purpose.)
 
 from __future__ import annotations
 
-import pathlib
-
 import dataclasses
 import inspect
+import pathlib
 
-from assistant.engine import state as engine_state
 from assistant.engine.state import (
-    STAGES, ITEM_KINDS, CheckFinding, EngineState, ExecutedAction, Fix, Item,
+    ITEM_KINDS,
+    STAGES,
+    CheckFinding,
+    EngineState,
+    ExecutedAction,
+    Fix,
+    Item,
 )
 
 FROZEN = "frozen contract — see DOCUMENTATION/ENGINE.md before touching this"
@@ -132,13 +136,13 @@ def test_every_stage_module_exposes_run():
     `llmjudge/rescue.py` and `engine/llm.py`. `run(state, cfg) -> state` is
     unchanged, which is why this is a one-name edit and not a new contract.
     """
-    import assistant.engine.llmjudge.llmjudge
     import assistant.engine.decompose_validate.decompose
-    import assistant.engine.fastrule.stage
-    import assistant.engine.label.label
-    import assistant.engine.segmentation
-    import assistant.engine.ingest.repair
     import assistant.engine.decompose_validate.stage
+    import assistant.engine.fastrule.stage
+    import assistant.engine.ingest.repair
+    import assistant.engine.label.label
+    import assistant.engine.llmjudge.llmjudge
+    import assistant.engine.segmentation
 
     for mod in (assistant.engine.ingest.repair, assistant.engine.segmentation,
                 assistant.engine.decompose_validate.decompose, assistant.engine.decompose_validate.stage,
@@ -173,6 +177,7 @@ def test_the_fastrule_stage_is_a_converter():
     one item: no model, no database, no clock of its own. That purity is what
     makes the stage testable from a table, so it is worth pinning."""
     import inspect as _i
+
     from assistant.engine.fastrule.build import build, build_all
     assert list(_i.signature(build).parameters)[0] == "item"
     assert list(_i.signature(build_all).parameters)[0] == "items"

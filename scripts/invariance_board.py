@@ -110,7 +110,7 @@ _MIDDLE_SLOT = re.compile(r"^((?:can you\s+|please\s+)?remind me)\s+(to|about|th
                           re.IGNORECASE)
 
 
-def variants(text: str, time: str) -> "list[tuple[str, str]]":
+def variants(text: str, time: str) -> list[tuple[str, str]]:
     """[(position, utterance)] — the control first, then whatever is natural."""
     text, time = text.strip(), time.strip()
     out = [("end", f"{text} {time}")]
@@ -195,7 +195,7 @@ def snapshot(state, fast) -> dict:
             "fastrule": stage, "front_door": door}
 
 
-def correctness(state, row) -> "bool | None":
+def correctness(state, row) -> bool | None:
     """Did this variant get the two things gold states unambiguously?
 
     ACTION and TITLE only. The gold's date lives as a PHRASE ("this coming
@@ -316,10 +316,11 @@ def main() -> int:
     globals()["DATA"] = _sizes.ensure(a.size)
 
     from freezegun import freeze_time
+
     from assistant.config import load_config
     from assistant.engine import Engine
-    from assistant.engine.state import EngineState
     from assistant.engine.fastrule.fastrule import FastRule
+    from assistant.engine.state import EngineState
     from assistant.intent.rule_parser import RULE_THRESHOLD
 
     cfg = load_config()

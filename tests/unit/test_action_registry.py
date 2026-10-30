@@ -3,8 +3,7 @@
 
 import pytest
 
-from assistant.actions import ActionRegistry, register, registry
-from tests.conftest import DummyAction, DummyIntent
+from tests.conftest import DummyAction
 
 
 def test_register_and_get_roundtrip(isolated_registry, dummy_action_cls):

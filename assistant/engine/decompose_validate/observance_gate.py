@@ -19,7 +19,6 @@ from __future__ import annotations
 import datetime as _dt
 import re
 
-
 _LEYNING_RE = re.compile(
     r"\b(leyn|leyning|laining|kriah|kriat|torah reading|parsha|megillah?|shiur)\b", re.I)
 
@@ -29,7 +28,7 @@ _DAVENING_RE = re.compile(
     r"prayer|shul|synagogue|minyan)\b", re.I)
 
 
-def _observance_verdict(intent, cfg) -> "str | None":
+def _observance_verdict(intent, cfg) -> str | None:
     """Refusal reason if this AI-created one-off event may not be booked.
 
     On Shabbat / yom tov (sundown-bounded, same windows the recurring-series
@@ -45,8 +44,15 @@ def _observance_verdict(intent, cfg) -> "str | None":
     try:
         from assistant.db import _is_meal
         from assistant.observance import (
-            ALLOW, candle_lighting, day_override, holy_kept_off, is_enabled,
-            is_fast_day, is_shabbat, tzeit, whole_day_kept_off,
+            ALLOW,
+            candle_lighting,
+            day_override,
+            holy_kept_off,
+            is_enabled,
+            is_fast_day,
+            is_shabbat,
+            tzeit,
+            whole_day_kept_off,
         )
 
         if not is_enabled():

@@ -70,6 +70,7 @@ def scratch_config(tmp_path, monkeypatch):
 
 def test_patch_config_writes_the_observance_switch_and_get_serves_it(scratch_config):
     import yaml
+
     from assistant.api.server import create_app
     from assistant.config import load_config
     c = create_app().test_client()

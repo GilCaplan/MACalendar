@@ -40,8 +40,8 @@ import datetime as _dt
 import re
 from dataclasses import dataclass, field
 
-from assistant.engine.state import Item
 from assistant.engine.fastrule.fastrule import reason_class
+from assistant.engine.state import Item
 
 #: The eight values `decompose_validate` resolved. Kept as a literal rather than
 #: imported so a change on that side turns a TEST red here instead of silently
@@ -118,7 +118,7 @@ class Defer:
     fields: dict = field(default_factory=dict)
 
     @property
-    def reason_class(self) -> "str | None":
+    def reason_class(self) -> str | None:
         """REFUSAL / STRUCTURE / INCAPACITY — the vocabulary the deep track
         branches on. It lives in `fastrule.py` and is imported, never
         re-stated: a contract does not belong inside one of its consumers."""
@@ -154,7 +154,7 @@ def hint_fields(rr) -> dict:
 
 #: Which of the five operations a registry action name is. Read off the name
 #: rather than kept as a second table, so a new action cannot drift from this.
-def _operation_of(action_name: str) -> "str | None":
+def _operation_of(action_name: str) -> str | None:
     for op in ("create", "update", "delete", "complete", "query"):
         if action_name.startswith(op):
             return op
@@ -294,7 +294,7 @@ _NO_SUBJECT = re.compile(
     r"a|an|the|my|to|for|of|on|at|in|it|that|this)\b)+\s*$", re.I)
 
 
-def _why_unusable(item: Item) -> "str | None":
+def _why_unusable(item: Item) -> str | None:
     """Whether the ITEM is malformed, independent of what could be built.
 
     Deliberately conservative — it answers "are there words here at all",
@@ -505,15 +505,23 @@ _NEEDS_A_TARGET = ("update_event", "delete_event", "update_todo",
 
 
 def _new_intent(action: str, title: str, attendees: list, values: dict,
-                titles: "list | None" = None):
+                titles: list | None = None):
     """Construct the object for an action, values and all. Import-local so
     this module stays cheap and so a missing action module cannot break the
     import."""
     from assistant.actions.calendar.intent import (
-        CalendarIntent, DeleteEventIntent, QueryScheduleIntent, UpdateEventIntent)
+        CalendarIntent,
+        DeleteEventIntent,
+        QueryScheduleIntent,
+        UpdateEventIntent,
+    )
     from assistant.actions.todo.intent import (
-        CompleteTodoIntent, CreateTodoIntent, DeleteTodoIntent,
-        QueryTodoIntent, UpdateTodoIntent)
+        CompleteTodoIntent,
+        CreateTodoIntent,
+        DeleteTodoIntent,
+        QueryTodoIntent,
+        UpdateTodoIntent,
+    )
     if action == "create_event":
         return CalendarIntent(title=title, attendees=list(attendees or []), **values)
     if action == "create_todo":
@@ -535,8 +543,8 @@ def _new_intent(action: str, title: str, attendees: list, values: dict,
     return None
 
 
-def build(item: Item, *, today: "_dt.date | None" = None,
-          parser=None) -> "Built | Defer":
+def build(item: Item, *, today: _dt.date | None = None,
+          parser=None) -> Built | Defer:
     """One `Item` -> one object the system accepts, or a DEFER saying why.
 
     `today` is accepted and deliberately unused for value filling: every date
@@ -643,7 +651,7 @@ def build(item: Item, *, today: "_dt.date | None" = None,
 # 5 · the STAGE's shape — List[Item] -> List[BuildResult]
 # ---------------------------------------------------------------------------
 
-def build_all(items: "list[Item]", *, today: "_dt.date | None" = None,
+def build_all(items: list[Item], *, today: _dt.date | None = None,
               parser=None) -> list:
     """Every Item converted. `None` in the result means "not a calendar ask".
 

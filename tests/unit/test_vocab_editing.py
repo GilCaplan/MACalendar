@@ -149,9 +149,9 @@ def test_the_word_list_comes_back_with_the_new_fields(client):
 
 def test_a_multi_word_correction_is_learned_as_one_term(tmp_path, monkeypatch):
     monkeypatch.setenv("MACALENDAR_VOCAB", str(tmp_path / "vocab.json"))
+    import assistant.stt.vocab as V
     from assistant.engine.ingest.repair import learn_from_edit
     from assistant.stt.vocab import get_vocab
-    import assistant.stt.vocab as V
     V._vocab = None                      # a fresh store on the patched path
 
     for heard, fixed in (
@@ -173,9 +173,9 @@ def test_a_multi_word_correction_is_learned_as_one_term(tmp_path, monkeypatch):
 
 def test_learning_a_phrase_does_not_touch_ordinary_sentences(tmp_path, monkeypatch):
     monkeypatch.setenv("MACALENDAR_VOCAB", str(tmp_path / "vocab.json"))
+    import assistant.stt.vocab as V
     from assistant.engine.ingest.repair import learn_from_edit
     from assistant.stt.vocab import get_vocab
-    import assistant.stt.vocab as V
     V._vocab = None
 
     learn_from_edit("book bar rista course on friday",
@@ -190,8 +190,8 @@ def test_a_whole_clause_is_not_learned_as_a_term(tmp_path, monkeypatch):
     """Four words either side is already generous for a name or a piece of
     shorthand; a rewritten sentence is not a vocabulary entry."""
     monkeypatch.setenv("MACALENDAR_VOCAB", str(tmp_path / "vocab.json"))
-    from assistant.engine.ingest.repair import learn_from_edit
     import assistant.stt.vocab as V
+    from assistant.engine.ingest.repair import learn_from_edit
     V._vocab = None
 
     learned = learn_from_edit(
@@ -215,9 +215,9 @@ def test_an_ordinary_english_word_never_becomes_a_bare_alias(tmp_path, monkeypat
     which the edit left unchanged, so it is context the speaker confirmed.
     """
     monkeypatch.setenv("MACALENDAR_VOCAB", str(tmp_path / "vocab.json"))
+    import assistant.stt.vocab as V
     from assistant.engine.ingest.repair import learn_from_edit
     from assistant.stt.vocab import get_vocab
-    import assistant.stt.vocab as V
     V._vocab = None
 
     learned = learn_from_edit("rewind me to pick up the parcel",
@@ -236,8 +236,8 @@ def test_a_non_english_mishearing_still_learns_as_one_word(tmp_path, monkeypatch
     """The widening applies only to ordinary words. A name or a personal term
     has no such risk — nothing else says it — so it stays a single alias."""
     monkeypatch.setenv("MACALENDAR_VOCAB", str(tmp_path / "vocab.json"))
-    from assistant.engine.ingest.repair import learn_from_edit
     import assistant.stt.vocab as V
+    from assistant.engine.ingest.repair import learn_from_edit
     V._vocab = None
 
     learned = learn_from_edit("call ohra tomorrow", "call Ora tomorrow",
@@ -250,8 +250,8 @@ def test_an_ordinary_word_with_no_confirmed_context_teaches_nothing(tmp_path, mo
     context to anchor the alias to, and a bare one is what caused the bug — so
     nothing is learned rather than something unsafe."""
     monkeypatch.setenv("MACALENDAR_VOCAB", str(tmp_path / "vocab.json"))
-    from assistant.engine.ingest.repair import learn_from_edit
     import assistant.stt.vocab as V
+    from assistant.engine.ingest.repair import learn_from_edit
     V._vocab = None
 
     assert learn_from_edit("rewind", "remind", source="test") == []

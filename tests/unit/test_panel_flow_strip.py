@@ -15,11 +15,11 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-from PyQt6.QtCore import Qt                                    # noqa: E402
-from PyQt6.QtTest import QTest                                 # noqa: E402
-from PyQt6.QtWidgets import QApplication, QPushButton          # noqa: E402
+from PyQt6.QtCore import Qt  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import QApplication, QPushButton  # noqa: E402
 
-from assistant.calendar_ui import thinking_panel               # noqa: E402
+from assistant.calendar_ui import thinking_panel  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -154,7 +154,6 @@ def test_a_skipped_step_fits_the_mark_it_is_drawn_in(qapp):
     step the command did not need. Caught by screenshotting the real widget,
     not by reading it.
     """
-    from PyQt6.QtWidgets import QLabel
     theme = thinking_panel._Theme(dark=True)
     rail = thinking_panel._ChainRail("engine-v3", theme)
     rail.finish()                       # everything untouched becomes skipped

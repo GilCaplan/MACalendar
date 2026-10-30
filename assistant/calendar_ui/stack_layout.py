@@ -17,8 +17,8 @@ people's shared ones underneath.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, List
 
 
 @dataclass
@@ -35,9 +35,9 @@ class Placed:
     strip: int = 0      # visible width of a buried card (0 = the whole card shows)
 
 
-def stacked_layout(events: List[dict], avail_w: int, hour_height: float, min_h: int,
+def stacked_layout(events: list[dict], avail_w: int, hour_height: float, min_h: int,
                    left_pad: int, right_pad: int, step: int, to_min: Callable[[str], int],
-                   read_step: int = 0, buried_share: float = 0.5) -> List[Placed]:
+                   read_step: int = 0, buried_share: float = 0.5) -> list[Placed]:
     if not events:
         return []
 
@@ -51,8 +51,8 @@ def stacked_layout(events: List[dict], avail_w: int, hour_height: float, min_h: 
         boxes.append((ev, top, h))
 
     # Clusters by *pixel* overlap so a 15-minute event stretched to min_h still stacks.
-    clusters: List[List[tuple]] = []
-    cur: List[tuple] = []
+    clusters: list[list[tuple]] = []
+    cur: list[tuple] = []
     cur_bottom = -1
     for b in boxes:
         if cur and b[1] >= cur_bottom:
@@ -63,7 +63,7 @@ def stacked_layout(events: List[dict], avail_w: int, hour_height: float, min_h: 
         clusters.append(cur)
 
     usable = avail_w - left_pad - right_pad
-    out: List[Placed] = []
+    out: list[Placed] = []
     for grp in clusters:
         n = len(grp)
         # Other people's shared events at the bottom, the viewer's own on top;

@@ -14,7 +14,7 @@ from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QIcon, QPainter, QPainterP
 _DPR = 2
 
 
-def _canvas(size: int) -> "tuple[QPixmap, QPainter]":
+def _canvas(size: int) -> tuple[QPixmap, QPainter]:
     pm = QPixmap(size * _DPR, size * _DPR)
     pm.setDevicePixelRatio(_DPR)
     pm.fill(Qt.GlobalColor.transparent)

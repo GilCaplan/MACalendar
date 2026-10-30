@@ -161,8 +161,8 @@ def test_two_phones_queue_separately_all_the_way_from_http(tmp_path, monkeypatch
     Two phones each park a command while the model is away. The flush must run
     two batches, not one utterance containing both people's words.
     """
-    from assistant.intent.memory import CommandMemory
     from assistant.api.server import retry_pending_once
+    from assistant.intent.memory import CommandMemory
 
     mem = CommandMemory(str(tmp_path / "mem.db"))
     mem.add_pending("book gym at 7", "offline", source="ios", device="phone-A")

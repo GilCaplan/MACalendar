@@ -151,6 +151,7 @@ def test_countdowns_only_ahead():
 
 def test_hidden_holiday_types_only_affect_the_display(monkeypatch):
     from types import SimpleNamespace
+
     from assistant.hebrew_calendar import enumerate_holidays
     monkeypatch.setattr(feed, "settings", lambda: SimpleNamespace(holiday_types=["major"]))
     all_ = enumerate_holidays(D(2026, 9, 1), D(2026, 12, 31))
@@ -186,6 +187,7 @@ def test_saving_colours_twice_keeps_config_yaml_readable(tmp_path):
     """A flow mapping of "#rrggbb" values must survive being rewritten: the
     comment matcher used to read `"#…` as a comment and keep it on the line."""
     import yaml
+
     from assistant.config_store import set_values
     cfg = tmp_path / "config.yaml"
     cfg.write_text("occasions:\n  parasha: true   # the weekly portion\n")
@@ -209,6 +211,7 @@ def qapp():
 def test_the_editor_saves_a_hebrew_yahrzeit_in_adar(qapp):
     from PyQt6.QtCore import Qt
     from PyQt6.QtTest import QTest
+
     from assistant.calendar_ui.occasion_ui import OccasionDialog
     d = OccasionDialog()
     d.kind.setCurrentIndex(d.kind.findData("yahrzeit"))
@@ -236,6 +239,7 @@ def test_a_countdown_is_always_a_regular_date(qapp):
 def test_the_editor_says_what_is_wrong(qapp):
     from PyQt6.QtCore import Qt
     from PyQt6.QtTest import QTest
+
     from assistant.calendar_ui.occasion_ui import OccasionDialog
     d = OccasionDialog()
     d.show()
@@ -305,6 +309,7 @@ def test_a_yahrzeit_reminder_names_the_evening_it_begins():
 
 def test_the_day_panel_carries_them(tmp_path):
     from types import SimpleNamespace
+
     from assistant import notify
     from assistant.db import CalendarDB
     store.add({"kind": "birthday", "title": "Dana", "month": 10, "day": 5, "remind_days": 0})

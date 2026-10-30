@@ -75,8 +75,8 @@ def fast_propose(state: EngineState, cfg) -> bool:
     """Whole-command fast track: FastRule at RULE_THRESHOLD (the conservative
     front-door instance; the deep track is its net). A thin adapter — the
     parser + gates + threshold live in `fastrule.FastRule`."""
-    from assistant.intent.rule_parser import RULE_THRESHOLD
     from assistant.engine.fastrule.fastrule import FastRule, reason_class
+    from assistant.intent.rule_parser import RULE_THRESHOLD
     from assistant.trace import RULE
 
     res = FastRule(RULE_THRESHOLD).run(state.text, state.current_view)

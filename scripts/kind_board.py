@@ -125,7 +125,7 @@ def _predict(text: str) -> str:
     return items[0]["tag"] if items else "event"
 
 
-def _prf(matrix, cls) -> "tuple[float, float, float, int]":
+def _prf(matrix, cls) -> tuple[float, float, float, int]:
     tp = matrix[(cls, cls)]
     fp = sum(n for (g, p), n in matrix.items() if p == cls and g != cls)
     fn = sum(n for (g, p), n in matrix.items() if g == cls and p != cls)
@@ -217,7 +217,8 @@ def main() -> int:
     ap.add_argument("--dataset", default="all", choices=["all", *DATASETS])
     from assistant.engine.fastrule.datasets import tiers as _sizes
     _sizes.add_argument(ap)  # --size base|20k|40k|80k: the FastRule set's size tier
-    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    from scripts.dataset_tiers import add_argument as _add_tier
+    from scripts.dataset_tiers import resolve as _resolve
     _add_tier(ap)            # --data-tier base|10k|40k: the persona and real-speech sets
     args = ap.parse_args()
     DATASETS["fastrule"] = _sizes.ensure(args.size)

@@ -88,7 +88,7 @@ def named_weekdays(text: str) -> set:
     return {n for w, n in _WEEKDAY_WORDS.items() if re.search(rf"\b{w}s?\b", text)}
 
 
-def unsupported_cadence(text: str) -> "str | None":
+def unsupported_cadence(text: str) -> str | None:
     for pat, label in _UNSUPPORTED_CADENCE:
         if re.search(pat, text):
             return label
@@ -152,7 +152,7 @@ def is_placeholder_title(title: str, cfg) -> bool:
         rest.split(" ", 1)[0] in ("with", "for", "to", "on", "at", "about", "re")
 
 
-def bare_hour_pm(transcript: str, hhmm: str) -> "str | None":
+def bare_hour_pm(transcript: str, hhmm: str) -> str | None:
     """'Kems tomorrow at 8' → 20:00. A bare hour 1–8 is far more often PM in
     calendar speech; 7–8 only when evening words are present."""
     m = re.match(r"(\d{2}):(\d{2})", hhmm or "")

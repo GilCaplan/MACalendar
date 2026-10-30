@@ -41,12 +41,12 @@ from __future__ import annotations
 
 import copy
 import csv
+import datetime as _dt
 import io
 import os
 import re
-import datetime as _dt
 import threading
-from typing import Callable
+from collections.abc import Callable
 
 from PyQt6.QtCore import QBuffer, QIODevice, QObject, QPoint, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QGuiApplication, QKeySequence, QShortcut
@@ -75,7 +75,8 @@ from PyQt6.QtWidgets import (
 
 from assistant.calendar_ui import styles as _styles
 from assistant.calendar_ui.feature_panel import FeaturePanel
-from assistant.features.ranker import ocr, rank as ranking, store, table
+from assistant.features.ranker import ocr, store, table
+from assistant.features.ranker import rank as ranking
 
 TABLE_EXT = (".html", ".htm", ".csv", ".tsv", ".txt", ".json")
 IMAGE_EXT = (".png", ".jpg", ".jpeg", ".heic", ".heif", ".webp", ".gif", ".bmp", ".tif", ".tiff")
@@ -92,7 +93,7 @@ _DROP_TEXT = "Drop screenshots and a table (.html .csv .tsv .json) — or Choose
 
 # ---------------------------------------------------------------- pure helpers
 
-def parse_numbers(text: str) -> "list[int]":
+def parse_numbers(text: str) -> list[int]:
     """'#1172, 153 209' -> [1172, 153, 209]; unique, in the order typed."""
     out, seen = [], set()
     for n in (int(x) for x in re.findall(r"\d+", text or "")):
@@ -224,7 +225,7 @@ def _label(text: str = "", name: str = "", *, wrap: bool = True) -> QLabel:
     return lab
 
 
-def _button(text: str, name: str = "", cb: "Callable | None" = None) -> QPushButton:
+def _button(text: str, name: str = "", cb: Callable | None = None) -> QPushButton:
     b = QPushButton(text)
     if name:
         b.setObjectName(name)
@@ -234,7 +235,7 @@ def _button(text: str, name: str = "", cb: "Callable | None" = None) -> QPushBut
     return b
 
 
-def _box(name: str = "rk_box") -> "tuple[QFrame, QVBoxLayout]":
+def _box(name: str = "rk_box") -> tuple[QFrame, QVBoxLayout]:
     f = QFrame()
     f.setObjectName(name)
     lay = QVBoxLayout(f)
@@ -288,16 +289,16 @@ class RankerView(FeaturePanel):
         self._dark = dark
         self._pal = _palette(dark)
         self._data: dict = store._blank()
-        self._table: "table.Table | None" = None
+        self._table: table.Table | None = None
         self._filename = ""
-        self._numbers: "list[int]" = []
+        self._numbers: list[int] = []
         self._use_numbers = True
         self._recipe: dict = copy.deepcopy(self._data["presets"][self._data["preset"]])
         self._preset = self._data["preset"]
-        self._result: "dict | None" = None
-        self._display: "list[tuple[str, str]]" = []
+        self._result: dict | None = None
+        self._display: list[tuple[str, str]] = []
         self._col_actions: dict = {}
-        self._col_order: "list[str]" = []
+        self._col_order: list[str] = []
         self._ocr_job = 0
         self._reading = False
         self._bridge = _Bridge()
@@ -373,8 +374,8 @@ class RankerView(FeaturePanel):
         self._history_list.setSpacing(4)
         hv.addLayout(self._history_list)
         self._history_box.hide()
-        self._history_rows: "dict[str, dict]" = {}
-        self._confirm_delete: "str | None" = None
+        self._history_rows: dict[str, dict] = {}
+        self._confirm_delete: str | None = None
         lay.addWidget(self._history_box)
     def _build_empty(self, lay: QVBoxLayout) -> None:
         self._empty = QFrame()
@@ -786,7 +787,7 @@ class RankerView(FeaturePanel):
         self._say("Nothing to use in that — drop or paste a table file or a picture.", error=True)
         return False
 
-    def take_files(self, paths: "list[str]") -> None:
+    def take_files(self, paths: list[str]) -> None:
         tables, pictures = [], []
         for p in paths:
             (pictures if p.lower().endswith(IMAGE_EXT) else tables).append(p)
@@ -850,7 +851,7 @@ class RankerView(FeaturePanel):
 
     # ------------------------------------------------------------ pictures
 
-    def _read_pictures(self, images: "list[tuple[str, bytes]]") -> None:
+    def _read_pictures(self, images: list[tuple[str, bytes]]) -> None:
         self._ocr_job += 1
         job = self._ocr_job
         self._reading = True
@@ -885,7 +886,7 @@ class RankerView(FeaturePanel):
 
     # ------------------------------------------------------------ numbers
 
-    def _set_numbers(self, nums: "list[int]", *, use: "bool | None" = None) -> None:
+    def _set_numbers(self, nums: list[int], *, use: bool | None = None) -> None:
         self._numbers = nums
         self._show_numbers()
         fields = {"numbers": nums}
@@ -923,7 +924,7 @@ class RankerView(FeaturePanel):
         self._data = store.update(use_numbers=on)
         self._rank()
 
-    def _active_numbers(self) -> "list[int]":
+    def _active_numbers(self) -> list[int]:
         return list(self._numbers) if self._use_numbers else []
 
     # ------------------------------------------------------------ saved rankings
@@ -961,7 +962,7 @@ class RankerView(FeaturePanel):
         self._recipe_msg.setText(text)
         self._recipe_msg.setVisible(bool(text))
 
-    def _save_preset(self, name: "str | None" = None) -> None:
+    def _save_preset(self, name: str | None = None) -> None:
         name = name or self._preset
         recipe = copy.deepcopy(self._recipe)
         recipe["name"] = name
@@ -1019,7 +1020,7 @@ class RankerView(FeaturePanel):
         self._more_toggle.setText(("▾" if on else "▸") + "  More options")
         self._more.setVisible(on)
 
-    def _columns(self) -> "list[tuple[str, str]]":
+    def _columns(self) -> list[tuple[str, str]]:
         """(name, label) choices: the table's columns, then the combined ones."""
         cols = list(self._table.columns) if self._table else []
         have = {n for n, _ in cols}
@@ -1032,7 +1033,7 @@ class RankerView(FeaturePanel):
     def _label_of(self, name: str) -> str:
         return dict(self._columns()).get(name, name)
 
-    def _column_combo(self, selected: str, cols: "list[tuple[str, str]]", on_change) -> QComboBox:
+    def _column_combo(self, selected: str, cols: list[tuple[str, str]], on_change) -> QComboBox:
         box = QComboBox()
         box.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         box.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
@@ -1046,7 +1047,7 @@ class RankerView(FeaturePanel):
         box.currentIndexChanged.connect(lambda _i: on_change(box.currentData()))
         return box
 
-    def _columns_menu_button(self, chosen: "list[str]", cols, on_change, empty_text: str) -> QToolButton:
+    def _columns_menu_button(self, chosen: list[str], cols, on_change, empty_text: str) -> QToolButton:
         """For a combined column's parts: a checklist of the table's columns."""
         btn = QToolButton()
         btn.setObjectName("rk_cols")
@@ -1232,7 +1233,7 @@ class RankerView(FeaturePanel):
             QTimer.singleShot(0, self._rebuild_editor)   # not while the clicked button is mid-signal
             self._changed()
 
-    def _drop_references(self, name: "str | None") -> None:
+    def _drop_references(self, name: str | None) -> None:
         if not name:
             return
         r = self._recipe
@@ -1298,7 +1299,7 @@ class RankerView(FeaturePanel):
 
     # ------------------------------------------------------------ which columns show
 
-    def _all_columns(self) -> "list[str]":
+    def _all_columns(self) -> list[str]:
         """Every column the result can show, in the order it shows them."""
         if self._table is None:
             return []
@@ -1307,11 +1308,11 @@ class RankerView(FeaturePanel):
         return list(dict.fromkeys([key] + [c["column"] for c in r.get("criteria", [])]
                                   + [d["name"] for d in r.get("derived", [])] + self._table.names))
 
-    def _shown(self) -> "set[str]":
+    def _shown(self) -> set[str]:
         show = [s for s in self._recipe.get("show", []) if s in self._col_order]
         return set(show) if show else set(self._col_order)
 
-    def _set_show(self, names: "set[str]") -> None:
+    def _set_show(self, names: set[str]) -> None:
         if not names:
             return
         ordered = [n for n in self._col_order if n in names]
@@ -1412,7 +1413,7 @@ class RankerView(FeaturePanel):
         self._show_missing(miss if len(miss) > MISSING_INLINE else [])
         self._show_notes(res.get("notes") or [])
 
-    def _show_missing(self, miss: "list[str]") -> None:
+    def _show_missing(self, miss: list[str]) -> None:
         self._missing_lbl.setText(", ".join(miss))
         self._missing_btn.setVisible(bool(miss))
         if not miss:
@@ -1423,7 +1424,7 @@ class RankerView(FeaturePanel):
         self._missing_lbl.setVisible(not self._missing_lbl.isVisible())
         self._missing_btn.setText("hide" if self._missing_lbl.isVisible() else "show")
 
-    def _show_notes(self, notes: "list[str]") -> None:
+    def _show_notes(self, notes: list[str]) -> None:
         self._notes_lbl.setText("\n".join(notes))
         self._notes_lbl.setVisible(bool(notes))
 
@@ -1490,7 +1491,7 @@ class RankerView(FeaturePanel):
         g.setSortingEnabled(True)
         g.sortItems(0, Qt.SortOrder.AscendingOrder)
 
-    def visible_rows(self) -> "list[list[str]]":
+    def visible_rows(self) -> list[list[str]]:
         """The result as shown — header first, rows in the on-screen order."""
         g = self._grid
         if g.columnCount() == 0:

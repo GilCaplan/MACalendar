@@ -22,14 +22,16 @@ import csv
 import datetime
 import os
 import time as _time
-from typing import Optional
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import (
     QCheckBox,
+    QColorDialog,
+    QDateTimeEdit,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
     QFrame,
@@ -41,19 +43,16 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
-    QDoubleSpinBox,
     QSpinBox,
     QStackedWidget,
     QTextEdit,
     QVBoxLayout,
     QWidget,
-    QDateTimeEdit,
-    QColorDialog,
 )
 
-from assistant.db import CalendarDB, counter_press_amount
 import assistant.calendar_ui.styles as _styles
 from assistant.calendar_ui.dialog_utils import install_enter_confirms
+from assistant.db import CalendarDB, counter_press_amount
 
 # ---------------------------------------------------------------------------
 # Currency data  (code → (display name, symbol))
@@ -115,6 +114,7 @@ _DEFAULT_CURRENCY = "ILS"
 
 from assistant.calendar_ui.feature_panel import FeaturePanel
 
+
 def _currency_symbol(code: str) -> str:
     return _CURRENCIES.get(code, ("", code))[1]
 
@@ -136,7 +136,7 @@ _TIMER_COLORS = [
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _duration_secs(start_iso: str, end_iso: Optional[str]) -> float:
+def _duration_secs(start_iso: str, end_iso: str | None) -> float:
     """Seconds between start and end (or now if end is None).
 
     Timestamps may be naive (legacy rows) or timezone-aware (current
@@ -256,7 +256,7 @@ def _parse_dt_aware(iso: str) -> datetime.datetime:
     return dt
 
 
-def _presses_since(presses: list[dict], cycle_start_iso: Optional[str]) -> list[dict]:
+def _presses_since(presses: list[dict], cycle_start_iso: str | None) -> list[dict]:
     """Presses belonging to the current (open) tally cycle — those at or
     after cycle_start_iso. cycle_start_iso is None for a counter that's
     never been cashed out, meaning its entire press history is the current
@@ -312,7 +312,7 @@ class CurrencyPicker(QWidget):
         self._populate(current)
         self._search.textChanged.connect(lambda t: self._populate(current if not t else None, query=t))
 
-    def _populate(self, select_code: Optional[str], query: str = "") -> None:
+    def _populate(self, select_code: str | None, query: str = "") -> None:
         from PyQt6.QtWidgets import QListWidgetItem
         self._list.clear()
         q = query.strip().lower()
@@ -679,7 +679,7 @@ class PressEditDialog(QDialog):
         return self._sign_box.currentData()
 
     @property
-    def result_amount(self) -> Optional[float]:
+    def result_amount(self) -> float | None:
         return self._amount_spin.value() or None
 
     @property
@@ -1061,7 +1061,7 @@ class SessionEditDialog(QDialog):
         return self._start_edit.dateTime().toPyDateTime().isoformat()
 
     @property
-    def result_end(self) -> Optional[str]:
+    def result_end(self) -> str | None:
         if self._session_running:
             return None  # still running, don't set end
         if self._end_unknown is not None and self._end_unknown.isChecked():
@@ -1619,7 +1619,7 @@ class TimerCard(QWidget):
         acts[sub.addAction("Custom…")] = None
         return acts
 
-    def _set_auto_stop(self, minutes: "int | None") -> None:
+    def _set_auto_stop(self, minutes: int | None) -> None:
         if minutes is None:
             from PyQt6.QtWidgets import QInputDialog
             minutes, ok = QInputDialog.getInt(
@@ -2167,7 +2167,7 @@ class CounterCard(QWidget):
     def _invalidate_cache(self) -> None:
         self._cached_presses = None
 
-    def _cycle_start(self) -> Optional[str]:
+    def _cycle_start(self) -> str | None:
         """Start of the counter's current (open) tally cycle: the most
         recent payout's date, or the counter's own created_at if it's
         never been cashed out."""
@@ -2220,7 +2220,7 @@ class CounterCard(QWidget):
         return _presses_total(_presses_since(self._cached_presses, self._cycle_start()))
 
     # ------------------------------------------------------------------
-    def _on_press(self, delta: int, amount: Optional[float] = None) -> None:
+    def _on_press(self, delta: int, amount: float | None = None) -> None:
         self._db.create_counter_press(self._counter["id"], delta=delta, amount=amount)
         self._invalidate_cache()
         self.refresh()
@@ -2702,7 +2702,7 @@ class TimerView(FeaturePanel):
                 self._style_seg_btn(btn, p == period)
         self._recompute_stats_tiles()
 
-    def _period_start_date(self) -> Optional[str]:
+    def _period_start_date(self) -> str | None:
         today = datetime.date.today()
         if self._stats_period == "week":
             return (today - datetime.timedelta(days=7)).isoformat()

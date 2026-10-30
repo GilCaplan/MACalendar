@@ -39,7 +39,7 @@ _FIELDS = ("date_n", "date_ok", "time_n", "time_ok", "range_n", "range_ok", "rec
            "invent_n", "invent", "model_rows")
 
 
-def _load(name: str) -> "tuple[dict, dict]":
+def _load(name: str) -> tuple[dict, dict]:
     path = pathlib.Path(name)
     if not path.suffix:
         path = CHECKPOINT_DIR / f"{name}.jsonl"
@@ -53,7 +53,7 @@ def _load(name: str) -> "tuple[dict, dict]":
     return meta, rows
 
 
-def rescore(name: str, only: "set | None" = None) -> dict:
+def rescore(name: str, only: set | None = None) -> dict:
     meta, ck = _load(name)
     if only is not None:
         ck = {k: v for k, v in ck.items() if k in only}

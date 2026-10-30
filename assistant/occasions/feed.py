@@ -48,8 +48,8 @@ def shown_holidays(holidays: list) -> list:
     return [h for h in holidays if getattr(h, "category", None) in types]
 
 
-def banners(start: datetime.date, end: datetime.date, israel: "bool | None" = None,
-            recs: "list | None" = None) -> list[dict]:
+def banners(start: datetime.date, end: datetime.date, israel: bool | None = None,
+            recs: list | None = None) -> list[dict]:
     if end < start:
         return []
     end = min(end, start + datetime.timedelta(days=MAX_DAYS))
@@ -87,7 +87,7 @@ def banners(start: datetime.date, end: datetime.date, israel: "bool | None" = No
     return sorted(out, key=lambda b: (b["date"], order.get(b["source"], 9), b["title"]))
 
 
-def countdowns(today: "datetime.date | None" = None) -> list[dict]:
+def countdowns(today: datetime.date | None = None) -> list[dict]:
     """Countdowns still ahead: {"id", "title", "date", "days_left"}, soonest first."""
     today = today or datetime.date.today()
     out = []
@@ -107,7 +107,7 @@ def countdowns(today: "datetime.date | None" = None) -> list[dict]:
 _DEFAULT_REMIND = {"birthday": 3, "anniversary": 3, "yahrzeit": 1, "countdown": 0, "custom": 1}
 
 
-def reminder_lines(day: datetime.date, recs: "list | None" = None) -> list[str]:
+def reminder_lines(day: datetime.date, recs: list | None = None) -> list[str]:
     """What the day panel says about occasions on ``day`` — each of a person's
     own that is due its reminder then ("in 3 days", "tomorrow", "today"). A
     yahrzeit's reminder names the evening it begins, since a Hebrew date

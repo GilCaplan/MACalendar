@@ -32,7 +32,8 @@ import time
 
 from flask import Blueprint, jsonify, request
 
-from assistant.features.ranker import ocr, rank as ranking, store, table
+from assistant.features.ranker import ocr, store, table
+from assistant.features.ranker import rank as ranking
 
 blueprint = Blueprint("ranker", __name__)
 

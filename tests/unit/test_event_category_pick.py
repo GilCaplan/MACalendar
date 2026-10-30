@@ -16,12 +16,12 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-from PyQt6.QtCore import Qt                                           # noqa: E402
-from PyQt6.QtTest import QTest                                        # noqa: E402
+from PyQt6.QtCore import Qt  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
 from PyQt6.QtWidgets import QApplication, QComboBox, QDialogButtonBox  # noqa: E402
 
-from assistant.calendar_ui.event_dialog import EventDialog            # noqa: E402
-from assistant.db import CalendarDB                                   # noqa: E402
+from assistant.calendar_ui.event_dialog import EventDialog  # noqa: E402
+from assistant.db import CalendarDB  # noqa: E402
 
 DAY = dt.date(2026, 10, 12)
 

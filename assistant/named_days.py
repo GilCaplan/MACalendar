@@ -50,6 +50,7 @@ import dataclasses
 import datetime
 import functools
 import re
+
 from assistant import clock as _clock  # the moment the command was SAID
 
 #: Hebrew months -> pyluach numbers (Nisan = 1 ... Adar = 12, Adar II = 13).
@@ -240,7 +241,7 @@ def _jewish(today: datetime.date, israel: bool) -> tuple:
                   h.gregorian_end) for h in got)
 
 
-def _next_jewish(name: str, today: datetime.date, israel: bool, year: "int | None"):
+def _next_jewish(name: str, today: datetime.date, israel: bool, year: int | None):
     """(first, last) of the next occurrence of ``name`` still under way today."""
     for n, first, last in _jewish(today, israel):
         if n != name or last < today:
@@ -261,7 +262,7 @@ def _next_jewish(name: str, today: datetime.date, israel: bool, year: "int | Non
     return None
 
 
-def _hebrew_year_start(hy: int) -> "datetime.date | None":
+def _hebrew_year_start(hy: int) -> datetime.date | None:
     try:
         from pyluach import dates as _hd
         return _hd.HebrewDate(hy, 7, 1).to_pydate()
@@ -277,7 +278,7 @@ def _in_year(d: datetime.date, year: int) -> bool:
 
 
 def _holiday(key: str, today: datetime.date, israel: bool,
-             year: "int | None" = None) -> "tuple[datetime.date, int] | None":
+             year: int | None = None) -> tuple[datetime.date, int] | None:
     """(first day, days it lasts) of the next ``key``, or None."""
     if key == "Shabbat":
         d = today + datetime.timedelta(days=(5 - today.weekday()) % 7)
@@ -324,11 +325,12 @@ def _holiday(key: str, today: datetime.date, israel: bool,
 
 
 def _hebrew_date(month: int, day: int, today: datetime.date,
-                 year: "int | None") -> "datetime.date | None":
+                 year: int | None) -> datetime.date | None:
     """The next ``day`` of Hebrew ``month`` on or after today — Adar is Adar II
     in a leap year, as for every dated event (a yahrzeit is the occasions
     reader's, not this one's)."""
     from pyluach import dates as _hd
+
     from assistant.occasions.dates import hebrew_months
     if not 1 <= day <= 30:
         return None
@@ -347,7 +349,7 @@ def _hebrew_date(month: int, day: int, today: datetime.date,
     return None
 
 
-def _rosh_chodesh(month_word: "str | None", today: datetime.date) -> "tuple[datetime.date, int] | None":
+def _rosh_chodesh(month_word: str | None, today: datetime.date) -> tuple[datetime.date, int] | None:
     from assistant.occasions import calendars
     want = HEBREW_MONTHS.get(re.sub(r"[\s'’\-]+", " ", month_word.lower())) if month_word else None
     days: list[datetime.date] = []
@@ -371,10 +373,11 @@ def _rosh_chodesh(month_word: "str | None", today: datetime.date) -> "tuple[date
     return (days[0], len(days)) if days else None
 
 
-def _own(who: str, kind: str, today: datetime.date) -> "tuple[datetime.date, str] | None":
+def _own(who: str, kind: str, today: datetime.date) -> tuple[datetime.date, str] | None:
     """The next date of one of the person's OWN occasions, matched by name."""
     try:
-        from assistant.occasions import dates as _od, store
+        from assistant.occasions import dates as _od
+        from assistant.occasions import store
         recs = store.load()
     except Exception:
         return None
@@ -405,12 +408,12 @@ def _follow_ok(text: str, end: int) -> bool:
     return m.group(1).lower() in _FOLLOW or text[end:end + 1] in ",.;!?"
 
 
-def _year(g: "str | None") -> "int | None":
+def _year(g: str | None) -> int | None:
     return int(g) if g else None
 
 
 def find(text: str, today: datetime.date, *, whole: bool = False,
-         israel: "bool | None" = None, families: "set | None" = None) -> "Named | None":
+         israel: bool | None = None, families: set | None = None) -> Named | None:
     """The day ``text`` names by a Hebrew date, a holiday or an own occasion,
     among the ``families`` switched on (Settings ▸ Occasions by default)."""
     t = text or ""
@@ -438,7 +441,7 @@ def find(text: str, today: datetime.date, *, whole: bool = False,
     return got
 
 
-def find_all(text: str, today: "datetime.date | None" = None) -> "list[Named]":
+def find_all(text: str, today: datetime.date | None = None) -> list[Named]:
     """Every named day in ``text``, left to right (a command may hold two:
     "dinner on erev shabbat and dentist on 12 Adar")."""
     today = today or _clock.today()
@@ -453,7 +456,7 @@ def find_all(text: str, today: "datetime.date | None" = None) -> "list[Named]":
     return sorted(out, key=lambda n: n.phrase_span[0])
 
 
-def _led(t: str, start: int, whole: bool) -> "int | None":
+def _led(t: str, start: int, whole: bool) -> int | None:
     """Where a name's date phrase starts, counting its lead word — or None
     when nothing makes it a date. ``whole``: the string's own start counts as
     a lead too (a resolver's time words: "erev pesach at 7pm")."""
@@ -465,7 +468,7 @@ def _led(t: str, start: int, whole: bool) -> "int | None":
     return None
 
 
-def _find_hebrew_date(t: str, today: datetime.date) -> "Named | None":
+def _find_hebrew_date(t: str, today: datetime.date) -> Named | None:
     for m in _HEB_DATE.finditer(t):
         if m.group(1):
             day, word, year = int(m.group(1)), m.group(2), _year(m.group(3))
@@ -482,7 +485,7 @@ def _find_hebrew_date(t: str, today: datetime.date) -> "Named | None":
     return None
 
 
-def _find_rosh_chodesh(t: str, today: datetime.date, whole: bool) -> "Named | None":
+def _find_rosh_chodesh(t: str, today: datetime.date, whole: bool) -> Named | None:
     for m in _RC.finditer(t):
         start = _led(t, m.start(), whole)
         if start is None or not _follow_ok(t, m.end()):
@@ -493,7 +496,7 @@ def _find_rosh_chodesh(t: str, today: datetime.date, whole: bool) -> "Named | No
     return None
 
 
-def _find_explicit(t: str, today: datetime.date, israel: bool, fams: set) -> "Named | None":
+def _find_explicit(t: str, today: datetime.date, israel: bool, fams: set) -> Named | None:
     for m in _EXPLICIT.finditer(t):
         key = _KEY_OF.get(re.sub(r"[\s'’\-]+", " ", m.group("name").lower()))
         if not key or _family(key) not in fams:
@@ -531,7 +534,7 @@ def _find_explicit(t: str, today: datetime.date, israel: bool, fams: set) -> "Na
 
 
 def _find_bare(t: str, today: datetime.date, israel: bool, whole: bool,
-               fams: set) -> "Named | None":
+               fams: set) -> Named | None:
     for m in _BARE.finditer(t):
         key = _KEY_OF.get(re.sub(r"[\s'’\-]+", " ", m.group("name").lower()))
         if not key or key == "Rosh Chodesh" or _family(key) not in fams:
@@ -558,7 +561,7 @@ def _find_bare(t: str, today: datetime.date, israel: bool, whole: bool,
     return None
 
 
-def _find_own(t: str, today: datetime.date, whole: bool) -> "Named | None":
+def _find_own(t: str, today: datetime.date, whole: bool) -> Named | None:
     for m in _OWN.finditer(t):
         w = _WHO.search(t[:m.start()])
         if not w or not _follow_ok(t, m.end()):
@@ -585,7 +588,7 @@ _DATE_POSITION = re.compile(
     rf"yom\s+tov|chag|the\s+fast|chol\s+hamoed)\b", re.I)
 
 
-def unread(text: str, today: datetime.date) -> "str | None":
+def unread(text: str, today: datetime.date) -> str | None:
     """The words of a named day ``find`` could not place, or None. A command
     carrying one must not be committed on a DEFAULT day: that is exactly how
     "dinner on erev Pesach" was booked for today."""

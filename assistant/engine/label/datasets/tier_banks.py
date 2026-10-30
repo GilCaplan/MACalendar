@@ -33,7 +33,7 @@ from __future__ import annotations
 
 #: New SUBJECTS per event category. Disjoint from every base subject in every
 #: category (pinned by tests/unit/test_label_dataset_tiers.py).
-EVENT_SUBJECTS_EXT: "dict[str, list[str]]" = {
+EVENT_SUBJECTS_EXT: dict[str, list[str]] = {
     "Work": [
         "sprint review", "quarterly business review", "vendor demo",
         "team planning day", "pipeline review", "forecast call", "quota review",
@@ -357,7 +357,7 @@ EVENT_FRAMES_EXT = [
 
 #: New SUBJECTS per task tag. MULTI-label subjects are listed under ONE tag
 #: (their home) and carry their full set in TASK_MULTI_EXT.
-TASK_SUBJECTS_EXT: "dict[str, list[str]]" = {
+TASK_SUBJECTS_EXT: dict[str, list[str]] = {
     "Groceries": [
         "frozen peas", "sweetcorn", "tinned tomatoes", "passata",
         "coconut milk", "curry paste", "stock cubes", "baking powder", "yeast",

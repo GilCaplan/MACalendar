@@ -18,6 +18,7 @@ def test_the_box_sends_what_was_typed_on_enter():
     from PyQt6.QtCore import Qt
     from PyQt6.QtTest import QTest
     from PyQt6.QtWidgets import QApplication, QLineEdit, QPushButton, QWidget
+
     from assistant.calendar_ui.window import CalendarWindow
 
     app = QApplication.instance() or QApplication([])
@@ -57,7 +58,6 @@ def _pipe():
 
 
 def test_a_typed_command_takes_the_spoken_road(monkeypatch):
-    from assistant import pipeline
     p = _pipe()
     seen, done = {}, threading.Event()
 

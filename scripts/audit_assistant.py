@@ -92,6 +92,7 @@ os.environ["MACALENDAR_TRACE_BUS"] = os.path.join(_TMP, "trace_bus.jsonl")
 # same words go in, while the transcripts it replays and any aliases the
 # auto-corrector learns from them stay out of the user's personal file.
 import shutil as _shutil
+
 for _var, _real, _name in (
         ("MACALENDAR_VOCAB", os.path.expanduser("~/.assistant_tools/vocab.json"), "vocab.json"),
         ("MACALENDAR_CATEGORIES", os.path.expanduser("~/.assistant_tools/categories.json"), "categories.json")):
@@ -478,7 +479,7 @@ def _pct(v, q):
 # --------------------------------------------------------------------- run
 
 def run(args) -> dict:
-    from assistant.api.server import create_app, _verify_store, _verify_lock
+    from assistant.api.server import _verify_lock, _verify_store, create_app
     from assistant.db import get_db
     from assistant.stt.vocab import get_vocab
     app = create_app(); app.config["TESTING"] = True
@@ -618,7 +619,7 @@ def write_report(data: dict, path: str, args) -> None:
         "— accuracy alone doesn't distinguish missing something asked for from producing something extra",
         f"- **Time to first result:** p50 {_pct([r['first_ms'] for r in R], .5)/1000:.1f} s · p95 {_pct([r['first_ms'] for r in R], .95)/1000:.1f} s  ·  "
         f"**time to settled:** p50 {_pct([r['settle_ms'] for r in R], .5)/1000:.1f} s · p95 {_pct([r['settle_ms'] for r in R], .95)/1000:.1f} s",
-        f"- Parse paths: " + ", ".join(f"{p} {sum(1 for r in R if r['parse']==p)}"
+        "- Parse paths: " + ", ".join(f"{p} {sum(1 for r in R if r['parse']==p)}"
                                        for p in sorted({r["parse"] or "-" for r in R})),
         "",
         "## By area",

@@ -15,14 +15,20 @@ from __future__ import annotations
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
-    QApplication, QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea,
-    QVBoxLayout, QWidget,
+    QApplication,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
 
+from assistant.calendar_ui import icons as _icons
 from assistant.jude.ui import markdown as _md
 from assistant.jude.ui.sources import SourcesView
 from assistant.jude.ui.trace import TracePanel
-from assistant.calendar_ui import icons as _icons
 
 # Fast enough that the answer reads as live, slow enough that a whole
 # paragraph's worth of tokens costs one relayout instead of forty.
@@ -116,9 +122,9 @@ class AnswerMessage(_Card):
         self._body.setStyleSheet(f"color:{theme.text}; font-size:13px;")
         lay.addWidget(self._body)
 
-        self._sources: "SourcesView | None" = None
-        self._trace: "TracePanel | None" = None
-        self._copy_row: "QWidget | None" = None
+        self._sources: SourcesView | None = None
+        self._trace: TracePanel | None = None
+        self._copy_row: QWidget | None = None
 
     # The only two methods that touch the label, and neither is called per token.
     def append(self, text: str) -> None:
@@ -372,8 +378,8 @@ class Transcript(QScrollArea):
         self._lay.addStretch(1)
         self.setWidget(self._holder)
 
-        self._pending: "PendingRow | None" = None
-        self._answer: "AnswerMessage | None" = None
+        self._pending: PendingRow | None = None
+        self._answer: AnswerMessage | None = None
 
         # ONE timer for the whole transcript, not one per answer: only the
         # newest answer can be growing, and a timer per message would keep
@@ -476,7 +482,7 @@ class Transcript(QScrollArea):
             self._repaint.start()
         self._answer.append(text)
 
-    def answer(self) -> "AnswerMessage | None":
+    def answer(self) -> AnswerMessage | None:
         return self._answer
 
     def ensure_answer(self) -> AnswerMessage:

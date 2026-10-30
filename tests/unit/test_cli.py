@@ -2,8 +2,6 @@
 keeps the engine layer in step with the engine (like test_panel_agreement)."""
 from __future__ import annotations
 
-import pytest
-
 from assistant import cli
 
 
@@ -41,6 +39,7 @@ def test_the_engine_layer_covers_every_real_engine_stage():
     """Every folder under engine/ is verified by the doctor, so a new
     component can never be silently missed."""
     import pkgutil
+
     import assistant.engine as E
     from assistant.cli import ENGINE_STAGES
     modules = " ".join(m for _c, m in ENGINE_STAGES)
@@ -95,6 +94,7 @@ def test_every_module_the_engine_layer_claims_actually_imports():
     long after FastSeg became the default — it verified the one that does not
     run."""
     import importlib
+
     from assistant.cli import ENGINE_STAGES
     for _component, module in ENGINE_STAGES:
         importlib.import_module(module)

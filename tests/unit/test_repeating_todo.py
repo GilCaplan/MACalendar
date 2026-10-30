@@ -52,8 +52,8 @@ def actions(isolated_registry):
 
 
 def _front(text):
-    from assistant.intent.rule_parser import RULE_THRESHOLD
     from assistant.engine.fastrule.fastrule import FastRule
+    from assistant.intent.rule_parser import RULE_THRESHOLD
     res = FastRule(RULE_THRESHOLD).run(text, "")
     assert res.committed, text
     return res.intents

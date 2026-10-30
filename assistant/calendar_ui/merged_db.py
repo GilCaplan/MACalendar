@@ -22,7 +22,8 @@ is not written twice (CLAUDE.md: the GUI once had its own pipeline copy).
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from assistant import users
 from assistant.users import sharing
@@ -30,7 +31,7 @@ from assistant.users import sharing
 logger = logging.getLogger(__name__)
 
 #: Reads that merge every visible calendar. name -> sort key (None: keep order)
-_MERGED_READS: "dict[str, Any]" = {
+_MERGED_READS: dict[str, Any] = {
     "get_events_for_month": sharing.event_order,
     "get_events_for_week": sharing.event_order,
     "get_events_for_day": sharing.event_order,
@@ -54,7 +55,7 @@ _REFUSED = {"toggle_todo_complete": False, "link_todo": False}
 class MergedCalendar:
     """A CalendarDB-shaped view over the logged-in user's visible calendars."""
 
-    def __init__(self, own, on_refused: "Callable[[str], None] | None" = None) -> None:
+    def __init__(self, own, on_refused: Callable[[str], None] | None = None) -> None:
         self._own = own
         self._on_refused = on_refused or (lambda msg: logger.info("%s", msg))
 

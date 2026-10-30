@@ -13,8 +13,14 @@ import urllib.parse
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
+
 from assistant.calendar_ui import icons as _icons
 
 SEFARIA = "https://www.sefaria.org/"
@@ -150,10 +156,10 @@ def _chip(text: str, colour: str, theme) -> QLabel:
     return chip
 
 
-def _by_category(sources: list) -> "list[tuple[str, list]]":
+def _by_category(sources: list) -> list[tuple[str, list]]:
     """Grouped in the order the categories first appear — Jude returns its
     sources ranked, and re-sorting them alphabetically would hide that."""
-    groups: "dict[str, list]" = {}
+    groups: dict[str, list] = {}
     for source in sources:
         key = source.get("planned_category") or source.get("category") or "Other"
         groups.setdefault(key, []).append(source)

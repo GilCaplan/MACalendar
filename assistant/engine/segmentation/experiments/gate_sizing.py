@@ -42,10 +42,9 @@ scratch_env("seg_gate_", keep=("LOCATION", "MODELS", "LABEL_FEEDBACK",
                                "HEARTBEATS", "HUD_STATE",
                                "DEVICE_SECRET", "DEVICES"))
 
-from assistant.engine.segmentation.experiments import score as sc                      # noqa: E402
-from assistant.engine.segmentation.fastseg.fastseg import fastseg, find_time_refs, cut   # noqa: E402
-from assistant.engine.segmentation.experiments.run_board import assign_splits, _load_cache   # noqa: E402
-
+from assistant.engine.segmentation.experiments import score as sc  # noqa: E402
+from assistant.engine.segmentation.experiments.run_board import _load_cache, assign_splits  # noqa: E402
+from assistant.engine.segmentation.fastseg.fastseg import cut, fastseg, find_time_refs  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Runtime-computable features. Each is cheap (regex / the cut we already ran).
@@ -151,7 +150,7 @@ def main() -> None:
     # ---- the ceiling: how good could ANY gate be? --------------------------
     helps = sum(1 for d in data if d["sg_ok"] and not d["fs_ok"])
     hurts = sum(1 for d in data if d["fs_ok"] and not d["sg_ok"])
-    print(f"\nTHE CEILING — an ORACLE gate that calls LLMSeg only when it helps")
+    print("\nTHE CEILING — an ORACLE gate that calls LLMSeg only when it helps")
     print(f"  rows LLMSeg FIXES that FastSeg got wrong : {helps}")
     print(f"  rows LLMSeg BREAKS that FastSeg got right: {hurts}")
     print(f"  oracle exact-row {(base + helps) / n:.1%} at {helps / n:.2f} calls/row")

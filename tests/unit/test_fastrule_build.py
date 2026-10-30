@@ -15,8 +15,7 @@ import datetime as dt
 
 import pytest
 
-from assistant.engine.fastrule.build import (
-    Built, Defer, _title_from_words, build)
+from assistant.engine.fastrule.build import Built, Defer, _title_from_words, build
 from assistant.engine.state import Item
 
 TODAY = dt.date(2026, 9, 10)

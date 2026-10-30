@@ -172,6 +172,7 @@ def test_load_rows_builds_a_missing_tier_and_rebuilds_a_stale_one(tmp_path, monk
 def test_loaders_default_to_base():
     """Every label loader takes a tier and defaults to the committed base."""
     import inspect
+
     from assistant.engine.label import train as T
     from assistant.engine.label.experiments import classifier_board, rebuild_board
     for fn in (T._load, T._subjects, T.train, T.train_base,

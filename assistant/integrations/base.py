@@ -85,7 +85,7 @@ class Integration(ABC):
 
     # -- where it is -----------------------------------------------------
 
-    def root(self) -> "str | None":
+    def root(self) -> str | None:
         """The checkout's absolute path, or None if there isn't a valid one.
 
         The env override wins, then `config.path`. A RELATIVE path is resolved
@@ -104,7 +104,7 @@ class Integration(ABC):
     # -- how it runs -----------------------------------------------------
 
     @abstractmethod
-    def command(self, python: str) -> "list[str]":
+    def command(self, python: str) -> list[str]:
         """The argv that starts its server, given the interpreter to use."""
 
     def environment(self) -> dict:

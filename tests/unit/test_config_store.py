@@ -130,6 +130,7 @@ def test_a_mapping_is_written_as_a_flow_mapping_and_reads_back_as_a_dict(tmp_pat
     branch and came back from YAML as a STRING — the settings dialog carried its
     own writer for `notifications.category_leads` because of it."""
     import yaml
+
     from assistant import config_store
     p = tmp_path / "config.yaml"
     p.write_text("notifications:\n  enabled: true   # keep\n  category_leads:\n    Work: 15\n    Meal: 0\n\nother:\n  x: 1\n")
@@ -145,6 +146,7 @@ def test_a_mapping_is_written_as_a_flow_mapping_and_reads_back_as_a_dict(tmp_pat
 
 def test_a_mapping_key_that_needs_quoting_is_quoted(tmp_path):
     import yaml
+
     from assistant import config_store
     p = tmp_path / "config.yaml"
     p.write_text("notifications:\n  enabled: true\n")

@@ -39,27 +39,68 @@ from typing import Optional
 RECURRENCE_SKIPS_OBSERVANCE = True
 
 from assistant.db.base import StoreBase
+from assistant.db.colours import _AUTO_COLORS, _neighbour_colors, auto_category_and_color  # noqa: F401
+from assistant.db.common import (  # noqa: F401
+    _OWN_WRITES,
+    DB_PATH,
+    _memory_feedback,
+    _note_own_write,
+    _utcnow_iso,
+    own_write_mtime,
+)
 from assistant.db.coursework import CourseworkMixin
 from assistant.db.events import EventsMixin
 from assistant.db.links import LinksMixin
-from assistant.db.sources import SourcesMixin
-from assistant.db.timers import TimersMixin
-from assistant.db.todos import TodosMixin
-from assistant.db.workout import WorkoutMixin
+from assistant.db.observance import _MEAL_WORDS, _is_meal, _skip_for_observance, _skip_user_day  # noqa: F401
 
 # Every name the single-file module had stays importable from here.
-from assistant.db.schema import SCHEMA_VERSION  # noqa: F401
 from assistant.db.schema import (  # noqa: F401
-    _LEGACY_LINK_SOURCE, _CREATE_TODOS_TABLE, _TODO_MIGRATIONS, _IDEMPOTENT_TABLES, _CREATE_TAGS_TABLE, DEFAULT_TODO_TAGS, _CREATE_SUBTASKS_TABLE, _CREATE_TABLE, _MIGRATIONS, _CREATE_CALENDAR_SOURCES_TABLE, _CALENDAR_SOURCE_MIGRATIONS, TWO_WAY_SOURCES, _CREATE_SYNC_DELETES_TABLE, _CREATE_TIMERS_TABLE, _TIMER_MIGRATIONS, _CREATE_TIMER_SESSIONS_TABLE, _CREATE_COUNTERS_TABLE, _CREATE_COUNTER_PRESSES_TABLE, _COUNTER_PRESS_MIGRATIONS, _CREATE_COUNTER_PAYOUTS_TABLE, _CREATE_COURSES_TABLE, _CREATE_REMINDER_LOG_TABLE, _CREATE_ASSIGNMENTS_TABLE, _CREATE_WORKOUT_EXERCISES_TABLE, _CREATE_WORKOUT_TEMPLATES_TABLE, _CREATE_WORKOUT_TEMPLATE_BLOCKS_TABLE, _CREATE_WORKOUT_TEMPLATE_SETS_TABLE, _CREATE_WORKOUT_SESSIONS_TABLE, _CREATE_WORKOUT_SET_LOGS_TABLE, _WORKOUT_MIGRATIONS, _CREATE_WORKOUT_PLANS_TABLE, _CREATE_WORKOUT_PLAN_ITEMS_TABLE, _CREATE_INDEXES,
+    _CALENDAR_SOURCE_MIGRATIONS,
+    _COUNTER_PRESS_MIGRATIONS,
+    _CREATE_ASSIGNMENTS_TABLE,
+    _CREATE_CALENDAR_SOURCES_TABLE,
+    _CREATE_COUNTER_PAYOUTS_TABLE,
+    _CREATE_COUNTER_PRESSES_TABLE,
+    _CREATE_COUNTERS_TABLE,
+    _CREATE_COURSES_TABLE,
+    _CREATE_INDEXES,
+    _CREATE_REMINDER_LOG_TABLE,
+    _CREATE_SUBTASKS_TABLE,
+    _CREATE_SYNC_DELETES_TABLE,
+    _CREATE_TABLE,
+    _CREATE_TAGS_TABLE,
+    _CREATE_TIMER_SESSIONS_TABLE,
+    _CREATE_TIMERS_TABLE,
+    _CREATE_TODOS_TABLE,
+    _CREATE_WORKOUT_EXERCISES_TABLE,
+    _CREATE_WORKOUT_PLAN_ITEMS_TABLE,
+    _CREATE_WORKOUT_PLANS_TABLE,
+    _CREATE_WORKOUT_SESSIONS_TABLE,
+    _CREATE_WORKOUT_SET_LOGS_TABLE,
+    _CREATE_WORKOUT_TEMPLATE_BLOCKS_TABLE,
+    _CREATE_WORKOUT_TEMPLATE_SETS_TABLE,
+    _CREATE_WORKOUT_TEMPLATES_TABLE,
+    _IDEMPOTENT_TABLES,
+    _LEGACY_LINK_SOURCE,
+    _MIGRATIONS,
+    _TIMER_MIGRATIONS,
+    _TODO_MIGRATIONS,
+    _WORKOUT_MIGRATIONS,
+    DEFAULT_TODO_TAGS,
+    SCHEMA_VERSION,  # noqa: F401
+    TWO_WAY_SOURCES,
 )
-from assistant.db.common import (  # noqa: F401
-    DB_PATH, _OWN_WRITES, _memory_feedback, _note_own_write, _utcnow_iso, own_write_mtime,
+from assistant.db.series import _next_date, _SeriesSeed  # noqa: F401
+from assistant.db.sources import (
+    SourcesMixin,
+    _source_for,  # noqa: F401
 )
-from assistant.db.observance import _MEAL_WORDS, _is_meal, _skip_for_observance, _skip_user_day  # noqa: F401
-from assistant.db.series import _SeriesSeed, _next_date  # noqa: F401
-from assistant.db.colours import _AUTO_COLORS, _neighbour_colors, auto_category_and_color  # noqa: F401
-from assistant.db.timers import counter_press_amount  # noqa: F401
-from assistant.db.sources import _source_for  # noqa: F401
+from assistant.db.timers import (
+    TimersMixin,
+    counter_press_amount,  # noqa: F401
+)
+from assistant.db.todos import TodosMixin
+from assistant.db.workout import WorkoutMixin
 
 
 class CalendarDB(EventsMixin, LinksMixin, TodosMixin, TimersMixin, CourseworkMixin,
@@ -75,11 +116,11 @@ class CalendarDB(EventsMixin, LinksMixin, TodosMixin, TimersMixin, CourseworkMix
 # Module-level singleton — avoids re-running migrations on every action call
 # ---------------------------------------------------------------------------
 
-_db_instance: Optional[CalendarDB] = None
+_db_instance: CalendarDB | None = None
 
 
 #: One CalendarDB per user's file, once there are users (assistant/users).
-_user_dbs: "dict[str, CalendarDB]" = {}
+_user_dbs: dict[str, CalendarDB] = {}
 _user_dbs_lock = threading.Lock()
 
 

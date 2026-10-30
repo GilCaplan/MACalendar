@@ -109,7 +109,7 @@ _SENTENCE_MARK = re.compile(r"[.;!?]")
 _LIST_WORDS = re.compile(r"\band\b|,|\balso\b|\bplus\b|\bas\s+well\s+as\b", re.I)
 
 
-def relate(text: str, items: list, envelope_of: "dict | None" = None) -> None:
+def relate(text: str, items: list, envelope_of: dict | None = None) -> None:
     """Write `item.relation` on every item after the first:
     `{"to": <the item before>, "kind": <above>, "words": <what was between>}`.
     The first item has none. Never raises: a span it cannot find is `unknown`."""
@@ -173,8 +173,8 @@ def run(state, cfg):
     if how:
         state.text = " ".join(envelopes)
 
-    items: "list[Item]" = []
-    envelope_of: "dict[str, int]" = {}
+    items: list[Item] = []
+    envelope_of: dict[str, int] = {}
     for e_i, envelope in enumerate(envelopes):
         for action, when, tag, source in _segment_items(envelope):
             # `other` is one of ITEM_KINDS and is passed THROUGH. It used to fall

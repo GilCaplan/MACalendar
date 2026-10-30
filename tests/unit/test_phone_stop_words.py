@@ -17,7 +17,7 @@ from assistant.engine.ingest import repair
 from tests.unit._ios_sources import ios_source
 
 
-def _swift_stop_patterns() -> "list[str]":
+def _swift_stop_patterns() -> list[str]:
     src = ios_source("LocalEngine.swift")
     block = src.split("static let stopPatterns = [", 1)[1].split("]\n", 1)[0]
     return re.findall(r'#"(.*?)"#', block)

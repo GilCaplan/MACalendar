@@ -120,7 +120,7 @@ _CREATE_VERB = re.compile(r"\b(?:add|book|put|schedule|create|set up|pencil|mark
 _DOUBLED_PREP = re.compile(r"\b(?:by|to|at|on|for) (?:by|to|at|on|for|in)\b", re.I)
 
 
-def relabel(items: "list[dict]") -> "list[dict]":
+def relabel(items: list[dict]) -> list[dict]:
     """The rulings the committed corpus was relabelled by, applied by rule:
 
     * Q50 — a live call to a ROLE ("call the plumber") is an event;
@@ -177,7 +177,7 @@ _LITERAL_TIME = re.compile(
     r"o'clock|daily|weekly)\b|\d", re.I)
 
 
-def clause_bank() -> "list[dict]":
+def clause_bank() -> list[dict]:
     """Single-ask templates the tiers compose: FastRule's (train side) plus
     our own. A clause is kept only when it derives to exactly one item with an
     action, holds no joiner and no literal time word outside a slot."""
@@ -211,7 +211,7 @@ _NUMBERED = {"event_title": 3, "task_title": 3, "item": 3, "date": 3, "time": 3,
              "name": 2, "recurrence": 2, "query_range": 2, "period_time": 2}
 
 
-def _renumber(clauses: "list[dict]") -> "str | None":
+def _renumber(clauses: list[dict]) -> str | None:
     """Join clauses' templates with numbered slots ({date}, {date2}, …) so the
     composed row binds distinct values; None when a slot would run out."""
     used = collections.Counter()
@@ -233,7 +233,7 @@ def _renumber(clauses: "list[dict]") -> "str | None":
     return parts
 
 
-def _composed_template(clauses, joins) -> "str | None":
+def _composed_template(clauses, joins) -> str | None:
     parts = _renumber(clauses)
     if parts is None:
         return None
@@ -243,7 +243,7 @@ def _composed_template(clauses, joins) -> "str | None":
     return out
 
 
-def composed_families() -> "list[dict]":
+def composed_families() -> list[dict]:
     bank = clause_bank()
     rng = random.Random(f"{TIER_SEED}:compose")
     out, sigs, tries = [], set(), 0
@@ -310,7 +310,7 @@ def composed_families() -> "list[dict]":
 # Rendering — the generator's own loop, plus the relabel
 # ---------------------------------------------------------------------------
 
-def render_family(t: dict, banks: dict, cap: int, seen: set, start: int = 0) -> "list[dict]":
+def render_family(t: dict, banks: dict, cap: int, seen: set, start: int = 0) -> list[dict]:
     """Up to `cap` validated rows of one template, never a text in `seen`
     (lower-cased, shared, updated in place). Same steps as `generate.build`:
     bind, fill, derive's gold, Q26/Q61, validate; then the ruling relabel."""
@@ -341,7 +341,7 @@ def render_family(t: dict, banks: dict, cap: int, seen: set, start: int = 0) -> 
     return rows
 
 
-def agreeing_families(base_rows: "list[dict]") -> "tuple[set, dict]":
+def agreeing_families(base_rows: list[dict]) -> tuple[set, dict]:
     """Base families whose EVERY committed row the generator + relabel
     reproduces exactly — the only base families it is honest to grow."""
     regen, _dropped = SEG.build()
@@ -356,7 +356,7 @@ def agreeing_families(base_rows: "list[dict]") -> "tuple[set, dict]":
     return {f for f, v in ok.items() if v}, dict(bad)
 
 
-def draw_all_generated(max_per_source: "int | None" = None):
+def draw_all_generated(max_per_source: int | None = None):
     """(base lines, [(family name, rows)], report) — every tier family at the
     cap. `max_per_source` stops each of the four sources after N families (a
     quick smoke for the tests)."""
@@ -421,7 +421,7 @@ def quota(n_base: int, drawn, target: int, cap: int) -> int:
 _CACHE: dict = {}
 
 
-def build_generated(tier: str) -> "list[str]":
+def build_generated(tier: str) -> list[str]:
     """The tier's lines: the committed lines verbatim, then the tier rows."""
     if tier not in TIERS:
         raise SystemExit(f"unknown tier {tier!r}; choose from {list(TIERS)}")
@@ -438,7 +438,7 @@ def build_generated(tier: str) -> "list[str]":
 # Traps: hand-written trap TEMPLATES with hand-written gold
 # ---------------------------------------------------------------------------
 
-def trap_templates(name: str) -> "list[dict]":
+def trap_templates(name: str) -> list[dict]:
     return _load(BANKS / "trap_templates.json")[name]
 
 
@@ -449,7 +449,7 @@ def trap_banks() -> dict:
 _TRAP_SLOT = re.compile(r"\{([A-Z]+[a-z]*)(\d?)\}")
 
 
-def _fill_trap(t: dict, banks: dict, rng) -> "tuple[str, list[dict]]":
+def _fill_trap(t: dict, banks: dict, rng) -> tuple[str, list[dict]]:
     """Bind each slot once per row (a numbered slot draws a value distinct from
     its base's), then fill the text and the hand-written gold alike."""
     binding, used = {}, {}
@@ -466,7 +466,7 @@ def _fill_trap(t: dict, banks: dict, rng) -> "tuple[str, list[dict]]":
     return fill(t["text"]), gold
 
 
-def check_trap_gold(text: str, gold: "list[dict]") -> "list[str]":
+def check_trap_gold(text: str, gold: list[dict]) -> list[str]:
     """A template author's slip is caught here rather than shipped: the
     invariant holds, and every tag already follows Q26/Q61 and the relabel."""
     bad = list(SEG.invariant.violations(text, gold))
@@ -479,7 +479,7 @@ def check_trap_gold(text: str, gold: "list[dict]") -> "list[str]":
     return bad
 
 
-def build_traps(name: str, tier: str) -> "list[str]":
+def build_traps(name: str, tier: str) -> list[str]:
     """`name` is split_traps | nosplit_traps; tier base | grown (10k and 40k
     read `grown`: the honest ceiling, see the module docstring)."""
     base_lines = BASE_FILES[name].read_text().splitlines(keepends=True)
@@ -545,7 +545,7 @@ def ensure(name: str, tier: str) -> Path:
     return p
 
 
-def board_files(tier: str) -> "list[Path]":
+def board_files(tier: str) -> list[Path]:
     """The three files segmentation's board reads at a tier."""
     if tier == "base":
         return [BASE_FILES[k] for k in ("generated", "nosplit_traps", "split_traps")]
@@ -553,7 +553,7 @@ def board_files(tier: str) -> "list[Path]":
             ensure("split_traps", "grown")]
 
 
-def stats(lines: "list[str]") -> dict:
+def stats(lines: list[str]) -> dict:
     from assistant.engine.segmentation.experiments.run_board import assign_splits
     rows = assign_splits([json.loads(line) for line in lines])
     fam_side = {r["family"]: r["split"] for r in rows}

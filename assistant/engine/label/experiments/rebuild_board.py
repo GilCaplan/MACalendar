@@ -63,19 +63,20 @@ os.environ.setdefault("OMP_NUM_THREADS", "4")
 _S = pathlib.Path(scratch_env(
     "label_rebuild_", keep=("LOCATION", "HEARTBEATS", "HUD_STATE")))
 os.environ["MACALENDAR_CHECKPOINTS"] = str(_S / "checkpoints")
-from assistant.users.paths import personal_store as _personal_store   # the admin's, since users
+from assistant.users.paths import personal_store as _personal_store  # the admin's, since users
+
 _REAL_VOCAB = pathlib.Path(_personal_store("vocab.json"))
 if _REAL_VOCAB.exists():
     shutil.copyfile(_REAL_VOCAB, _S / "vocab.json")      # a copy; the original is only read
 
-import argparse          # noqa: E402
-import collections       # noqa: E402
-import json              # noqa: E402
-import re                # noqa: E402
-import sys               # noqa: E402
-import time              # noqa: E402
+import argparse  # noqa: E402
+import collections  # noqa: E402
+import json  # noqa: E402
+import re  # noqa: E402
+import sys  # noqa: E402
+import time  # noqa: E402
 
-import numpy as np       # noqa: E402
+import numpy as np  # noqa: E402
 
 STAGE = pathlib.Path(__file__).resolve().parents[1]
 REAL_DB = pathlib.Path(_personal_store("calendar.db"))
@@ -113,7 +114,7 @@ def norm(s: str) -> str:
 DATA_TIER = "base"
 
 
-def load_gen(kind: str, data_tier: "str | None" = None):
+def load_gen(kind: str, data_tier: str | None = None):
     from assistant.engine.label.datasets.generate import load_rows
     rows = load_rows(kind, data_tier or DATA_TIER)
     key = "label" if kind == "event" else "labels"
@@ -145,6 +146,7 @@ def real_event_sets() -> dict:
         out["feedback"] = list(fb.values())
     if REAL_DB.exists():
         import sqlite3
+
         from assistant.actions.calendar import categories as _cat
         conn = sqlite3.connect(f"file:{REAL_DB}?mode=ro", uri=True)
         latest = {}
@@ -168,6 +170,7 @@ def real_task_rows():
     if not REAL_DB.exists():
         return [], []
     import sqlite3
+
     from assistant.actions.todo import tagging as _tag
     conn = sqlite3.connect(f"file:{REAL_DB}?mode=ro", uri=True)
     palette = [r[0] for r in conn.execute("SELECT name FROM todo_tags")]
@@ -203,6 +206,7 @@ def _provenance(stored, rule, stacked) -> str:
 
 def _stacked_event(title, rule):
     from types import SimpleNamespace
+
     from assistant.engine.label import model as _lm
     cfg = SimpleNamespace(labels=SimpleNamespace(model_event=True, model_task=True, model_first=False))
     return _lm.category_for(title, rule, cfg)[0]
@@ -210,6 +214,7 @@ def _stacked_event(title, rule):
 
 def _stacked_task(title, rule):
     from types import SimpleNamespace
+
     from assistant.engine.label import model as _lm
     cfg = SimpleNamespace(labels=SimpleNamespace(model_event=True, model_task=True, model_first=False))
     return sorted(_lm.tags_for(title, rule, cfg)[0])
@@ -286,6 +291,7 @@ class Embedder:
         if not self.enabled:
             raise RuntimeError("embeddings missing and --no-embed was given")
         import urllib.request
+
         from assistant import model_protocol
         _log(f"embedding {len(todo)} texts with {EMBED_MODEL} (cache: {self.cache})")
         t0 = time.monotonic()
@@ -330,12 +336,12 @@ def _xgb_available() -> bool:
 
 
 def estimator(name: str, n_classes: int, multilabel: bool):
-    from sklearn.linear_model import LogisticRegression
-    from sklearn.neighbors import KNeighborsClassifier
-    from sklearn.ensemble import HistGradientBoostingClassifier
     from sklearn.decomposition import TruncatedSVD
-    from sklearn.pipeline import make_pipeline
+    from sklearn.ensemble import HistGradientBoostingClassifier
+    from sklearn.linear_model import LogisticRegression
     from sklearn.multiclass import OneVsRestClassifier
+    from sklearn.neighbors import KNeighborsClassifier
+    from sklearn.pipeline import make_pipeline
     if name == "lr":
         est = LogisticRegression(max_iter=2000, C=4.0)
     elif name == "knn":
@@ -379,7 +385,7 @@ STACK_BEHIND_RULES = ["LR  word+char (shipped)", "LR  embedding", "LR  word+char
 
 
 class Featurizer:
-    def __init__(self, fs: str, emb: "Embedder | None") -> None:
+    def __init__(self, fs: str, emb: Embedder | None) -> None:
         self.fs, self.emb, self.vec = fs, emb, None
 
     def _text(self, texts):
@@ -1023,6 +1029,7 @@ def run_shipped(kind, results):
                         must equal the pre-Q46 STACKED (shipped) row
     """
     from types import SimpleNamespace
+
     from assistant.engine.label import embed as _embed
     from assistant.engine.label import model as _lm
     from assistant.engine.label.model import LabelModel
@@ -1105,9 +1112,10 @@ def run_shipped(kind, results):
 
 def run_palette():
     from types import SimpleNamespace
-    from assistant.engine.label import model as _lm
+
     from assistant.actions.calendar import categories as _cat
     from assistant.actions.todo import tagging as _tag
+    from assistant.engine.label import model as _lm
     cfg = SimpleNamespace(labels=SimpleNamespace(model_event=True, model_task=True, model_first=False))
     print("\n" + "=" * 86)
     print("PALETTE DRIFT — a class the user deleted or renamed, against the saved models")
@@ -1189,7 +1197,6 @@ def main() -> int:
         run_newtag("event", emb, use_emb, results)
         if "task_real_offpalette" not in results:
             rt, _ = real_task_rows()
-            from assistant.actions.todo import tagging as _tag
             trained = {"Coursework", "Errands", "Groceries", "Work"}
             results["task_real_offpalette"] = [(t, tags, p) for t, tags, p in rt
                                                if not [x for x in tags if x in trained]]

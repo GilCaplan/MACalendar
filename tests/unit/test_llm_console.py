@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import pytest
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QApplication
 from PyQt6.QtTest import QTest
+from PyQt6.QtWidgets import QApplication
 
 from assistant import llm_bus
 

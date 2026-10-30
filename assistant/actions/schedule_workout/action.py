@@ -21,17 +21,17 @@ seeded block, so a phone-dictated run is indistinguishable from a planned one.
 from __future__ import annotations
 
 import datetime
-from typing import TYPE_CHECKING, ClassVar, List, Optional, Type
+from typing import TYPE_CHECKING, ClassVar
 
 from pydantic import BaseModel, Field, ValidationError
 
+from assistant import clock as _clock  # the moment the command was SAID
 from assistant import observance as ob
 from assistant import workout_plan as wp
 from assistant.actions import register
 from assistant.actions.base import BaseAction, BaseIntent
 from assistant.actions.schedule_workout.intent import ScheduleWorkoutIntent
 from assistant.exceptions import ParseError
-from assistant import clock as _clock  # the moment the command was SAID
 
 if TYPE_CHECKING:
     from assistant.intent.parser import IntentParser
@@ -45,14 +45,14 @@ class _GenSession(BaseModel):
     kind: str                       # long|easy|threshold|speed|tt|gym|calisthenics|rest
     title: str
     detail: str = ""
-    distance_km: Optional[float] = None
-    duration_minutes: Optional[int] = None
+    distance_km: float | None = None
+    duration_minutes: int | None = None
     lower_body: bool = False
 
 
 class _GenPlan(BaseModel):
     plan_name: str
-    sessions: List[_GenSession] = Field(default_factory=list)
+    sessions: list[_GenSession] = Field(default_factory=list)
 
 
 _SCHEMA_PROMPT = """You are an experienced running and strength coach building a training \
@@ -104,7 +104,7 @@ class ScheduleWorkoutAction(BaseAction):
         "generating a gym routine's exercises and sets with no dates attached — that is "
         "generate_workout_routine."
     )
-    intent_model: ClassVar[Type[BaseIntent]] = ScheduleWorkoutIntent
+    intent_model: ClassVar[type[BaseIntent]] = ScheduleWorkoutIntent
     parameters_schema: ClassVar[dict] = {
         "type": "object",
         "properties": {
@@ -163,7 +163,7 @@ class ScheduleWorkoutAction(BaseAction):
 
     @staticmethod
     def _generate(
-        parser: "IntentParser",
+        parser: IntentParser,
         request: str,
         today: datetime.date,
         horizon: datetime.date,
@@ -211,10 +211,10 @@ class ScheduleWorkoutAction(BaseAction):
     @staticmethod
     def _to_specs(
         generated: _GenPlan, today: datetime.date, horizon: datetime.date
-    ) -> List[wp.SessionSpec]:
+    ) -> list[wp.SessionSpec]:
         """Convert to specs, dropping anything nonsensical rather than trusting it."""
         valid_kinds = wp.RUN_KINDS | wp.STRENGTH_KINDS | {"rest"}
-        specs: List[wp.SessionSpec] = []
+        specs: list[wp.SessionSpec] = []
         for s in generated.sessions:
             try:
                 date = datetime.date.fromisoformat(s.date)

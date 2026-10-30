@@ -9,8 +9,8 @@ from types import SimpleNamespace
 
 import pytest
 
-import assistant.engine.llm as engine_llm
 import assistant.engine.decompose_validate.stage as validate
+import assistant.engine.llm as engine_llm
 from assistant.engine import load_config
 from assistant.engine.state import EngineState, Item
 
@@ -89,7 +89,7 @@ def test_past_date_bump_old_calendar_day_moves_a_year(cfg):
 
 # --- until_exclusive (row 53) ----------------------------------------------
 
-def _series_dates() -> "tuple[str, str]":
+def _series_dates() -> tuple[str, str]:
     """A start and an end in the FUTURE: a fixed date goes stale and is then
     moved a year by the past-date rule (this pair said Oct 1-6 until 2026-10-07)."""
     start = dt.date.today() + dt.timedelta(days=5)
@@ -578,10 +578,10 @@ def test_a_value_fix_names_the_field_not_the_whole_command():
     carries the values; what the reader cannot otherwise see is which field
     moved.
     """
+    from assistant.actions.calendar.intent import CalendarIntent
     from assistant.engine import load_config
     from assistant.engine.decompose_validate import stage as _dv
     from assistant.engine.state import EngineState, Item
-    from assistant.actions.calendar.intent import CalendarIntent
 
     text = "book gym tomorrow at 7 and remind me to buy milk"
     st = EngineState(raw_text=text, text=text)
@@ -604,10 +604,11 @@ def test_a_new_list_goes_to_general_on_the_deep_path_too():
     from the model, which answers "today" — so "Make a new list of dog
     breeds" landed on Today whenever the command was compound enough to go
     deep, and the ruling held on one track only."""
+    from freezegun import freeze_time
+
     import assistant.engine as engine
     from assistant.engine.state import EngineState
     from assistant.intent import rule_parser as RP
-    from freezegun import freeze_time
 
     RP._ensure_nlp(); RP._ensure_dt()
     cfg = engine.load_config()
@@ -662,8 +663,9 @@ def _todo_lists(text):
 def test_a_todo_is_general_unless_it_is_for_today(text, want):
     """Gil, 2026-10-25: assistant-made to-dos "should always be general unless
     explicitly said for today or tied to a task which is today"."""
-    from assistant.intent import rule_parser as RP
     from freezegun import freeze_time
+
+    from assistant.intent import rule_parser as RP
     RP._ensure_nlp(); RP._ensure_dt()
     with freeze_time("2026-10-25 10:00:00"):
         assert _todo_lists(text) == want
@@ -719,6 +721,7 @@ def test_a_stated_series_end_wins(cfg):
 
 def test_the_judge_does_not_call_a_default_end_invented():
     from types import SimpleNamespace
+
     from assistant.engine.llmjudge.render import _is_derived_end
     assert _is_derived_end("recur_until", SimpleNamespace(series_end_defaulted=True))
     assert not _is_derived_end("recur_until", SimpleNamespace(series_end_defaulted=False))

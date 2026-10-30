@@ -108,6 +108,7 @@ def test_the_date_floor_segmentation_writes_is_not_a_spoken_day():
     morning. It reads the item's spoken source now."""
     import datetime as _dtm
     from types import SimpleNamespace
+
     from assistant.engine.decompose_validate import object_rules as O
 
     class _St:

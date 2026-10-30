@@ -332,6 +332,7 @@ class HostTray(QObject):
             win = HelperWindow(self.helper)
         else:
             from PyQt6.QtWidgets import QDialog, QVBoxLayout
+
             from assistant.host.servers_panel import ServersPanel
             win = QDialog()
             win.setWindowTitle("Servers & logs")
@@ -352,6 +353,7 @@ class HostTray(QObject):
     def open_app(self, name: str, module_args: list | None = None) -> None:
         """Open one of MACalendar's apps: its bundle on a Mac, else its module."""
         import subprocess
+
         from assistant.host.supervisor import ROOT
         app = role_mod.apps_dir() / f"{name}.app"
         if platform.system() == "Darwin" and app.exists():
@@ -371,6 +373,7 @@ class HostTray(QObject):
             sock.disconnectFromServer()
             return
         import subprocess
+
         from assistant.host.supervisor import ROOT
         subprocess.Popen([sys.executable, "-m", "assistant.thinking_hud", "--show"], cwd=str(ROOT))
 
@@ -441,8 +444,9 @@ def main() -> None:
         role_mod.set(want)
         print(f"This computer is now: {want}")
         return
-    from assistant.host.logs import HOST_LOG, install_file_handler
     import logging
+
+    from assistant.host.logs import HOST_LOG, install_file_handler
     logging.basicConfig(level=logging.INFO)
     install_file_handler(HOST_LOG)
     app = QApplication(sys.argv)

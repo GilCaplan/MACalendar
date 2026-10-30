@@ -74,12 +74,13 @@ def main() -> int:
     aggregates_only = a.split == "test"
 
     from freezegun import freeze_time
+
+    from assistant.actions.calendar.categories import classify as _classify
+
     # imports + the recognizer's lazy first-analyze happen OUTSIDE the frozen
     # clock (the main harness's epoch lesson: freezing during warm-up breaks
     # every later date resolution) — only the scoring loop runs frozen.
     from assistant.engine.fastrule.fastrule import FastRule
-    from assistant.actions.calendar.categories import classify as _classify
-    from assistant.actions.todo import tagging as _tagging
     from assistant.intent.rule_parser import RULE_THRESHOLD
     FastRule(RULE_THRESHOLD).run("book gym tomorrow at 7am")   # warm
     with freeze_time(_CLOCK):
@@ -87,7 +88,7 @@ def main() -> int:
         fixture = json.loads(_FIXTURE.read_text())
         task_tag_kw = fixture.get("task_tags", {})
 
-        def _tags_for(title: str) -> "list[str]":
+        def _tags_for(title: str) -> list[str]:
             low = (title or "").lower()
             return sorted(d["name"] for d in task_tag_kw
                           if any(k in low for k in d.get("keywords", ())))

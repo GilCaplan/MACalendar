@@ -10,11 +10,9 @@ months and the task list can be long.
 from __future__ import annotations
 
 import datetime
-from typing import Optional
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (QDialog, QDialogButtonBox, QLineEdit, QListWidget,
-                             QListWidgetItem, QVBoxLayout)
+from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout
 
 #: The window of events offered: a week back (a to-do for something that just
 #: happened) to two months ahead.
@@ -38,12 +36,12 @@ def todo_label(todo: dict) -> str:
 class LinkPickerDialog(QDialog):
     """Pick one row. `chosen_id` is its id, or None if cancelled."""
 
-    def __init__(self, title: str, rows: "list[tuple[int, str]]", parent=None,
+    def __init__(self, title: str, rows: list[tuple[int, str]], parent=None,
                  empty: str = "Nothing to link to") -> None:
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setMinimumSize(420, 420)
-        self.chosen_id: Optional[int] = None
+        self.chosen_id: int | None = None
         lay = QVBoxLayout(self)
         self.filter = QLineEdit()
         self.filter.setObjectName("link_filter")
@@ -85,13 +83,13 @@ class LinkPickerDialog(QDialog):
         self.accept()
 
 
-def event_rows(db, around: Optional[datetime.date] = None) -> "list[tuple[int, str]]":
+def event_rows(db, around: datetime.date | None = None) -> list[tuple[int, str]]:
     today = datetime.date.today()
     lo = min(around or today, today) - datetime.timedelta(days=EVENTS_BACK)
     hi = max(around or today, today) + datetime.timedelta(days=EVENTS_AHEAD)
     return [(int(e["id"]), event_label(e)) for e in db.get_events_between(lo, hi)]
 
 
-def todo_rows(db) -> "list[tuple[int, str]]":
+def todo_rows(db) -> list[tuple[int, str]]:
     return [(int(t["id"]), todo_label(t)) for t in db.get_todos(None)
             if not t.get("linked_event_id")]

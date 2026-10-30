@@ -22,7 +22,10 @@ import time
 import pytest
 
 from assistant.intent.memory import (
-    CommandMemory, FEEDBACK_APPROVED, FEEDBACK_CORRECTED, FEEDBACK_REJECTED,
+    FEEDBACK_APPROVED,
+    FEEDBACK_CORRECTED,
+    FEEDBACK_REJECTED,
+    CommandMemory,
 )
 
 ACTIONS = [("create_event", {"title": "Dentist", "date": "2026-09-10"})]

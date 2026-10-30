@@ -202,14 +202,13 @@ if not _os.path.exists(_os.environ["MACALENDAR_CONFIG"]):
         pass
 
 import json
-import os
 from typing import Any
 from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
 
-from assistant.actions import ActionRegistry, registry as global_registry
+from assistant.actions import registry as global_registry
 from assistant.actions.base import BaseAction, BaseIntent
 from assistant.actions.calendar.intent import CalendarIntent
 from assistant.config import (
@@ -222,7 +221,6 @@ from assistant.config import (
     TTSConfig,
     WhisperConfig,
 )
-
 
 # ---------------------------------------------------------------------------
 # The live API is off limits to the suite
@@ -366,10 +364,10 @@ def reset_voice_receipts():
 # Every real action, captured once at import — before any test empties the
 # shared registry. `@register` fires on a module's FIRST import only, so a
 # fixture that re-imports the module registers nothing the second time round.
-import assistant.actions.calendar   # noqa: E402,F401
-import assistant.actions.todo       # noqa: E402,F401
-import assistant.actions.clarify    # noqa: E402,F401
-import assistant.actions.occasion   # noqa: E402,F401  (Q73)
+import assistant.actions.calendar  # noqa: E402,F401
+import assistant.actions.clarify  # noqa: E402,F401
+import assistant.actions.occasion  # noqa: E402,F401  (Q73)
+import assistant.actions.todo  # noqa: E402,F401
 
 _REAL_ACTIONS = dict(global_registry._actions)
 

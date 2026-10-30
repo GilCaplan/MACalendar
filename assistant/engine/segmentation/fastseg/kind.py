@@ -247,7 +247,7 @@ _GATHERING_RE = re.compile(
     r"|\bsit\s+down\s+with\b", re.I)
 
 
-def _kind_of_path(text: str) -> "tuple[str, str]":
+def _kind_of_path(text: str) -> tuple[str, str]:
     """`_kind_of` with the READER that decided it named — `(kind, path)`.
     `path == "default"` is the catch-all: no reader below matched and the
     answer is `event` because nothing said otherwise (see `fastseg.tag_path`)."""
@@ -310,7 +310,7 @@ def kind_of(text: str) -> str:
     return _enforce_pinned_kinds(_kind_of(text), text)
 
 
-def kind_of_path(text: str) -> "tuple[str, str]":
+def kind_of_path(text: str) -> tuple[str, str]:
     """`kind_of` plus the reader that decided it. A pinned convention that
     MOVED the first reading names itself ("pinned"); otherwise the first
     reading's path stands. Same answer as `kind_of`, always."""

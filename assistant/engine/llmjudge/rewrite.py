@@ -307,7 +307,7 @@ def failed_asks(state) -> str:
     return _tidy(" and ".join(parts))
 
 
-def expand_list(item) -> "list[str] | None":
+def expand_list(item) -> list[str] | None:
     """One clause per listed thing, in the speaker's own words.
 
         "create an event for dentist, haircut and gym"  +  "on friday"
@@ -344,7 +344,7 @@ def _tidy(text: str) -> str:
     return text.strip(" ,.;")
 
 
-def rewrite_for_retry(state, cfg) -> "str | None":
+def rewrite_for_retry(state, cfg) -> str | None:
     """X4 + the findings -> X1', or None when no honest retry exists.
 
     TWO TIERS, deterministic first (Gil, 2026-09-20):
@@ -398,7 +398,7 @@ def rewrite_for_retry(state, cfg) -> "str | None":
     return rewrite_with_model(state, cfg, tried)
 
 
-def _tried(state) -> "set[str]":
+def _tried(state) -> set[str]:
     """Every string segmentation has already been given for this command."""
     out = {(state.raw_text or "").casefold().strip(), (state.text or "").casefold().strip()}
     for fx in getattr(state, "fixes", []) or []:
@@ -437,7 +437,7 @@ def _title_of(item) -> str:
     return (t or item.text or "").strip()
 
 
-def rewrite_with_model(state, cfg, tried: "set[str]") -> "str | None":
+def rewrite_with_model(state, cfg, tried: set[str]) -> str | None:
     """Rounds where the deterministic rewrite has nothing new: the MODEL
     writes X1' as a LIST of asks, and code joins them.
 

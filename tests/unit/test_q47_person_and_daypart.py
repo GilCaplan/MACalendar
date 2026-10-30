@@ -12,8 +12,8 @@ import importlib
 
 import pytest
 
-from assistant.intent.encounter import is_encounter
 from assistant.engine.segmentation.fastseg.kind import kind_of
+from assistant.intent.encounter import is_encounter
 
 FS = importlib.import_module("assistant.engine.segmentation.fastseg.fastseg")
 

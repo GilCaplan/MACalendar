@@ -21,17 +21,28 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-import yaml                                                          # noqa: E402
-from PyQt6.QtCore import QDate, QPoint, Qt                           # noqa: E402
-from PyQt6.QtTest import QTest                                       # noqa: E402
-from PyQt6.QtWidgets import (                                        # noqa: E402
-    QApplication, QCheckBox, QComboBox, QDateEdit, QDateTimeEdit, QLabel, QListWidget,
-    QPushButton, QToolButton, QWidget,
+import yaml  # noqa: E402
+from PyQt6.QtCore import QDate, QPoint, Qt  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import (  # noqa: E402
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QDateEdit,
+    QDateTimeEdit,
+    QLabel,
+    QListWidget,
+    QPushButton,
+    QToolButton,
+    QWidget,
 )
 
-from assistant import observance                                     # noqa: E402
-from tests.unit.test_event_defaults_ui import (                      # noqa: E402,F401
-    _drive, _Window, app, scratch,
+from assistant import observance  # noqa: E402
+from tests.unit.test_event_defaults_ui import (  # noqa: E402,F401
+    _drive,
+    _Window,
+    app,
+    scratch,
 )
 
 SUKKOT_WEEK = (dt.date(2026, 9, 20), dt.date(2026, 10, 3), "Sukkot")

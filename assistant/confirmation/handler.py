@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 import subprocess
-from typing import Optional
 
 from assistant.actions.base import BaseIntent
 from assistant.actions.calendar.intent import CalendarIntent, DeleteEventIntent, UpdateEventIntent
@@ -151,7 +150,7 @@ class ConfirmationHandler:
         )
         return result.returncode == 0 and confirm_button in result.stdout
 
-    def _osascript_editable_field(self, label: str, default: str) -> Optional[str]:
+    def _osascript_editable_field(self, label: str, default: str) -> str | None:
         safe_default = default.replace('"', "'")
         script = (
             f'display dialog "{label}:" '

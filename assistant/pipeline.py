@@ -8,7 +8,7 @@ import os
 import queue
 import threading
 import time
-from typing import Callable, List, Optional
+from collections.abc import Callable
 
 import numpy as _np
 
@@ -77,6 +77,7 @@ def _identity(port: int) -> tuple:
     import json
     import os
     import pathlib as _pl
+
     import requests as _rq
 
     path = _pl.Path(os.environ.get("MACALENDAR_DEVICE_FILE")
@@ -151,21 +152,21 @@ class Pipeline:
         self._trigger_lock = threading.Lock()
         self._phase = STATUS_IDLE  # tracks current stage for button re-press logic
         # Pending session mode: None = no queue, "new" = fresh session, "combine" = append to last transcript
-        self._queued: Optional[str] = None
+        self._queued: str | None = None
         self._last_transcript: str = ""  # retained for combine mode
         self._recording_cancelled = threading.Event()  # set to discard current recording
         self._review_event = threading.Event()        # UI answered the review bar
-        self._review_choice: Optional[str] = None     # "send" | "redo" | "add" | "cancel"
+        self._review_choice: str | None = None     # "send" | "redo" | "add" | "cancel"
         # The engine's transcript gate: when the vocabulary doubts a word, the
         # brain answers needs_edit and this pair carries the dialog's verdict
         # back to the worker thread (same pattern as the review bar).
         self._edit_event = threading.Event()
-        self._edit_text: Optional[str] = None
+        self._edit_text: str | None = None
         # The engine's confirm gate (DEVQA Q9), same pattern again: the brain
         # answers confirm_create with a ready-to-POST proposal, the box's
         # Add / No verdict comes back to the worker thread through this pair.
         self._confirm_event = threading.Event()
-        self._confirm_choice: Optional[bool] = None
+        self._confirm_choice: bool | None = None
         self._last_listen_press: float = 0.0  # monotonic time of last press during STATUS_LISTENING
 
         # The mic's loudness right now (chunk RMS, 0..1), written on the audio
@@ -173,7 +174,7 @@ class Pipeline:
         # one writer, a reader that only paints it.
         self.mic_level: float = 0.0
 
-        self.on_auth_expired: Optional[Callable[[], None]] = None
+        self.on_auth_expired: Callable[[], None] | None = None
         # Set by the UI when the active view changes; used to inject parse context
         self.current_view: str = "month"
 
@@ -365,7 +366,7 @@ class Pipeline:
 
     def _run_pipeline(self, combine: bool = False) -> None:
         t_start = time.perf_counter()
-        from assistant.trace import STT, ERROR
+        from assistant.trace import ERROR, STT
         trace = self._trace_begin()
 
         # 1. Listen
@@ -380,7 +381,7 @@ class Pipeline:
 
         # Stream-checker: transcribe growing buffer every 2.5 s to detect stop words.
         # Cache the last result so we can reuse it and skip the final full transcription.
-        _last_partial: List[str] = ["", 0.0]  # [transcript, timestamp]
+        _last_partial: list[str] = ["", 0.0]  # [transcript, timestamp]
         _stopped_early = [False]               # True when a stop word ended it
         _stream_stop_re = _build_stop_re(self.config.audio.stop_phrases)
 
@@ -741,7 +742,7 @@ class Pipeline:
         transcript: str,
         issue_type: str,
         details: str,
-        extra: "dict | None" = None,
+        extra: dict | None = None,
     ) -> None:
         """Append any failure scenario to DOCUMENTATION/SCENARIO_BUG.md.
 
@@ -780,8 +781,8 @@ class Pipeline:
         transcript: str,
         parse_method: str,
         fast_path_used: bool,
-        actions: "list[str]",
-        result_messages: "list[str]",
+        actions: list[str],
+        result_messages: list[str],
         success: bool = True,
         failure_reason: str = "",
         source: str = "mac",
@@ -848,7 +849,7 @@ class Pipeline:
         self._review_choice = None
         return choice or "send"
 
-    def _await_transcript_edit(self, transcript: str, doubted: list) -> "str | None":
+    def _await_transcript_edit(self, transcript: str, doubted: list) -> str | None:
         """Block on the "check the transcription" dialog. Returns the text to
         run (possibly untouched — that is a confirmation the server counts),
         or None for cancel. A dialog left unanswered cancels: executing a
@@ -864,7 +865,7 @@ class Pipeline:
         self._edit_text = None
         return text if text else None
 
-    def submit_transcript_edit(self, text: "str | None") -> None:
+    def submit_transcript_edit(self, text: str | None) -> None:
         """Called by the UI thread with the dialog's verdict (None = cancel)."""
         self._edit_text = text
         self._edit_event.set()
@@ -886,13 +887,13 @@ class Pipeline:
         self._confirm_choice = None
         return choice
 
-    def submit_create_confirm(self, accept: "bool | None") -> None:
+    def submit_create_confirm(self, accept: bool | None) -> None:
         """Called by the UI thread with the box's verdict (None = declined)."""
         self._confirm_choice = bool(accept)
         self._confirm_event.set()
 
     def _answer_create_confirm(self, token: str, accept: bool,
-                               port: int, key: "str | None") -> dict:
+                               port: int, key: str | None) -> dict:
         """POST the verdict to /voice/confirm. The server owns the creating —
         the GUI must not grow a second create path (the pipeline.py rule)."""
         import json as _json
@@ -960,7 +961,9 @@ class Pipeline:
 # step 1 of every command); this client imports the same helpers for its own
 # recording UX — the streaming stop-word listener and the review bar — so the
 # two can never disagree about what ends a recording.
-from assistant.engine.ingest.repair import (            # noqa: E402
+from assistant.engine.ingest.repair import (  # noqa: E402
     build_stop_re as _build_stop_re,
+)
+from assistant.engine.ingest.repair import (
     strip_stop_keyword as _strip_stop_keyword,
 )

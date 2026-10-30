@@ -116,8 +116,8 @@ def test_the_two_platforms_offer_the_same_presets():
     """The Mac menu and the iOS long-press menu must not drift apart."""
     pytest.importorskip("PyQt6.QtWidgets")
     import re
-    from assistant.calendar_ui.timer_view import TimerCard
 
+    from assistant.calendar_ui.timer_view import TimerCard
     from tests.unit._ios_sources import ios_source
     swift = ios_source("TimerView.swift")
     ios = [int(m) for m in re.findall(r'Preset\(label: "[^"]+", minutes: (\d+)\)', swift)]

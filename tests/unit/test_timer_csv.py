@@ -18,12 +18,12 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-from PyQt6.QtCore import Qt                       # noqa: E402
-from PyQt6.QtTest import QTest                    # noqa: E402
-from PyQt6.QtWidgets import QApplication          # noqa: E402
+from PyQt6.QtCore import Qt  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import QApplication  # noqa: E402
 
 from assistant.calendar_ui import timer_view as tv  # noqa: E402
-from assistant.db import CalendarDB                 # noqa: E402
+from assistant.db import CalendarDB  # noqa: E402
 
 
 @pytest.fixture(scope="module")

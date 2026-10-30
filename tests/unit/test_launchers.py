@@ -16,7 +16,7 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
-def _serve(body: dict) -> "tuple[http.server.HTTPServer, int]":
+def _serve(body: dict) -> tuple[http.server.HTTPServer, int]:
     port = _free_port()
 
     class H(http.server.BaseHTTPRequestHandler):

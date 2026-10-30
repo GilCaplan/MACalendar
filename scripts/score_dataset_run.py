@@ -451,7 +451,7 @@ if __name__ == "__main__":
     main()
 
 
-def load_test_split(path: pathlib.Path = None) -> "set[str]":
+def load_test_split(path: pathlib.Path = None) -> set[str]:
     """The SEALED test texts (Gil, 2026-09-07): 300 stratified rows, never
     mined / trained on / tuned against. Every runner excludes them by
     default; only an explicit --test milestone run may touch them."""
@@ -464,7 +464,7 @@ def load_test_split(path: pathlib.Path = None) -> "set[str]":
         return set()
 
 
-def load_dev100(path: pathlib.Path = None) -> "set[str]":
+def load_dev100(path: pathlib.Path = None) -> set[str]:
     """The dev-100 texts — the FAST ITERATION slice for engine cycles.
 
     Fixed (same rows every cycle, so deltas compare), stratified on

@@ -305,7 +305,7 @@ def test_before_request_is_called_on_every_proxied_call(monkeypatch):
     one failure that must never be quiet, so the repair happens on every
     request rather than only at spawn.
     """
-    from assistant.integrations import process, proxy
+    from assistant.integrations import proxy
 
     calls = []
 

@@ -52,6 +52,7 @@ import csv
 import pathlib
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
@@ -75,7 +76,7 @@ def _style(slice_name: str) -> str:
     return "tuning"
 
 
-def _segments(rows) -> "list[list[int]]":
+def _segments(rows) -> list[list[int]]:
     """Row indices grouped into runs that may be JOINED BY A LINE.
 
     Same era and same slice, in run order. Anything else is a different
@@ -83,13 +84,13 @@ def _segments(rows) -> "list[list[int]]":
     confirms finally read as a trajectory of their own (76.0 -> 78.0 -> 78.5)
     instead of as three interruptions in someone else's line.
     """
-    groups: "dict[tuple, list[int]]" = {}
+    groups: dict[tuple, list[int]] = {}
     for i, r in enumerate(rows):
         groups.setdefault((r.get("era", ""), r["slice"]), []).append(i)
     return list(groups.values())
 
 
-def _boundaries(rows) -> "list[float]":
+def _boundaries(rows) -> list[float]:
     """x positions where the era changes — read from the data, not hardcoded."""
     out = []
     for prev, cur in zip(rows, rows[1:]):

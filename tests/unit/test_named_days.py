@@ -191,7 +191,8 @@ def test_pretag_makes_known_words_nouns():
 
 
 def test_pretag_reads_the_users_vocabulary(monkeypatch):
-    from assistant.intent import pretag, rule_parser as rp
+    from assistant.intent import pretag
+    from assistant.intent import rule_parser as rp
     rp._ensure_nlp()
     monkeypatch.setattr(pretag, "_vocab_words", lambda: frozenset({"zorblat"}))
     doc = rp._NLP("zorblat tomorrow at 5pm")
@@ -202,6 +203,7 @@ def test_pretag_loads_a_real_vocabulary_file(tmp_path, monkeypatch):
     # the loader swallows errors (no vocabulary is no reason to fail a parse),
     # so a broken read shows up only as an EMPTY list — pin that it is not
     import json
+
     from assistant.intent import pretag
     from assistant.stt import vocab as v
     f = tmp_path / "vocab.json"

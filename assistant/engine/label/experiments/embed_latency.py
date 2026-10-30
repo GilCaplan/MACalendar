@@ -22,7 +22,6 @@ short, it competes with the assistant while it runs.
 """
 from __future__ import annotations
 
-import os
 import pathlib
 import tempfile
 
@@ -32,17 +31,18 @@ _S = pathlib.Path(scratch_env(
     "embed_latency_", keep=("LOCATION", "HEARTBEATS", "HUD_STATE",
                             "DEVICE_SECRET", "DEVICES")))
 
-import argparse      # noqa: E402
-import json          # noqa: E402
-import time          # noqa: E402
+import argparse  # noqa: E402
+import json  # noqa: E402
+import time  # noqa: E402
 
-import numpy as np   # noqa: E402
+import numpy as np  # noqa: E402
 
 STAGE = pathlib.Path(__file__).resolve().parents[1]
 
 
 def _unload(url: str) -> None:
     import urllib.request
+
     from assistant import model_protocol
     from assistant.engine.label import embed as E
     body = json.dumps({"model": E.MODEL, "input": [], "keep_alive": 0}).encode()

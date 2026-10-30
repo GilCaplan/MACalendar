@@ -10,13 +10,12 @@ import sys
 # Register action plugins — add new `import assistant.actions.<name>` lines
 # here to activate additional plugins.
 # ---------------------------------------------------------------------------
-import assistant.actions.calendar         # noqa: F401, PLC0415  registers CreateEventAction
-import assistant.actions.todo             # noqa: F401, PLC0415  registers todo actions
-import assistant.actions.clarify          # noqa: F401, PLC0415  registers ClarifyAction
-import assistant.actions.workout_routine  # noqa: F401, PLC0415  registers GenerateWorkoutRoutineAction
-import assistant.actions.schedule_workout  # noqa: F401, PLC0415  registers ScheduleWorkoutAction
+import assistant.actions.calendar  # noqa: F401, PLC0415  registers CreateEventAction
+import assistant.actions.clarify  # noqa: F401, PLC0415  registers ClarifyAction
 import assistant.actions.occasion  # noqa: F401, PLC0415  registers AddOccasionAction (Q73)
-
+import assistant.actions.schedule_workout  # noqa: F401, PLC0415  registers ScheduleWorkoutAction
+import assistant.actions.todo  # noqa: F401, PLC0415  registers todo actions
+import assistant.actions.workout_routine  # noqa: F401, PLC0415  registers GenerateWorkoutRoutineAction
 from assistant.actions import registry
 from assistant.calendar_ui.window import CalendarWindow
 from assistant.config import load_config
@@ -104,8 +103,8 @@ def main() -> None:
     # Who is using the calendar (DEVQA Q65). The saved session if it is still
     # live, else the sign-in window; cancelling it quits. Before the users
     # migration there is nobody to sign in and this is a no-op.
-    from assistant.users import registry as _registry
     from assistant.calendar_ui.users_dialogs import sign_in
+    from assistant.users import registry as _registry
     if _registry.exists() and sign_in() is None:
         logger.info("Sign-in cancelled — not opening the calendar")
         sys.exit(0)

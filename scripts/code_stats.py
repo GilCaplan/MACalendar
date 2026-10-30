@@ -93,7 +93,7 @@ JUDGEMENT_CALLS = [
 ]
 
 
-def category(f: str) -> "str | None":
+def category(f: str) -> str | None:
     if f in REVIEW_PANEL or f.endswith("Views/ThinkingView.swift"):
         return C_PANEL
     if f.startswith("tests/"):
@@ -132,7 +132,7 @@ def category(f: str) -> "str | None":
 
 # --- counting --------------------------------------------------------------
 
-def tracked() -> "list[str]":
+def tracked() -> list[str]:
     out = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT,
                          capture_output=True, text=True, check=True).stdout
     return [f for f in out.split("\0") if f]
@@ -149,7 +149,7 @@ def lines(path: str) -> int:
 def collect() -> dict:
     by_cat: dict = collections.defaultdict(lambda: [0, 0])
     by_ext: dict = collections.defaultdict(lambda: [0, 0])
-    loose: "list[str]" = []
+    loose: list[str] = []
     data = [0, 0]
     prose = [0, 0]
 
@@ -253,7 +253,7 @@ def render(s: dict) -> str:
     return "\n".join(out)
 
 
-def written_stamp() -> "dict | None":
+def written_stamp() -> dict | None:
     try:
         with open(OUT, encoding="utf-8") as fh:
             m = STAMP_RE.search(fh.read())
@@ -262,7 +262,7 @@ def written_stamp() -> "dict | None":
     return json.loads(m.group(1)) if m else None
 
 
-def drift(s: dict) -> "tuple[float, dict | None]":
+def drift(s: dict) -> tuple[float, dict | None]:
     """(percent the written doc is off by, what it claims). inf if missing."""
     was = written_stamp()
     if not was or not s["total_lines"]:
@@ -310,7 +310,7 @@ def install_hook(remove: bool = False) -> int:
     return 0
 
 
-def main(argv: "list[str]") -> int:
+def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--write", action="store_true", help="rewrite CODE_SIZE.md")
     ap.add_argument("--check", action="store_true",

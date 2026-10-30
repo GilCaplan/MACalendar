@@ -45,7 +45,7 @@ def _load_config(path: str):
     return None
 
 
-def main(argv: "list[str] | None" = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Jude — Judaic study assistant")
     parser.add_argument("--config", default="config.yaml")
     args = parser.parse_args(argv)

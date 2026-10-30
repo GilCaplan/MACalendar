@@ -361,6 +361,7 @@ def test_the_series_default_ends_ship_and_are_bounded(tmp_path, monkeypatch):
     10 years, in config.example.yaml; PATCH /config refuses a value outside a
     setting's bounds before writing anything."""
     import yaml
+
     from assistant.config import SERIES_END_BOUNDS
     shipped = yaml.safe_load(open("config.example.yaml"))["events"]
     assert {k: shipped[k] for k in SERIES_END_BOUNDS} == {k: d for k, (d, _t) in SERIES_END_BOUNDS.items()}

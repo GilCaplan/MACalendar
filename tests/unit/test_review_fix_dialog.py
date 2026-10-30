@@ -10,11 +10,11 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-from PyQt6.QtCore import Qt                                           # noqa: E402
-from PyQt6.QtTest import QTest                                        # noqa: E402
-from PyQt6.QtWidgets import QApplication, QDialogButtonBox            # noqa: E402
+from PyQt6.QtCore import Qt  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import QApplication, QDialogButtonBox  # noqa: E402
 
-import assistant.engine as engine                                     # noqa: E402
+import assistant.engine as engine  # noqa: E402
 
 
 @pytest.fixture(scope="module")

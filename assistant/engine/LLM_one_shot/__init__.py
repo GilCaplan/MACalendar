@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import logging
+
 from assistant import clock as _clock  # the moment the command was SAID
 
 logger = logging.getLogger(__name__)
@@ -140,7 +141,7 @@ def _clock(value):
     return None
 
 
-def build_objects(text: str, cfg) -> "tuple[list, int]":
+def build_objects(text: str, cfg) -> tuple[list, int]:
     """The single call. Returns ([(action_name, intent)], llm_ms)."""
     from assistant.engine import llm as _llm
 
@@ -158,9 +159,12 @@ def _to_intents(objects: list, today) -> list:
     what one call gets right; quietly fixing its output would measure the fixer.
     """
     from assistant.actions.calendar.intent import (
-        CalendarIntent, DeleteEventIntent, QueryScheduleIntent, UpdateEventIntent)
-    from assistant.actions.todo.intent import (
-        CompleteTodoIntent, CreateTodoIntent, DeleteTodoIntent, QueryTodoIntent)
+        CalendarIntent,
+        DeleteEventIntent,
+        QueryScheduleIntent,
+        UpdateEventIntent,
+    )
+    from assistant.actions.todo.intent import CompleteTodoIntent, CreateTodoIntent, DeleteTodoIntent, QueryTodoIntent
 
     pairs = []
     for o in objects:

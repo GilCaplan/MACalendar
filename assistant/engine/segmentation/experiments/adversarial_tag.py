@@ -78,7 +78,7 @@ from assistant.common.scratch_env import scratch_env  # noqa: E402
 scratch_env("adv_", keep=("LOCATION", "MODELS", "LABEL_FEEDBACK", "HEARTBEATS",
                           "HUD_STATE", "DEVICE_SECRET", "DEVICES"))
 
-from assistant.engine.segmentation.fastseg.fastseg import fastseg              # noqa: E402
+from assistant.engine.segmentation.fastseg.fastseg import fastseg  # noqa: E402
 
 # (text, expected item count, [expected tags in order], known-wrong?)
 # `expected` is my own judgment call against SPEC.md's conventions, not gold

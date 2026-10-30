@@ -19,12 +19,12 @@ never touches the gold.
 from __future__ import annotations
 
 import argparse
+import collections
 import datetime as dt
+import hashlib
 import json
 import os
 import random
-import collections
-import hashlib
 import re
 import sys
 
@@ -36,7 +36,7 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 from assistant.engine.decompose_validate.datasets import normalization as N  # noqa: E402
-from assistant.engine.segmentation.experiments import generate as SEG        # noqa: E402
+from assistant.engine.segmentation.experiments import generate as SEG  # noqa: E402
 
 #: The ORIGINAL families' banks, read-only. Editing this file would reshuffle
 #: FastRule's own 7,200-row split (see engine/TRAIN_TEST_SPLIT_CONVENTION.md) and
@@ -160,7 +160,7 @@ def _incoherent(item: dict) -> bool:
     return False
 
 
-def _gold_item(spec: dict, binding: dict, anchor: dt.date, transcript: str = "") -> "dict | None":
+def _gold_item(spec: dict, binding: dict, anchor: dt.date, transcript: str = "") -> dict | None:
     """One derived item + its fillers -> the COMPLETE gold item.
 
     Returns None when any slot this item uses is AMBIGUOUS — the row is then
@@ -434,7 +434,7 @@ def main() -> None:
     print(f"   test   {by_split['test']:5d} rows   {fam_counts['test']:4d} families"
           f"   ({100 * by_split['test'] / max(1, len(rows)):.1f}% of rows)")
     print(f"   items:   {sum(len(r['gold']) for r in rows)}")
-    print(f"   leaked families: 0 (asserted in build)")
+    print("   leaked families: 0 (asserted in build)")
     # A DRIFT GUARD between runs, not a proof about the pre-growth set: it
     # compares against whatever generated.jsonl currently holds, so once written
     # it is comparing the file to itself. The one-time pre-growth comparison

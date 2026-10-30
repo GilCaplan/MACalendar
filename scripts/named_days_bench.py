@@ -47,7 +47,8 @@ TODAY = datetime.date(2026, 9, 29)
 def _next_hebrew(month: int, day: int, frm: datetime.date = TODAY) -> datetime.date:
     """The first civil day on/after ``frm`` whose Hebrew date is (month, day);
     a plain Adar (12) in a leap year is matched in Adar II (13)."""
-    from pyluach import dates as _hd, hebrewcal
+    from pyluach import dates as _hd
+    from pyluach import hebrewcal
     d = frm
     for _ in range(3 * 385):
         h = _hd.HebrewDate.from_pydate(d)
@@ -60,7 +61,7 @@ def _next_hebrew(month: int, day: int, frm: datetime.date = TODAY) -> datetime.d
     raise ValueError((month, day))
 
 
-def _phrases() -> "list[tuple[str, datetime.date, str]]":
+def _phrases() -> list[tuple[str, datetime.date, str]]:
     """(phrase, expected date, shape) — the lead word is part of the phrase."""
     one = datetime.timedelta(days=1)
     out = []
@@ -120,9 +121,9 @@ _FRAMES = [
 
 
 def positive() -> dict:
-    from assistant.intent.rule_parser import _extract_temporal
-    from assistant.engine.segmentation.fastseg.fastseg import find_time_refs
     from assistant.engine.decompose_validate.resolve import resolve_date
+    from assistant.engine.segmentation.fastseg.fastseg import find_time_refs
+    from assistant.intent.rule_parser import _extract_temporal
     rows = [(f.format(p=p), want, shape) for p, want, shape in _phrases() for f in _FRAMES]
     score = {"fast": {}, "deep": {}}
     wrong = {"fast": [], "deep": []}
@@ -150,7 +151,7 @@ def positive() -> dict:
             "score": score, "wrong": wrong}
 
 
-def _corpora() -> "dict[str, list[str]]":
+def _corpora() -> dict[str, list[str]]:
     out = {}
     rows = [json.loads(l) for l in open(
         ROOT / "assistant/engine/fastrule/datasets/fastrule_7200.jsonl")]

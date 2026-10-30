@@ -99,7 +99,7 @@ def stack_running() -> list[str]:
     return alive
 
 
-def plan(root: "str | None" = None) -> dict:
+def plan(root: str | None = None) -> dict:
     """What `apply` would do, touching nothing."""
     root = root or paths.root()
     return {"root": root, "already_migrated": registry.exists(),

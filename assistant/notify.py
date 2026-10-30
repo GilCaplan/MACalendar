@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import datetime
 import logging
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +38,7 @@ _MAX_RUN = 4
 # Lead-time resolution
 # --------------------------------------------------------------------------
 
-def resolve_lead(event: dict, cfg) -> "tuple[Optional[int], str]":
+def resolve_lead(event: dict, cfg) -> tuple[int | None, str]:
     """(minutes, source) — minutes None means 'no reminder', and source says
     which rung of the chain decided (event_off / event / category_muted /
     category / default / default_off)."""
@@ -64,7 +63,7 @@ def _holy(d: datetime.date) -> bool:
     return ob.is_shabbat(d) or ob.is_yom_tov(d)
 
 
-def _window_end(d: datetime.date) -> "Optional[datetime.datetime]":
+def _window_end(d: datetime.date) -> datetime.datetime | None:
     """End (tzeit of the last consecutive holy day) of the window containing
     holy day `d`; None when solar data is unavailable (fail open)."""
     from assistant import observance as ob
@@ -78,7 +77,7 @@ def _window_end(d: datetime.date) -> "Optional[datetime.datetime]":
     return datetime.datetime.combine(last, t) if t else None
 
 
-def quiet_window_end(moment: datetime.datetime) -> "Optional[datetime.datetime]":
+def quiet_window_end(moment: datetime.datetime) -> datetime.datetime | None:
     """When `moment` falls inside a Shabbat/yom-tov window, the window's end;
     else None. Sundown-bounded: erev evenings count from candle lighting,
     the last day releases at tzeit. Any missing solar datum ⇒ None."""
@@ -105,7 +104,7 @@ def quiet_window_end(moment: datetime.datetime) -> "Optional[datetime.datetime]"
 # The verdict
 # --------------------------------------------------------------------------
 
-def notify_verdict(event: dict, cfg) -> "tuple[Optional[str], Optional[str]]":
+def notify_verdict(event: dict, cfg) -> tuple[str | None, str | None]:
     """(notify_at ISO local datetime | None, suppressed_reason | None)."""
     if not getattr(cfg, "enabled", True):
         return None, None
@@ -146,7 +145,7 @@ def notify_verdict(event: dict, cfg) -> "tuple[Optional[str], Optional[str]]":
     return fire.isoformat(timespec="minutes"), None
 
 
-def annotate(rows: "list[dict]", cfg=None) -> "list[dict]":
+def annotate(rows: list[dict], cfg=None) -> list[dict]:
     """Add reminder_minutes/notify_at/notify_suppressed_reason to event
     payloads — the serialization hook GET /events* runs every row through."""
     if cfg is None:
@@ -184,7 +183,7 @@ def annotate(rows: "list[dict]", cfg=None) -> "list[dict]":
 _ALL_DAY = "00:00"
 
 
-def digest_time(cfg) -> "Optional[datetime.time]":
+def digest_time(cfg) -> datetime.time | None:
     """The configured local fire time, or None if it is unreadable.
 
     Unreadable rather than invalid-and-crash: this is read on a daemon
@@ -200,7 +199,7 @@ def digest_time(cfg) -> "Optional[datetime.time]":
         return None
 
 
-def digest_verdict(day: datetime.date, cfg) -> "tuple[Optional[str], Optional[str]]":
+def digest_verdict(day: datetime.date, cfg) -> tuple[str | None, str | None]:
     """(fires_at ISO local datetime | None, suppressed_reason | None).
 
     Suppressed inside a Shabbat / yom tov window, on the same ruling that
@@ -224,7 +223,7 @@ def digest_verdict(day: datetime.date, cfg) -> "tuple[Optional[str], Optional[st
     return fire.isoformat(timespec="minutes"), None
 
 
-def _clock(value: "Optional[str]") -> str:
+def _clock(value: str | None) -> str:
     """"14:30" -> "2:30 PM"; anything unparseable stays as it came."""
     try:
         hh, mm = (int(x) for x in str(value).split(":")[:2])
@@ -233,7 +232,7 @@ def _clock(value: "Optional[str]") -> str:
         return str(value or "")
 
 
-def digest_lines(events: "list[dict]", todos: "list[dict]") -> "tuple[list[str], list[str]]":
+def digest_lines(events: list[dict], todos: list[dict]) -> tuple[list[str], list[str]]:
     """(event lines, task lines) — the day, in the order it happens.
 
     All-day rows first, then by clock, because that is the order the day is

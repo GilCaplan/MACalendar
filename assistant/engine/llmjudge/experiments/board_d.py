@@ -182,13 +182,14 @@ def main() -> int:
             a.checkpoint = "board_d_test"
 
     from freezegun import freeze_time
+
     import assistant.engine as engine
     from assistant.engine import llm as _llm
-    from assistant.engine.llmjudge import rewrite as _rw
-    from assistant.engine.state import EngineState
-    from assistant.engine.llmjudge.datasets.generate import CLOCK
-    from assistant.engine.fastrule import fast_track as _fast_track
     from assistant.engine.decompose_validate import stage as _dv_stage
+    from assistant.engine.fastrule import fast_track as _fast_track
+    from assistant.engine.llmjudge import rewrite as _rw
+    from assistant.engine.llmjudge.datasets.generate import CLOCK
+    from assistant.engine.state import EngineState
 
     cfg = engine.load_config()
     try:
@@ -221,7 +222,7 @@ def main() -> int:
 
     last: dict = {}
 
-    def _run_one(row) -> "tuple":
+    def _run_one(row) -> tuple:
         """(outcome, re-entries, milliseconds) — the extra two are what v2
         breaks the net down by: how often the loop RAN, and what it cost."""
         st = EngineState(raw_text=row["text"], text=row["text"], source="test")

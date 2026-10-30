@@ -47,7 +47,7 @@ MODEL = "nomic-embed-text"
 PREFIX = "classification: "
 DEFAULT_URL = "http://localhost:11434"
 #: Set from `ollama.base_url` by the shipped entry points (`model._use_configured_ollama`).
-BASE_URL: "str | None" = None
+BASE_URL: str | None = None
 #: One title at commit time. Warm calls measure in tens of milliseconds; this
 #: bounds a cold model load, after which the n-gram model answers instead.
 TIMEOUT_S = 3.0
@@ -61,7 +61,7 @@ LRU_SIZE = 4096
 KEEP_ALIVE = "30m"
 
 _lock = threading.Lock()
-_lru: "collections.OrderedDict[str, np.ndarray]" = collections.OrderedDict()
+_lru: collections.OrderedDict[str, np.ndarray] = collections.OrderedDict()
 _down_until = 0.0
 
 
@@ -83,7 +83,7 @@ def _unit(v) -> np.ndarray:
     return a / n if n > 0 else a
 
 
-def _post(texts: "list[str]", base_url: str, timeout: float) -> "list | None":
+def _post(texts: list[str], base_url: str, timeout: float) -> list | None:
     """The door. Returns the raw vectors or None; never raises."""
     from assistant import model_protocol
     body = {"model": MODEL, "keep_alive": KEEP_ALIVE,
@@ -108,8 +108,8 @@ def _post(texts: "list[str]", base_url: str, timeout: float) -> "list | None":
     return got
 
 
-def vectors(texts, base_url: "str | None" = None,
-            timeout: float = BATCH_TIMEOUT_S, batch: int = 64) -> "np.ndarray | None":
+def vectors(texts, base_url: str | None = None,
+            timeout: float = BATCH_TIMEOUT_S, batch: int = 64) -> np.ndarray | None:
     """Unit vectors for `texts`, one row each, or None if ANY could not be had.
     Cached rows are not re-sent."""
     global _down_until
@@ -150,8 +150,8 @@ def vectors(texts, base_url: "str | None" = None,
     return np.vstack(out)
 
 
-def vector(text: str, base_url: "str | None" = None,
-           timeout: float = TIMEOUT_S) -> "np.ndarray | None":
+def vector(text: str, base_url: str | None = None,
+           timeout: float = TIMEOUT_S) -> np.ndarray | None:
     """One title's unit vector, or None. The commit-time call."""
     if not (text or "").strip():
         return None
@@ -159,7 +159,7 @@ def vector(text: str, base_url: "str | None" = None,
     return None if got is None else got[0]
 
 
-def vectors_cached_on_disk(texts, path, base_url: "str | None" = None) -> "np.ndarray | None":
+def vectors_cached_on_disk(texts, path, base_url: str | None = None) -> np.ndarray | None:
     """`vectors`, backed by a JSONL cache on disk — the TRAINER's entry point.
     Refitting embeds ~12,000 generated rows; a rerun should not pay that again.
     One batch per line, flushed and fsynced, so a crash costs the batch in flight."""

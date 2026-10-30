@@ -182,7 +182,7 @@ def is_bare_title(title: str) -> bool:
     return len(words) == 1 and words[0].strip(".,!") in _BARE_TITLES
 
 
-def hint(code: str) -> "dict | None":
+def hint(code: str) -> dict | None:
     """The reply-shaped hint for `code`: {code, headline, body}, or None."""
     got = HINTS.get(code)
     if not got:

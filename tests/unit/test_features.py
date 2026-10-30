@@ -223,6 +223,7 @@ def _ios_features():
     `Features/` in the same change that created it.
     """
     import re
+
     from tests.unit._ios_sources import ios_source
 
     source = ios_source("FeatureRegistry.swift")
@@ -358,6 +359,7 @@ def test_the_visibility_merge_has_no_suspension_point_in_its_critical_section():
     looks wrong.
     """
     import re
+
     from tests.unit._ios_sources import ios_source
     src = ios_source("FeatureRegistry.swift")
     start = src.index("    func refresh(api: APIClient) async {")

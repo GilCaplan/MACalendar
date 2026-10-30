@@ -152,8 +152,7 @@ def test_the_mutate_words_and_their_pattern_cannot_drift(fresh_store):
     It was a hand-typed regex beside a hand-typed set, which is precisely how
     "shorten" went missing from one while the other had known it for weeks.
     """
-    from assistant.engine.decompose_validate.object_rules import (
-        _MUTATE_VERB, _MUTATE_VERBS)
+    from assistant.engine.decompose_validate.object_rules import _MUTATE_VERB, _MUTATE_VERBS
     for word in _MUTATE_VERBS:
         assert _MUTATE_VERB.search(word), f"{word!r} is in the list but not the pattern"
 

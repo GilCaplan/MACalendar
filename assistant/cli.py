@@ -52,7 +52,7 @@ def _base_url() -> str:
     return f"http://127.0.0.1:{port}"
 
 
-def _api_key() -> "str | None":
+def _api_key() -> str | None:
     try:
         from assistant.api.server import load_config
         return getattr(load_config().api, "key", None) or None
@@ -158,8 +158,8 @@ def check_llm() -> Check:
 def check_storage() -> Check:
     """Layer 2 — the DB files and the trace log."""
     c = Check("storage — databases and the trace log")
-    from assistant.db import get_db
     from assistant import trace_bus
+    from assistant.db import get_db
     try:
         db = get_db()
         tables = db.table_names()
@@ -312,7 +312,7 @@ def check_engine(deep: bool = False) -> Check:
 def check_panel() -> Check:
     """Layer 4 — the thinking HUD (review panel)."""
     c = Check("panel — the thinking HUD (review panel)")
-    from assistant.heartbeat import last_seen, FRESH_SECONDS
+    from assistant.heartbeat import FRESH_SECONDS, last_seen
     hb = last_seen("hud")
     if hb is None:
         c.add(False, "HUD has never beaten — not running (start: python -m assistant.thinking_hud)")
@@ -329,7 +329,7 @@ def check_panel() -> Check:
 def check_macos() -> Check:
     """Layer 5 — the calendar GUI, and hosted-calendar sync if configured."""
     c = Check("macos — the calendar app and hosted-calendar sync")
-    from assistant.heartbeat import last_seen, FRESH_SECONDS
+    from assistant.heartbeat import FRESH_SECONDS, last_seen
     hb = last_seen("gui")
     if hb is None:
         c.add(False, "calendar GUI has never beaten — not running (start: python -m assistant.main)")
@@ -354,8 +354,9 @@ def check_macos() -> Check:
 def check_external() -> Check:
     """Layer 6 — the phone / other clients, and API reachability to them."""
     c = Check("external — phone / other devices")
-    from assistant.heartbeat import last_seen, FRESH_SECONDS
     import glob
+
+    from assistant.heartbeat import FRESH_SECONDS, last_seen
     beats = []
     hb_dir = os.environ.get("MACALENDAR_HEARTBEATS") or os.path.expanduser("~/.assistant_tools/heartbeats")
     for f in glob.glob(os.path.join(hb_dir, "client-*.json")):
@@ -458,7 +459,7 @@ def cmd_endpoints(args) -> int:
     return 0
 
 
-def main(argv: "list[str] | None" = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="assistant", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)

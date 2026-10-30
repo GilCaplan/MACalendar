@@ -17,7 +17,11 @@ from html import escape as _escape
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
-    QHBoxLayout, QLabel, QMainWindow, QVBoxLayout, QWidget,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QVBoxLayout,
+    QWidget,
 )
 
 from assistant.calendar_ui import styles as _styles
@@ -45,7 +49,7 @@ class JudeWindow(QMainWindow):
         self._config = config
         self._dark = (getattr(config, "theme", "dark") == "dark")
         self._theme = Theme(self._dark)
-        self._chat_id: "str | None" = None
+        self._chat_id: str | None = None
         self._prompt = ""                  # the question currently being answered
         self._meta: dict = {}
         self._tool_calls: list = []

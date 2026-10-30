@@ -18,7 +18,11 @@ everything is wired but not working.
 
 Deterministic stages only -- no LLM anywhere in the path.
 """
-import collections, json, os, pathlib, random, sys
+import collections
+import json
+import os
+import pathlib
+import random
 
 from assistant.common.scratch_env import scratch_env
 
@@ -31,11 +35,12 @@ S = pathlib.Path(scratch_env(
 STAGE = pathlib.Path(__file__).resolve().parents[1]
 DATA = STAGE / "datasets" / "fastrule_7200.jsonl"
 
-import assistant.engine as engine
-from assistant.engine.state import EngineState
-from assistant.engine.fastrule.build import Built, Defer, build
-from assistant.engine.fastrule.experiments.fastrule_shape import _CLOCK
 from freezegun import freeze_time
+
+import assistant.engine as engine
+from assistant.engine.fastrule.build import Built, build
+from assistant.engine.fastrule.experiments.fastrule_shape import _CLOCK
+from assistant.engine.state import EngineState
 
 N = int(os.environ.get("B3_N", "600"))
 

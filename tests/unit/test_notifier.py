@@ -50,7 +50,7 @@ def bus(tmp_path, monkeypatch) -> str:
 
 
 def _seed(db: CalendarDB, title: str, date: str, start: str, end: str,
-          reminder: "int | None" = None, location: str = "") -> int:
+          reminder: int | None = None, location: str = "") -> int:
     return db.create_event_from_dict({
         "title": title, "date": date, "start_time": start, "end_time": end,
         "attendees": "", "location": location, "description": "",

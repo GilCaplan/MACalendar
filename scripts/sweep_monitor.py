@@ -42,7 +42,7 @@ def _md5(p: pathlib.Path) -> str:
     return h.hexdigest()
 
 
-def _snapshot(src: pathlib.Path, dst: pathlib.Path) -> "int | None":
+def _snapshot(src: pathlib.Path, dst: pathlib.Path) -> int | None:
     """Consistent copy of a possibly-live SQLite db. Returns the row count."""
     try:
         with sqlite3.connect(f"file:{src}?mode=ro", uri=True) as s:

@@ -618,7 +618,7 @@ def _score_personas(db_path: pathlib.Path, rows: list) -> dict:
             "by_compound_kind": {}}
 
 
-def _score(result: dict, rows: "list | None" = None) -> dict:
+def _score(result: dict, rows: list | None = None) -> dict:
     """Grade a checkpoint's run with TODAY's scorer.
 
     The whole point of the sweep: score_db opens the run DB read-only and

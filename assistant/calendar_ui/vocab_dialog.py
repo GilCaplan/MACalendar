@@ -13,9 +13,22 @@ import json
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QCheckBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout,
-    QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
-    QPushButton, QTabWidget, QTextEdit, QVBoxLayout, QWidget,
+    QCheckBox,
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
 
 from assistant.calendar_ui import icons
@@ -57,8 +70,8 @@ class VocabDialog(QDialog):
         self._pipeline = pipeline
         self.setWindowTitle("Vocabulary & Assistant Log")
         self.setMinimumSize(620, 520)
-        from assistant.stt.vocab import get_vocab
         from assistant.intent.memory import get_memory
+        from assistant.stt.vocab import get_vocab
         self._vocab = get_vocab()
         self._memory = get_memory()
 
@@ -297,6 +310,7 @@ class VocabDialog(QDialog):
     def _run_interview(self) -> None:
         """First-run vocabulary interview: one prompt per question, then presets."""
         from PyQt6.QtWidgets import QInputDialog
+
         from assistant.stt import vocab_onboarding as ob
         answers: dict[str, list[str]] = {}
         for q in ob.QUESTIONS:
@@ -318,7 +332,8 @@ class VocabDialog(QDialog):
         self._refresh_vocab()
 
     def _import_file(self) -> None:
-        from PyQt6.QtWidgets import QFileDialog, QDialogButtonBox
+        from PyQt6.QtWidgets import QDialogButtonBox, QFileDialog
+
         from assistant.stt import vocab_import
         QMessageBox.information(
             self, "Import words",

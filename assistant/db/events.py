@@ -5,7 +5,6 @@ from __future__ import annotations
 import datetime
 import logging
 import sqlite3
-from typing import List, Optional
 
 from assistant.actions.calendar.intent import CalendarIntent
 from assistant.common.wordlists import WEEKDAY_INDEX as _WEEKDAY_NUM
@@ -42,7 +41,7 @@ class EventsMixin:
     # Create
     # ------------------------------------------------------------------
 
-    def create_event(self, intent: CalendarIntent, color: "str | None" = None) -> int:
+    def create_event(self, intent: CalendarIntent, color: str | None = None) -> int:
         """Insert a single event (or first instance of a series). Returns new row id.
 
         `color=None` means CHOOSE BY CATEGORY, and it is the default because
@@ -211,7 +210,7 @@ class EventsMixin:
             count += 1
 
     def find_duplicate_event(self, title: str, date: str, start_time: str,
-                             recurrence: str = "") -> "dict | None":
+                             recurrence: str = "") -> dict | None:
         """The event this one would duplicate, or None: same title (case and
         spacing aside), same day, same start, same repeat.
 
@@ -312,7 +311,7 @@ class EventsMixin:
     # Read
     # ------------------------------------------------------------------
 
-    def get_events_for_month(self, year: int, month: int) -> List[dict]:
+    def get_events_for_month(self, year: int, month: int) -> list[dict]:
         """Return all events whose date falls in the given month."""
         prefix = f"{year:04d}-{month:02d}"
         with self._conn() as conn:
@@ -322,7 +321,7 @@ class EventsMixin:
             ).fetchall()
         return [dict(r) for r in rows]
 
-    def get_events_for_week(self, start_date: datetime.date) -> List[dict]:
+    def get_events_for_week(self, start_date: datetime.date) -> list[dict]:
         """Return events for the 7 days starting from start_date."""
         end_date = start_date + datetime.timedelta(days=6)
         with self._conn() as conn:
@@ -332,7 +331,7 @@ class EventsMixin:
             ).fetchall()
         return [dict(r) for r in rows]
 
-    def get_events_for_day(self, date: datetime.date) -> List[dict]:
+    def get_events_for_day(self, date: datetime.date) -> list[dict]:
         with self._conn() as conn:
             rows = conn.execute(
                 "SELECT * FROM events WHERE date = ? ORDER BY start_time",
@@ -340,7 +339,7 @@ class EventsMixin:
             ).fetchall()
         return [dict(r) for r in rows]
 
-    def get_events_between(self, start: datetime.date, end: datetime.date) -> List[dict]:
+    def get_events_between(self, start: datetime.date, end: datetime.date) -> list[dict]:
         """Every event from `start` to `end` inclusive, in time order."""
         with self._conn() as conn:
             rows = conn.execute(
@@ -349,12 +348,12 @@ class EventsMixin:
             ).fetchall()
         return [dict(r) for r in rows]
 
-    def get_event(self, event_id: int) -> Optional[dict]:
+    def get_event(self, event_id: int) -> dict | None:
         with self._conn() as conn:
             row = conn.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
         return dict(row) if row else None
 
-    def search_events(self, q: str, limit: int = 50) -> List[dict]:
+    def search_events(self, q: str, limit: int = 50) -> list[dict]:
         """Substring match over title/location/description, soonest first."""
         like = f"%{q}%"
         with self._conn() as conn:
@@ -385,7 +384,7 @@ class EventsMixin:
                 (event_id, fires_at)).fetchone()
         return row is not None
 
-    def find_events_at(self, date: str = "", start_time: str = "") -> List[dict]:
+    def find_events_at(self, date: str = "", start_time: str = "") -> list[dict]:
         """Events on `date` and/or starting at `start_time`, earliest first.
         Neither given is no filter at all, so it returns [] rather than
         every event."""
@@ -402,7 +401,7 @@ class EventsMixin:
             rows = conn.execute(query + " ORDER BY start_time", params).fetchall()
         return [dict(r) for r in rows]
 
-    def events_nearest(self, day: str) -> List[dict]:
+    def events_nearest(self, day: str) -> list[dict]:
         """Every event, nearest `day` first (then by start time): how the
         assistant ranks candidates when a command names an event."""
         with self._conn() as conn:
@@ -411,7 +410,7 @@ class EventsMixin:
                 (day,)).fetchall()
         return [dict(r) for r in rows]
 
-    def upcoming_event_titles(self, since: str) -> "set[str]":
+    def upcoming_event_titles(self, since: str) -> set[str]:
         """The distinct titles of events on or after `since`."""
         with self._conn() as conn:
             return {r[0] for r in conn.execute(
@@ -424,12 +423,12 @@ class EventsMixin:
                                (series_id,)).fetchone()
         return (row[0] if row else "") or ""
 
-    def event_titles(self) -> List[str]:
+    def event_titles(self) -> list[str]:
         """Every event's title (non-empty), for mining the user's own words."""
         with self._conn() as conn:
             return [r[0] for r in conn.execute("SELECT title FROM events") if r[0]]
 
-    def event_keys(self) -> "set[tuple]":
+    def event_keys(self) -> set[tuple]:
         """(title, date, start_time) of every event: what an import checks
         before adding a row, so the same event is not imported twice."""
         with self._conn() as conn:
@@ -440,7 +439,7 @@ class EventsMixin:
         with self._conn() as conn:
             return conn.execute("SELECT 1 FROM events LIMIT 1").fetchone() is not None
 
-    def get_series_events(self, series_id: int) -> List[dict]:
+    def get_series_events(self, series_id: int) -> list[dict]:
         """Return all events belonging to a recurring series."""
         with self._conn() as conn:
             rows = conn.execute(

@@ -42,7 +42,7 @@ class ChatStream(QObject):
         super().__init__(parent)
         self._generation = 0
 
-    def ask(self, config, *, prompt: str, chat_id: "str | None", mode: str,
+    def ask(self, config, *, prompt: str, chat_id: str | None, mode: str,
             lang: str, top_k: int, skip_clarification: bool = False,
             search: bool = False) -> None:
         self._generation += 1

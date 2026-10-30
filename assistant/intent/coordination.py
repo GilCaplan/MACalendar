@@ -150,7 +150,7 @@ def _reads_as_an_ask(tok) -> bool:
     return False
 
 
-def _subordinate_first_boundary(doc, tok, text: str) -> "Boundary | None":
+def _subordinate_first_boundary(doc, tok, text: str) -> Boundary | None:
     """The seam after a command clause spaCy subordinated to a LATER verb.
 
     "forget email the landlord, i'd rather walk the dog" parses `forget` as
@@ -221,7 +221,7 @@ def _subordinate_first_boundary(doc, tok, text: str) -> "Boundary | None":
     return Boundary(ends, begins, text[ends:begins].strip())
 
 
-def _subordinate_later_boundary(doc, tok, text: str) -> "Boundary | None":
+def _subordinate_later_boundary(doc, tok, text: str) -> Boundary | None:
     """The seam BEFORE a command clause spaCy subordinated to an EARLIER verb.
 
     "i need to submit the report, FILE the taxes, and print the boarding
@@ -274,7 +274,7 @@ _MEMBER_POS = frozenset({"DET", "ADJ", "NOUN", "PROPN"})
 _NOT_A_LIST_HEAD = frozenset({"with", "between", "and", "or"})
 
 
-def noun_list(text: str) -> "tuple[str, list[str], str] | None":
+def noun_list(text: str) -> tuple[str, list[str], str] | None:
     """A bare, NOUN-coordinated list of THREE OR MORE things under one head.
 
         "create an event for dentist, haircut and gym"
@@ -327,7 +327,7 @@ def noun_list(text: str) -> "tuple[str, list[str], str] | None":
         return (t.pos_ == "VERB" and t.dep_ == "conj"
                 and t.head.pos_ in ("NOUN", "PROPN"))
 
-    def member(tokens) -> "list | None":
+    def member(tokens) -> list | None:
         toks = [t for t in tokens if not t.is_punct]
         if not toks or len(toks) > 4:
             return None
@@ -380,7 +380,7 @@ def has_clause_coordination(text: str) -> bool:
     return bool(clause_boundaries(text))
 
 
-def clause_boundaries(text: str, date_spans=None) -> "list[Boundary]":
+def clause_boundaries(text: str, date_spans=None) -> list[Boundary]:
     """Every place two coordinated CLAUSES meet, in order.
 
     This is the same judgement `has_clause_coordination` reports, but keeping
@@ -727,7 +727,7 @@ def _inside(tok, spans) -> bool:
     return any(s <= tok.idx and tok.idx + len(tok.text) <= e for s, e in (spans or ()))
 
 
-def _lexicon_fallback_boundaries(doc, text: str, date_spans=None) -> "list[Boundary]":
+def _lexicon_fallback_boundaries(doc, text: str, date_spans=None) -> list[Boundary]:
     """When the walk above finds NOTHING — not one token, because spaCy
     swallowed the FIRST clause's verb into being a noun-phrase SUBJECT of
     the second clause rather than mis-tagging it as a stray compound.
@@ -886,7 +886,7 @@ def _lexicon_fallback_boundaries(doc, text: str, date_spans=None) -> "list[Bound
     return out
 
 
-def split_clauses(text: str, date_spans=None) -> "list[str]":
+def split_clauses(text: str, date_spans=None) -> list[str]:
     """`text` cut into one string per ask — or `[text]` when it is one ask.
 
     The convenience segment wants: a caller that only needs the pieces should
@@ -908,7 +908,7 @@ def split_clauses(text: str, date_spans=None) -> "list[str]":
     return parts or [text]
 
 
-def _boundary_at(doc, tok, text: str) -> "Boundary | None":
+def _boundary_at(doc, tok, text: str) -> Boundary | None:
     """Character offsets around the coordinator that introduces `tok`.
 
     The second ask starts at the leftmost token of the conjunct's subtree
@@ -1039,7 +1039,7 @@ def _compound_command_verb(tok):
     return _hidden_verb_in_chain(tok)
 
 
-def _verb_intent_family(tok, words: "set | None" = None) -> "str | None":
+def _verb_intent_family(tok, words: set | None = None) -> str | None:
     """This verb's own entry in `INTENT_MAP` ("create_event", "create_todo",
     ...) — the SAME table `_is_command_verb` already reads, reused rather
     than a second lexicon that could drift from it. `(word, None)` is the
@@ -1055,7 +1055,7 @@ def _verb_intent_family(tok, words: "set | None" = None) -> "str | None":
     before falling back to whichever qualified entry the table happens to
     list first — which is a guess, not a resolution.
     """
-    from assistant.intent.rule_parser import INTENT_MAP, _CALENDAR_SIGNALS, _TODO_SIGNALS
+    from assistant.intent.rule_parser import _CALENDAR_SIGNALS, _TODO_SIGNALS, INTENT_MAP
     word = (tok.lemma_ or tok.text).lower()
     direct = INTENT_MAP.get((word, None))
     if direct is not None:

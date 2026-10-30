@@ -127,6 +127,7 @@ def browse(service: str, timeout: float = 2.0) -> list[dict]:
     """``[{name, urls, os, …TXT}]`` announced under ``service`` right now.
     A short, one-off look (the primary's Servers page asks when it opens)."""
     import time as _t
+
     from zeroconf import IPVersion, ServiceBrowser, Zeroconf
     found: dict[str, dict] = {}
     zc = Zeroconf(ip_version=IPVersion.V4Only)

@@ -25,7 +25,7 @@ def words(text) -> set:
     return set(_WORD.findall(str(text or "").lower()))
 
 
-def token_prf(gold, built) -> "tuple[float, float, float]":
+def token_prf(gold, built) -> tuple[float, float, float]:
     """(precision, recall, F1) of `built`'s words against `gold`'s. Two empty
     texts agree completely; one empty and one not share nothing."""
     g, b = words(gold), words(built)

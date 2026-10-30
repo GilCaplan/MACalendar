@@ -40,8 +40,8 @@ def _init_d(g: int) -> float:
     return _clamp_d(W[4] - (g - 3) * W[5])
 
 
-def next_state(stability: "float | None", difficulty: "float | None",
-               elapsed_days: float, grade: int) -> "tuple[float, float]":
+def next_state(stability: float | None, difficulty: float | None,
+               elapsed_days: float, grade: int) -> tuple[float, float]:
     """(stability, difficulty) after `grade`, from the state before it.
     `stability is None` is a card never reviewed."""
     if grade not in (1, 2, 3, 4):

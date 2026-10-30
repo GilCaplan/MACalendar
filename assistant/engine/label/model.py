@@ -132,7 +132,7 @@ class EmbedHead:
         import scipy.sparse as sp
         return sp.hstack([self.vec.transform(list(texts)), sp.csr_matrix(np.asarray(E))]).tocsr()
 
-    def proba(self, texts, E) -> "np.ndarray":
+    def proba(self, texts, E) -> np.ndarray:
         """Probabilities over `self.classes`, one row per text."""
         P = np.asarray(self.clf.predict_proba(self.features(texts, E)))
         if self.kind == "event":
@@ -148,7 +148,7 @@ class LabelModel:
     __slots__ = ("kind", "pipeline", "classes", "meta", "embed_head", "last_source")
 
     def __init__(self, kind: str, pipeline, classes, meta: dict,
-                 embed_head: "EmbedHead | None" = None) -> None:
+                 embed_head: EmbedHead | None = None) -> None:
         self.kind = kind            # "event" | "task"
         self.pipeline = pipeline
         self.classes = list(classes)
@@ -164,7 +164,7 @@ class LabelModel:
         return root / f"{kind}_label.joblib"
 
     @classmethod
-    def _read(cls, kind: str, path: pathlib.Path) -> "LabelModel | None":
+    def _read(cls, kind: str, path: pathlib.Path) -> LabelModel | None:
         if not path.exists():
             return None
         try:
@@ -178,7 +178,7 @@ class LabelModel:
             return None            # corrupt or version-skewed: fall back a tier
 
     @classmethod
-    def load(cls, kind: str) -> "LabelModel | None":
+    def load(cls, kind: str) -> LabelModel | None:
         """This user's model, else everyone's, else None.
 
         The order matters and is the point of having two tiers: a user who has
@@ -219,7 +219,7 @@ class LabelModel:
             bar = max(bar, FALLBACK_MIN_CONFIDENCE.get(self.kind, bar))
         return bar
 
-    def _embedded(self, text: str, base_url: "str | None"):
+    def _embedded(self, text: str, base_url: str | None):
         """The embedding head's probabilities for one title, or None when the
         vector cannot be had (disabled, ollama down or slow) or the head fails.
         None sends the caller to the n-gram pipeline, exactly as before Q46."""
@@ -234,7 +234,7 @@ class LabelModel:
         except Exception:
             return None
 
-    def warm(self, texts, base_url: "str | None" = None) -> None:
+    def warm(self, texts, base_url: str | None = None) -> None:
         """Embed many titles in ONE batched call, filling the in-process cache,
         so a caller about to `predict` each of them (the teach queue) does not
         pay one round trip per title."""
@@ -243,7 +243,7 @@ class LabelModel:
         from assistant.engine.label import embed as _embed
         _embed.vectors([t for t in texts if (t or "").strip()], base_url=base_url)
 
-    def predict(self, text: str, base_url: "str | None" = None) -> "tuple[str, float] | None":
+    def predict(self, text: str, base_url: str | None = None) -> tuple[str, float] | None:
         """Single-label. `(label, confidence)`, or None when not confident.
 
         The embedding head answers when its vector can be had — and when it
@@ -270,7 +270,7 @@ class LabelModel:
             return None
         return str(self.pipeline.classes_[best]), conf
 
-    def predict_tags(self, text: str, base_url: "str | None" = None) -> "tuple[list, float] | None":
+    def predict_tags(self, text: str, base_url: str | None = None) -> tuple[list, float] | None:
         """Multi-label. Every tag over the bar, plus the weakest one's score.
 
         A task can be Groceries AND Errands, so this is one-vs-rest and the
@@ -309,7 +309,7 @@ class LabelModel:
 _CACHE: dict = {}
 
 
-def _cached(kind: str) -> "LabelModel | None":
+def _cached(kind: str) -> LabelModel | None:
     """One load per process. `reset()` clears it; tests and the retrainer use
     that rather than reaching into the dict.
 
@@ -331,7 +331,7 @@ def _cached(kind: str) -> "LabelModel | None":
     return _CACHE[kind]
 
 
-def _build_base(kind: str) -> "LabelModel | None":
+def _build_base(kind: str) -> LabelModel | None:
     """Fit the user-agnostic model from the committed datasets. Never personal:
     `feedback.gold()` is not consulted, so this is identical for every user."""
     try:
@@ -356,7 +356,7 @@ def enabled(cfg, kind: str) -> bool:
     return bool(getattr(section, f"model_{kind}", False)) if section else False
 
 
-def category_for(title: str, rule_answer: str, cfg) -> "tuple[str, str]":
+def category_for(title: str, rule_answer: str, cfg) -> tuple[str, str]:
     """`(category, who decided)` — the shipped event path.
 
     The rules keep every row they were confident about; the model only answers
@@ -381,7 +381,7 @@ def category_for(title: str, rule_answer: str, cfg) -> "tuple[str, str]":
     return got[0], "model"
 
 
-def tags_for(title: str, rule_answer: list, cfg) -> "tuple[list, str]":
+def tags_for(title: str, rule_answer: list, cfg) -> tuple[list, str]:
     """`(tags, who decided)` — the shipped task path. Same stacking: the rules'
     tags stand when they fired at all, and the model only fills a blank."""
     if not enabled(cfg, "task"):

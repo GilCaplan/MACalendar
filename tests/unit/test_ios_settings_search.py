@@ -16,12 +16,12 @@ from tests.unit._ios_sources import ios_source
 SRC = ios_source("SettingsView.swift")
 
 
-def _index_titles() -> "set[str]":
+def _index_titles() -> set[str]:
     block = SRC[SRC.index("static let index"):SRC.index("static func hits")]
     return set(re.findall(r'\("([^"]+)", \.', block))
 
 
-def _page_names() -> "dict[str, str]":
+def _page_names() -> dict[str, str]:
     block = SRC[SRC.index("var name: String"):SRC.index("var icon: String")]
     return dict(re.findall(r"case \.(\w+): return \"([^\"]+)\"", block))
 

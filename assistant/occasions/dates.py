@@ -34,7 +34,7 @@ def gregorian_in(month: int, day: int, start: datetime.date, end: datetime.date)
             yield d, y
 
 
-def _hebrew_day(hy: int, month: int, day: int) -> "datetime.date | None":
+def _hebrew_day(hy: int, month: int, day: int) -> datetime.date | None:
     try:
         return _hd.HebrewDate(hy, month, day).to_pydate()
     except ValueError:
@@ -47,7 +47,7 @@ def _hebrew_day(hy: int, month: int, day: int) -> "datetime.date | None":
     return None
 
 
-def hebrew_months(hy: int, month: int, adar: "str | None") -> list[int]:
+def hebrew_months(hy: int, month: int, adar: str | None) -> list[int]:
     """Which month(s) of Hebrew year ``hy`` hold an occasion stored in
     ``month`` (pyluach: 12 = Adar / Adar I, 13 = Adar II)."""
     leap = _hc.Year(hy).leap
@@ -60,7 +60,7 @@ def hebrew_months(hy: int, month: int, adar: "str | None") -> list[int]:
     return {"adar1": [12], "adar2": [13], "both": [12, 13]}.get(adar or "adar2", [13])
 
 
-def hebrew_in(month: int, day: int, adar: "str | None", start: datetime.date, end: datetime.date):
+def hebrew_in(month: int, day: int, adar: str | None, start: datetime.date, end: datetime.date):
     """(civil date, Hebrew year) for each yearly Hebrew date in [start, end]."""
     first = _hd.HebrewDate.from_pydate(start).year
     last = _hd.HebrewDate.from_pydate(end).year
@@ -99,7 +99,7 @@ def occurrences(rec: dict, start: datetime.date, end: datetime.date) -> list[dic
     return out
 
 
-def banner_title(kind: str, title: str, years: "int | None") -> str:
+def banner_title(kind: str, title: str, years: int | None) -> str:
     """"Dana's 30th birthday", "Gil & Dana — 5 years", "Yahrzeit · Grandpa"."""
     if kind == "birthday":
         if title.lower().endswith("birthday"):            # "My birthday"

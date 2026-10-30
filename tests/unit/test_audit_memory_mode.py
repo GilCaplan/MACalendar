@@ -73,9 +73,9 @@ def test_both_flags_are_declared_so_help_describes_them(source):
 def test_the_parser_honours_the_k_override(monkeypatch, sample_config):
     """k=0 answers "is the memory helping at all", which is the question to
     settle before "is four the right number" means anything."""
-    from assistant.intent.parser import IntentParser
     import assistant.actions.calendar  # noqa: F401
     from assistant.actions import registry
+    from assistant.intent.parser import IntentParser
 
     parser = IntentParser(sample_config, registry)
     captured = {}
@@ -99,9 +99,9 @@ def test_the_parser_honours_the_k_override(monkeypatch, sample_config):
 
 
 def test_a_nonsense_override_is_ignored_rather_than_crashing(monkeypatch, sample_config):
-    from assistant.intent.parser import IntentParser
     import assistant.actions.calendar  # noqa: F401
     from assistant.actions import registry
+    from assistant.intent.parser import IntentParser
 
     monkeypatch.setenv("MACALENDAR_MEMORY_K", "not a number")
     parser = IntentParser(sample_config, registry)

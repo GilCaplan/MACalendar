@@ -73,6 +73,7 @@ def test_a_command_closes_its_wait_even_when_the_api_is_down(monkeypatch):
     """`wait_end` runs in a `finally`: a wait left open would leave the
     "taking a while" card up over every app until the helper restarts."""
     import urllib.request
+
     from assistant import magic_words, pipeline
     seen = []
     monkeypatch.setattr(magic_words, "wait_begin", lambda: seen.append("begin") or "w1")
@@ -101,7 +102,9 @@ def test_what_a_command_made_reaches_the_helper_as_its_labels(tmp_path, monkeypa
     rows become their event category and to-do tags, sent to the helper,
     which picks what plays as the phone does."""
     import threading
-    from assistant import db as db_module, magic_words
+
+    from assistant import db as db_module
+    from assistant import magic_words
     from assistant.db import CalendarDB
     real = CalendarDB(path=str(tmp_path / "made.db"))
     monkeypatch.setattr(db_module, "get_db", lambda *a, **k: real)
@@ -126,6 +129,7 @@ def test_the_corrected_words_get_a_second_look_for_magic_words(monkeypatch, raw_
     nothing at all here — and never twice."""
     import json
     import urllib.request
+
     from assistant import magic_words, pipeline
     late = []
     monkeypatch.setattr(magic_words, "heard_late", lambda t: late.append(t) or True)

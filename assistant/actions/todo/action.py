@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import re
-from typing import ClassVar, List, Optional, Type
+from typing import ClassVar
 
+from assistant import clock as _clock  # the moment the command was SAID
 from assistant.actions import register
-from assistant.exceptions import TargetNotFound
 from assistant.actions.base import BaseAction, BaseIntent
 from assistant.actions.todo.intent import (
     AddSubtaskIntent,
-    CompleteTodoIntent,
     CompleteSubtaskIntent,
+    CompleteTodoIntent,
     CreateTodoIntent,
     DeleteSubtaskIntent,
     DeleteTodoIntent,
@@ -19,9 +19,9 @@ from assistant.actions.todo.intent import (
     UpdateTodoIntent,
 )
 from assistant.actions.todo.tagging import auto_tags, resolve_tags
+from assistant.exceptions import TargetNotFound
 from assistant.intent.context import context_memory
 from assistant.intent.list_split import split_items
-from assistant import clock as _clock  # the moment the command was SAID
 
 _ANAPHORS = {"it", "that", "this", "the task", "that task", "the last one", "the last task"}
 
@@ -50,7 +50,7 @@ def _content_words(text: str) -> set[str]:
     return set(re.findall(r"\w+", re.sub(r"'s\b", "", text.lower())))
 
 
-def _find_todo(db, match_title: str) -> Optional[dict]:
+def _find_todo(db, match_title: str) -> dict | None:
     """
     Find the best-matching todo by title.
     Resolves anaphoric pronouns via context memory.
@@ -111,7 +111,7 @@ def _find_todo(db, match_title: str) -> Optional[dict]:
     return best_match if best_score > 0 else None
 
 
-def _find_subtask(db, todo_id: int, subtask_title: str) -> Optional[dict]:
+def _find_subtask(db, todo_id: int, subtask_title: str) -> dict | None:
     """Find the best-matching subtask under a given todo. Same possessive/
     stop-word handling as _find_todo, and the same reasoning for it."""
     subtasks = db.get_subtasks(todo_id)
@@ -153,7 +153,7 @@ class CreateTodoAction(BaseAction):
         "never the same title five times. "
         "Supports priority ('high priority', 'urgent') and due date ('due Friday', 'by April 20')."
     )
-    intent_model: ClassVar[Type[BaseIntent]] = CreateTodoIntent
+    intent_model: ClassVar[type[BaseIntent]] = CreateTodoIntent
     parameters_schema: ClassVar[dict] = {
         "type": "object",
         "properties": {
@@ -279,7 +279,7 @@ class CompleteTodoAction(BaseAction):
         "Triggers on: 'mark X done', 'check off X', 'complete X', "
         "'mark X as done', 'uncheck X', 'mark X incomplete'."
     )
-    intent_model: ClassVar[Type[BaseIntent]] = CompleteTodoIntent
+    intent_model: ClassVar[type[BaseIntent]] = CompleteTodoIntent
     parameters_schema: ClassVar[dict] = {
         "type": "object",
         "properties": {
@@ -327,7 +327,7 @@ class DeleteTodoAction(BaseAction):
         "Remove a task from the list. "
         "Triggers on: 'delete task X', 'remove X from my list', 'delete it'."
     )
-    intent_model: ClassVar[Type[BaseIntent]] = DeleteTodoIntent
+    intent_model: ClassVar[type[BaseIntent]] = DeleteTodoIntent
     parameters_schema: ClassVar[dict] = {
         "type": "object",
         "properties": {
@@ -369,7 +369,7 @@ class UpdateTodoAction(BaseAction):
         "'set X priority to high', 'set due date of X to Friday', "
         "'add note to X: ...', 'change X's due date to next Monday'."
     )
-    intent_model: ClassVar[Type[BaseIntent]] = UpdateTodoIntent
+    intent_model: ClassVar[type[BaseIntent]] = UpdateTodoIntent
     parameters_schema: ClassVar[dict] = {
         "type": "object",
         "properties": {
@@ -434,7 +434,7 @@ class UpdateTodoAction(BaseAction):
         context_memory.update_todo(todo["id"], updates.get("title", todo["title"]))
 
         # Build a human-readable summary of what changed
-        changed_parts: List[str] = []
+        changed_parts: list[str] = []
         if "title" in updates:
             changed_parts.append(f"renamed to '{updates['title']}'")
         if "list" in updates:
@@ -464,7 +464,7 @@ class AddSubtaskAction(BaseAction):
         "Triggers on: 'add subtask X to task Y', 'add step X under Y', "
         "'break down Y with subtask X'."
     )
-    intent_model: ClassVar[Type[BaseIntent]] = AddSubtaskIntent
+    intent_model: ClassVar[type[BaseIntent]] = AddSubtaskIntent
     parameters_schema: ClassVar[dict] = {
         "type": "object",
         "properties": {
@@ -514,7 +514,7 @@ class CompleteSubtaskAction(BaseAction):
         "Triggers on: 'complete subtask X in Y', 'mark step X done under Y', "
         "'check off subtask X from Y'."
     )
-    intent_model: ClassVar[Type[BaseIntent]] = CompleteSubtaskIntent
+    intent_model: ClassVar[type[BaseIntent]] = CompleteSubtaskIntent
     parameters_schema: ClassVar[dict] = {
         "type": "object",
         "properties": {
@@ -563,7 +563,7 @@ class DeleteSubtaskAction(BaseAction):
         "Remove a subtask from a task. "
         "Triggers on: 'delete subtask X from Y', 'remove step X under Y'."
     )
-    intent_model: ClassVar[Type[BaseIntent]] = DeleteSubtaskIntent
+    intent_model: ClassVar[type[BaseIntent]] = DeleteSubtaskIntent
     parameters_schema: ClassVar[dict] = {
         "type": "object",
         "properties": {
@@ -609,7 +609,7 @@ class QueryTodoAction(BaseAction):
         "Triggers on: 'what tasks do I have', 'what's on my list', "
         "'read my todos', 'how many tasks today', 'show my tasks'."
     )
-    intent_model: ClassVar[Type[BaseIntent]] = QueryTodoIntent
+    intent_model: ClassVar[type[BaseIntent]] = QueryTodoIntent
     parameters_schema: ClassVar[dict] = {
         "type": "object",
         "properties": {
@@ -628,6 +628,7 @@ class QueryTodoAction(BaseAction):
 
     def execute(self, intent: QueryTodoIntent, _config) -> str:  # type: ignore[override]
         import datetime
+
         from assistant.db import get_db
         db = get_db()
 
@@ -642,7 +643,7 @@ class QueryTodoAction(BaseAction):
 
         def _describe(t: dict) -> str:
             title = t["title"]
-            parts: List[str] = []
+            parts: list[str] = []
 
             # Priority — mention high/medium but not low/none to keep it brief
             priority = t.get("priority", "none") or "none"
@@ -672,7 +673,7 @@ class QueryTodoAction(BaseAction):
             return f"{title} ({', '.join(parts)})" if parts else title
 
         # For today/all queries also read out calendar events
-        calendar_parts: List[str] = []
+        calendar_parts: list[str] = []
         if intent.list_name in ("today", "all"):
             today = _clock.today()
             events = db.get_events_for_day(today)
@@ -694,7 +695,7 @@ class QueryTodoAction(BaseAction):
         n = len(pending)
         n_cal = len(calendar_parts)
 
-        parts: List[str] = []
+        parts: list[str] = []
 
         if n == 0:
             parts.append(f"No pending tasks in {label}.")

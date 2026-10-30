@@ -21,20 +21,37 @@ import html as _html
 import time as _time
 
 from PyQt6.QtCore import (
-    QEasingCurve, QPoint, QPropertyAnimation, QRect, QSize, Qt, QTimer,
+    QEasingCurve,
+    QPoint,
+    QPropertyAnimation,
+    QRect,
+    QSize,
+    Qt,
+    QTimer,
     pyqtSignal,
 )
 from PyQt6.QtGui import QColor, QFont, QPainter, QPen
 from PyQt6.QtWidgets import (
-    QDialog, QFrame, QGraphicsDropShadowEffect, QHBoxLayout, QLabel, QLayout,
-    QLineEdit, QPushButton, QScrollArea, QSizePolicy, QStackedLayout,
-    QToolTip, QVBoxLayout, QWidget,
+    QDialog,
+    QFrame,
+    QGraphicsDropShadowEffect,
+    QHBoxLayout,
+    QLabel,
+    QLayout,
+    QLineEdit,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QStackedLayout,
+    QToolTip,
+    QVBoxLayout,
+    QWidget,
 )
 
 from assistant import trace as _trace
 from assistant.calendar_ui import icons
-from assistant.calendar_ui.command_graph import CommandGraphView, build_graph
 from assistant.calendar_ui import styles as _styles
+from assistant.calendar_ui.command_graph import CommandGraphView, build_graph
 
 PANEL_WIDTH = 400
 PANEL_HEIGHT = 440

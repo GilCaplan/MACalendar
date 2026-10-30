@@ -27,10 +27,10 @@ from __future__ import annotations
 
 import logging
 
-from assistant.users import sharing
 from flask import Blueprint, jsonify, request
 
 from assistant.api.server import create_todo_from_body
+from assistant.users import sharing
 
 logger = logging.getLogger(__name__)
 

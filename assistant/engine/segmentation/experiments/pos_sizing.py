@@ -36,9 +36,9 @@ scratch_env("segment_pos_sizing_", keep=("LOCATION", "MODELS", "LABEL_FEEDBACK",
                                          "HEARTBEATS", "HUD_STATE",
                                          "DEVICE_SECRET", "DEVICES"))
 
-from assistant.engine.segmentation.experiments import score as sc                 # noqa: E402
-from assistant.engine.segmentation.fastseg.fastseg import fastseg, find_time_refs   # noqa: E402
-from assistant.engine.segmentation.experiments.run_board import assign_splits     # noqa: E402
+from assistant.engine.segmentation.experiments import score as sc  # noqa: E402
+from assistant.engine.segmentation.experiments.run_board import assign_splits  # noqa: E402
+from assistant.engine.segmentation.fastseg.fastseg import fastseg, find_time_refs  # noqa: E402
 
 #: Verbs that put something on the CALENDAR even though they are verbs. This
 #: is the list the syntactic hypothesis has to beat — if it wins, the signal is
@@ -131,7 +131,7 @@ def main() -> None:
         sc.load_rows(sorted(glob.glob(f"{_HERE}/datasets/*.jsonl"))))
         if r["split"] == "train"]
 
-    print(f"loading spaCy…", flush=True)
+    print("loading spaCy…", flush=True)
     import spacy
     nlp = spacy.load("en_core_web_sm", disable=["ner", "lemmatizer"])
 

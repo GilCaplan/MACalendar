@@ -31,14 +31,14 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(_HERE)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-from assistant.engine.segmentation.experiments import score as scorer               # noqa: E402
+from assistant.engine.segmentation.experiments import score as scorer  # noqa: E402
 
 #: Fraction of families held out. Matches the hand-written files' own ~40%,
 #: which were split before this runner existed.
 _TEST_FRACTION = 0.40
 
 
-def assign_splits(rows: "list[dict]") -> "list[dict]":
+def assign_splits(rows: list[dict]) -> list[dict]:
     """Stamp a split on any row that lacks one, keeping a family together."""
     for row in rows:
         if row.get("split"):
@@ -60,8 +60,8 @@ def assign_splits(rows: "list[dict]") -> "list[dict]":
 MIN_PER_TRAP = 6
 
 
-def stratified_sample(rows: "list[dict]", size: int,
-                      by_trap: bool = True, seed: int = 20260908) -> "list[dict]":
+def stratified_sample(rows: list[dict], size: int,
+                      by_trap: bool = True, seed: int = 20260908) -> list[dict]:
     """A slice that keeps board F's shape AND covers every trap.
 
     Two passes. The first fills each trap up to `MIN_PER_TRAP` so no shape is
@@ -72,7 +72,7 @@ def stratified_sample(rows: "list[dict]", size: int,
     import random
 
     rng = random.Random(seed)
-    picked: "dict[str, dict]" = {}
+    picked: dict[str, dict] = {}
 
     def key(r):
         return r.get("id") or r["text"]
@@ -106,7 +106,7 @@ def _load_cache() -> dict:
     """Every model answer we have ever recorded, keyed by command text."""
     out: dict = {}
     try:
-        with open(_CACHE, "r", encoding="utf-8") as fh:
+        with open(_CACHE, encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
                 if not line:

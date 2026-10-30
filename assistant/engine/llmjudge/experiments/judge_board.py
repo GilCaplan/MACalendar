@@ -131,24 +131,27 @@ def main() -> int:
                     help="0 = every case in the split (the default when the "
                          "grounding pass is off)")
     ap.add_argument("--split", choices=("train", "test"), default="train")
-    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    from scripts.dataset_tiers import add_argument as _add_tier
+    from scripts.dataset_tiers import resolve as _resolve
     _add_tier(ap)
     ap.add_argument("--show", type=int, default=6,
                     help="failing rows to print (train only; test prints none)")
     a = ap.parse_args()
 
     from freezegun import freeze_time
+
     import assistant.engine as engine
     from assistant.engine import llm as _llm
     from assistant.engine.decompose_validate import stage as _dv
     from assistant.engine.fastrule.build import Built, build_all
     from assistant.engine.llmjudge import render, verdict
-    from assistant.engine.state import EngineState, Item
+
     # The clock belongs to the DATA, not to this run: a case whose plant depends
     # on "the day after tomorrow" resolving to a clock time is only valid at the
     # moment it was generated. So it is imported from the dataset rather than
     # kept here, where the two could drift apart silently.
     from assistant.engine.llmjudge.datasets.generate import CLOCK as _CLOCK
+    from assistant.engine.state import EngineState, Item
 
     cfg = engine.load_config()
     # Warm the rule parser OUTSIDE the frozen clock: building spaCy's pipeline

@@ -85,6 +85,7 @@ _SHARED_DATES = [("friday", False), ("the 30th", False), ("tomorrow", False),
 
 def multi(limit: int = 0) -> int:
     from freezegun import freeze_time
+
     from assistant.config import load_config
     from assistant.engine import Engine
     from assistant.engine.state import EngineState, Item
@@ -168,6 +169,7 @@ def main() -> int:
         return multi(a.limit)
 
     from freezegun import freeze_time
+
     from assistant.config import load_config
     from assistant.engine import Engine
     from assistant.engine.state import EngineState, Item

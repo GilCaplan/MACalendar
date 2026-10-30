@@ -78,10 +78,10 @@ EXAMPLES = [
 ]
 
 
-def trace(text: str, store) -> "list[dict]":
+def trace(text: str, store) -> list[dict]:
     """[{pass, title, note, text}] — the transcript after each real pass."""
-    from assistant.intent import cleanup as C
     from assistant.engine.ingest import repair as R
+    from assistant.intent import cleanup as C
 
     steps = [{"pass": "heard", "title": "what Whisper wrote",
               "note": "the raw transcript", "text": text}]

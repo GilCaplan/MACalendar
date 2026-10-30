@@ -32,7 +32,6 @@ from __future__ import annotations
 
 import datetime
 import uuid
-from typing import Optional
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
@@ -40,6 +39,7 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QCompleter,
+    QDateTimeEdit,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
@@ -58,25 +58,23 @@ from PyQt6.QtWidgets import (
     QTextEdit,
     QVBoxLayout,
     QWidget,
-    QDateTimeEdit,
 )
 
-from assistant.db import CalendarDB
 import assistant.calendar_ui.styles as _styles
 from assistant.calendar_ui.dialog_utils import install_enter_confirms
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
 from assistant.calendar_ui.feature_panel import FeaturePanel
+from assistant.db import CalendarDB
+
 
 def _new_id() -> str:
     return str(uuid.uuid4())
 
 
-def _duration_secs(start_iso: str, end_iso: Optional[str]) -> float:
+def _duration_secs(start_iso: str, end_iso: str | None) -> float:
     """Seconds between start and end. Returns 0 if end is missing — unlike
     Timer's live sessions, a workout session without an ended_at isn't
     "still running" here (no live tracking on Mac), just incomplete data."""
@@ -138,7 +136,7 @@ def _pad_equal(a: list, b: list) -> tuple[list, list]:
     return a, b
 
 
-def _set_log_display(log: Optional[dict]) -> str:
+def _set_log_display(log: dict | None) -> str:
     if not log:
         return "—"
     if log.get("type") == "reps":
@@ -174,7 +172,7 @@ class ExercisePicker(QComboBox):
         if current_name:
             self.setCurrentText(current_name)
 
-    def resolved_exercise_id(self) -> Optional[str]:
+    def resolved_exercise_id(self) -> str | None:
         name = self.currentText().strip()
         if not name:
             return None
@@ -200,7 +198,7 @@ class SetRowWidget(QWidget):
 
     removed = pyqtSignal(object)  # emits self
 
-    def __init__(self, set_data: Optional[dict] = None, show_remove: bool = True, parent=None):
+    def __init__(self, set_data: dict | None = None, show_remove: bool = True, parent=None):
         super().__init__(parent)
         self._data = dict(set_data) if set_data else _default_set()
         self._build(show_remove)
@@ -288,7 +286,7 @@ class SupersetRoundRow(QWidget):
 
     removed = pyqtSignal(object)
 
-    def __init__(self, set_a: Optional[dict] = None, set_b: Optional[dict] = None, parent=None):
+    def __init__(self, set_a: dict | None = None, set_b: dict | None = None, parent=None):
         super().__init__(parent)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 2, 0, 2)
@@ -394,7 +392,7 @@ class SingleBlockWidget(BlockWidgetBase):
 
     kind = "single"
 
-    def __init__(self, db: CalendarDB, block: Optional[dict] = None, parent=None):
+    def __init__(self, db: CalendarDB, block: dict | None = None, parent=None):
         super().__init__(db, parent)
         block = block or {}
         self.block_id = block.get("id") or _new_id()
@@ -439,7 +437,7 @@ class SingleBlockWidget(BlockWidgetBase):
         add_set_btn.clicked.connect(lambda: self._add_set_row(None))
         outer.addWidget(add_set_btn)
 
-    def _add_set_row(self, data: Optional[dict]) -> None:
+    def _add_set_row(self, data: dict | None) -> None:
         row = SetRowWidget(data)
         row.removed.connect(self._remove_set_row)
         self._set_rows.append(row)
@@ -473,7 +471,7 @@ class SupersetBlockWidget(BlockWidgetBase):
 
     kind = "superset"
 
-    def __init__(self, db: CalendarDB, block: Optional[dict] = None, parent=None):
+    def __init__(self, db: CalendarDB, block: dict | None = None, parent=None):
         super().__init__(db, parent)
         block = block or {}
         self.block_id = block.get("id") or _new_id()
@@ -533,7 +531,7 @@ class SupersetBlockWidget(BlockWidgetBase):
         add_btn.clicked.connect(lambda: self._add_round(None, None))
         outer.addWidget(add_btn)
 
-    def _add_round(self, set_a: Optional[dict], set_b: Optional[dict]) -> None:
+    def _add_round(self, set_a: dict | None, set_b: dict | None) -> None:
         row = SupersetRoundRow(set_a, set_b)
         row.removed.connect(self._remove_round)
         self._rounds.append(row)
@@ -594,7 +592,7 @@ class TemplateBuilderDialog(QDialog):
     exercise/superset blocks with per-set editing, reordering, and
     merge-into-superset / split-apart affordances."""
 
-    def __init__(self, db: CalendarDB, parent=None, *, template: Optional[dict] = None):
+    def __init__(self, db: CalendarDB, parent=None, *, template: dict | None = None):
         super().__init__(parent)
         self._db = db
         self._template = template or {}
@@ -664,7 +662,7 @@ class TemplateBuilderDialog(QDialog):
         root.addWidget(buttons)
 
     # ------------------------------------------------------------------
-    def _make_block_widget(self, block: Optional[dict]) -> QWidget:
+    def _make_block_widget(self, block: dict | None) -> QWidget:
         if block and block.get("kind") == "superset":
             w: QWidget = SupersetBlockWidget(self._db, block)
             w.split_requested.connect(self._split_block)
@@ -754,7 +752,7 @@ class TemplateBuilderDialog(QDialog):
             return
         self.accept()
 
-    def result_template(self, *, template_id: Optional[str] = None, status: str = "saved") -> dict:
+    def result_template(self, *, template_id: str | None = None, status: str = "saved") -> dict:
         return {
             "id": template_id or self._template.get("id") or _new_id(),
             "name": self._name_edit.text().strip() or "Untitled Workout",
@@ -853,12 +851,12 @@ class WorkoutSessionRow(QWidget):
     clicked = pyqtSignal(str)            # session_id
     delete_requested = pyqtSignal(str)   # session_id
 
-    def __init__(self, session: dict, template_name: Optional[str], parent=None):
+    def __init__(self, session: dict, template_name: str | None, parent=None):
         super().__init__(parent)
         self._session = session
         self._build(template_name)
 
-    def _build(self, template_name: Optional[str]) -> None:
+    def _build(self, template_name: str | None) -> None:
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         card = QWidget()
@@ -1399,7 +1397,7 @@ class WorkoutView(FeaturePanel):
             row.delete_requested.connect(self._on_delete_session)
             self._history_layout.addWidget(row)
 
-    def _period_start_date(self) -> Optional[str]:
+    def _period_start_date(self) -> str | None:
         today = datetime.date.today()
         if self._stats_period == "week":
             return (today - datetime.timedelta(days=7)).isoformat()

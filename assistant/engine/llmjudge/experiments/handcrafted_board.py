@@ -113,11 +113,12 @@ def main() -> int:
     a = ap.parse_args()
 
     from freezegun import freeze_time
+
     import assistant.engine as engine
     from assistant.engine import llm as _llm
+    from assistant.engine import segmentation as _seg
     from assistant.engine.decompose_validate import stage as _dv
     from assistant.engine.fastrule import build
-    from assistant.engine import segmentation as _seg
     from assistant.engine.llmjudge import verdict
     from assistant.engine.llmjudge.datasets.generate import CLOCK as _CLOCK
 

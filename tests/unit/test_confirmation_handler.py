@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from assistant.actions.calendar.intent import CalendarIntent
 from assistant.confirmation.handler import ConfirmationHandler
 

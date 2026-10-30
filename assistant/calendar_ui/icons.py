@@ -30,7 +30,7 @@ def _default_color() -> str:
 
 def _load_svg(name: str, color: str) -> bytes:
     path = os.path.join(_ICONS_DIR, f"{name}.svg")
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         svg = f.read()
     return svg.replace("currentColor", color).encode("utf-8")
 

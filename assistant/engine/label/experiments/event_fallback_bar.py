@@ -28,7 +28,6 @@ read), so the run is identical on every machine and touches no store.
 """
 from __future__ import annotations
 
-import collections
 import json
 import pathlib
 

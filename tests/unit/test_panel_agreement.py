@@ -109,9 +109,9 @@ def test_the_panel_knows_every_non_object_outcome_the_engine_emits():
     would draw as an ordinary step, which is the silent drift this whole file
     exists to make loud.
     """
+    from assistant import trace
     from assistant.calendar_ui.thinking_panel import _StepRow
     from assistant.engine.fastrule import stage
-    from assistant import trace
 
     # `trace.NON_OBJECT_OUTCOMES` is the one registry (2026-09-22): the object
     # stage's `_FLAG_TITLES` emits two of them and the orchestrator's commit

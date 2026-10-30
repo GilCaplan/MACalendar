@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+
 from assistant.calendar_ui import icons as _icons
 
 # Long enough to be recognisable, short enough that a router's four search
@@ -87,7 +88,7 @@ class TracePanel(QFrame):
 
     # ------------------------------------------------------------- content
 
-    def _row(self, module: str, duration, detail: str, colour: "str | None" = None) -> None:
+    def _row(self, module: str, duration, detail: str, colour: str | None = None) -> None:
         theme = self._theme
         row = QWidget(self._body)
         lay = QHBoxLayout(row)

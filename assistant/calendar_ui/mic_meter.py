@@ -17,9 +17,9 @@ from __future__ import annotations
 import math
 import time
 from collections import deque
-from typing import Callable, Optional
+from collections.abc import Callable
 
-from PyQt6.QtCore import QPoint, QPointF, QRectF, QTimer, Qt
+from PyQt6.QtCore import QPoint, QPointF, QRectF, Qt, QTimer
 from PyQt6.QtGui import QColor, QPainter, QPen
 from PyQt6.QtWidgets import QWidget
 
@@ -55,13 +55,13 @@ def to_level(rms: float) -> float:
 class MicLevelMeter(QWidget):
     """Hidden until ``start(source)``; ``stop()`` hides it again."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("mic_level_meter")
         self.setFixedSize(BARS * 4 + 2, 22)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.setToolTip("Microphone level")
-        self._source: Optional[Callable[[], float]] = None
+        self._source: Callable[[], float] | None = None
         self._levels: deque = deque([0.0] * BARS, maxlen=BARS)
         self._level = 0.0
         self._started = 0.0
@@ -133,15 +133,15 @@ class MicHalo(MicLevelMeter):
     The middle is left clear, so the button itself is never covered.
     """
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("mic_halo")
         self.setFixedSize(HALO, HALO)
         self._style = "rings"
-        self._anchor: Optional[QWidget] = None
+        self._anchor: QWidget | None = None
 
     def start(self, source: Callable[[], float], style: str = "rings",  # type: ignore[override]
-              anchor: Optional[QWidget] = None) -> None:
+              anchor: QWidget | None = None) -> None:
         self._style = style if style in ("rings", "sunburst", "dots") else "rings"
         self._anchor = anchor
         super().start(source)
@@ -218,7 +218,7 @@ class MicHalo(MicLevelMeter):
 # toggle to which one is relevant, separate per device")
 # ---------------------------------------------------------------------------
 
-def demo_rms(t: Optional[float] = None) -> float:
+def demo_rms(t: float | None = None) -> float:
     """A made-up speaking voice as chunk RMS: phrases with pauses, syllables
     inside them — the same voice the phone's demos use (DemoVoice)."""
     t = time.monotonic() if t is None else t
@@ -233,7 +233,7 @@ class MicStyleTile(QWidget):
     beside / around it, fed `demo_rms`. Drawn inside a Settings button;
     transparent to the mouse so the click lands on the button."""
 
-    def __init__(self, style: str, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, style: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedSize(150, 96)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)

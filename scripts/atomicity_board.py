@@ -68,7 +68,7 @@ _CLOCK = _dt.datetime(2026, 9, 9, 10, 0)
 # The two datasets, as (text, is_compound) with a train/test half each
 # ---------------------------------------------------------------------------
 
-def b_rows(split: str) -> "list[tuple[str, bool]]":
+def b_rows(split: str) -> list[tuple[str, bool]]:
     """FastRule 7,200 — `expect.atomic` is ground truth by construction."""
     out = []
     for line in B_DATA.open():
@@ -85,7 +85,7 @@ def a_bucket(text: str) -> str:
     return "test" if h % 4 == 0 else "train"
 
 
-def a_rows(split: str) -> "list[tuple[str, bool]]":
+def a_rows(split: str) -> list[tuple[str, bool]]:
     """The verification pool minus the sealed 300. `scenario == "compound"`
     is the ground truth; every other scenario is one atomic item."""
     from scripts.score_dataset_run import load_test_split
@@ -125,13 +125,14 @@ def line(name: str, m: dict) -> str:
             f"said-atomic-but-COMPOUND {m['fn']:>4}")
 
 
-def predictions(rows, floor: "float | None" = None):
+def predictions(rows, floor: float | None = None):
     """(rules, model, layer) boolean predictions for every row.
 
     One parse per row (the layer reads the rule parser's intent count), so
     all three predictors come out of the same pass.
     """
     from freezegun import freeze_time
+
     from assistant.engine import llm as _generate
     from assistant.engine.fastrule.fastrule import Atomicity
     from assistant.intent.classifier import ROUTER
@@ -156,7 +157,7 @@ def predictions(rows, floor: "float | None" = None):
     return rules, model, layer
 
 
-def board(title: str, rows, floor: "float | None" = None) -> dict:
+def board(title: str, rows, floor: float | None = None) -> dict:
     ys = [y for _t, y in rows]
     rules, model, layer = predictions(rows, floor)
     n_c = sum(ys)

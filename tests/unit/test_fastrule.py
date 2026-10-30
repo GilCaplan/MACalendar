@@ -194,6 +194,7 @@ def test_f16_the_model_tier_is_consulted_on_a_multi_intent_parse(fastrule):
     about it is the next test's business.
     """
     from types import SimpleNamespace
+
     from assistant.engine.fastrule.fastrule import Atomicity
     two = [("create_event", SimpleNamespace()), ("create_todo", SimpleNamespace())]
     text = "book gym on tuesday at 7am and remind me to buy milk"
@@ -209,6 +210,7 @@ def test_f16_routing_commits_a_compound_the_parse_fully_covers(fastrule):
     sentence read as two intents drops one, which is the real harm.
     """
     from types import SimpleNamespace
+
     from assistant.engine.fastrule.fastrule import _parse_covers_the_compound
     two = [("create_event", SimpleNamespace()), ("create_todo", SimpleNamespace())]
     one = [("create_event", SimpleNamespace())]
@@ -255,7 +257,7 @@ def test_stale_weights_are_refused_rather_than_silently_truncated(fastrule):
     """`scores` dots with zip, which truncates: a weights file fitted before
     a feature was added would keep answering, ignoring the new signals — a
     wrong answer with no error anywhere. Load must refuse it."""
-    from assistant.intent.classifier import LogisticModel, AtomicityFeatures
+    from assistant.intent.classifier import AtomicityFeatures, LogisticModel
     m = LogisticModel("atomicity", ("atomic", "compound"), AtomicityFeatures())
     short = [0.0] * (len(AtomicityFeatures()) - 2)
     m.load({"weights": {"atomic": short, "compound": short}})
@@ -338,6 +340,7 @@ def test_a_title_that_holds_the_joiner_is_not_a_covered_compound(fastrule):
     is lunchtime, and then i need oranges added to my grocery list" committed
     'remind when it is lunchtime and then i' at 0.95."""
     from types import SimpleNamespace
+
     from assistant.engine.fastrule.fastrule import _parse_covers_the_compound
     text = "remind me when it is lunchtime, and then i need oranges added to my grocery list"
     good = [("create_event", SimpleNamespace(title="lunchtime")),
@@ -418,9 +421,10 @@ def test_a_bare_seven_is_asked_about_and_otherwise_read_as_pm(registry_with_real
     deep one. Now a client that can render a prompt is asked; one that cannot
     gets the fast path's long-standing PM reading on BOTH tracks, and the
     reply says so."""
+    from freezegun import freeze_time
+
     import assistant.engine as engine
     from assistant.engine.decompose_validate.resolve import bare_hour_is_ambiguous
-    from freezegun import freeze_time
     from assistant.intent import rule_parser as RP
 
     assert bare_hour_is_ambiguous("book team meeting tomorrow at 7") == 7

@@ -34,10 +34,10 @@ log = logging.getLogger(__name__)
 #: sign out, the admin signs you out, or the password changes. Gil, 2026-09-28:
 #: "have it stay logged in" — then: the ADMIN chooses, off or "every x time"
 #: (`registry.policy.auto_signout_days`, read by `idle_days()`).
-IDLE_DAYS: "int | None" = None
+IDLE_DAYS: int | None = None
 
 
-def idle_days() -> "int | None":
+def idle_days() -> int | None:
     """Days idle before a sign-in ends — the admin's choice, else IDLE_DAYS."""
     from assistant.users import registry
     days = registry.load().get("policy", {}).get("auto_signout_days")
@@ -143,7 +143,7 @@ def issue(user_id: str, device_id: str = "", source: str = "", label: str = "") 
     return token
 
 
-def resolve(token: "str | None") -> "dict | None":
+def resolve(token: str | None) -> dict | None:
     """The live session for `token`, or None. Expired sessions and those of a
     deleted or disabled user are dropped on sight."""
     if not token:
@@ -180,7 +180,7 @@ def revoke(token: str) -> bool:
         return True
 
 
-def revoke_user(user_id: str, keep: "str | None" = None) -> int:
+def revoke_user(user_id: str, keep: str | None = None) -> int:
     """Sign `user_id` out everywhere — except the session `keep`, when given
     (the device that just changed its own password stays signed in)."""
     keep_k = _key(keep) if keep else None
@@ -194,7 +194,7 @@ def revoke_user(user_id: str, keep: "str | None" = None) -> int:
         return len(gone)
 
 
-def list_for(user_id: "str | None" = None) -> list[dict[str, Any]]:
+def list_for(user_id: str | None = None) -> list[dict[str, Any]]:
     """Sessions (hash keys omitted), for the admin console."""
     return [{k: v for k, v in r.items()} for r in _load().values()
             if user_id is None or r["user_id"] == user_id]

@@ -212,8 +212,8 @@ def test_v2_command_tier_files_match_the_generator(v2):
 # ---------------------------------------------------------------------------
 
 def test_v2_case_tiers_on_disk():
-    from assistant.engine.llmjudge.datasets.v2 import mutations
     from assistant.engine.llmjudge import findings
+    from assistant.engine.llmjudge.datasets.v2 import mutations
     types = {findings.UNGROUNDED_SUBJECT, findings.UNSUPPORTED_FIELD,
              findings.NOT_AN_ASK, findings.COORDINATED_SUBJECT,
              findings.UNSPLIT_SUBJECT}

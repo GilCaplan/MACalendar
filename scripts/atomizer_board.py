@@ -137,7 +137,7 @@ def want_asks(row: dict) -> int:
     return max(_suffix_max(e.get("slots") or {}), 2)
 
 
-def want_kinds(row: dict, n: int) -> "collections.Counter | None":
+def want_kinds(row: dict, n: int) -> collections.Counter | None:
     """Expected item-kind multiset, or None when the row cannot determine it.
 
     Determinable two ways: the create counts account for every ask (so the
@@ -162,7 +162,7 @@ def want_kinds(row: dict, n: int) -> "collections.Counter | None":
 _ANCHOR_BASES = ("title", "time_phrase")
 
 
-def anchors(row: dict, n: int) -> "list[str] | None":
+def anchors(row: dict, n: int) -> list[str] | None:
     """n mutually-distinguishable strings, one per expected sub-ask.
 
     Requires every anchor present, all distinct, and none a substring of
@@ -187,7 +187,7 @@ def anchors(row: dict, n: int) -> "list[str] | None":
     return None
 
 
-def boundary(texts: "list[str]", vals: "list[str]") -> str:
+def boundary(texts: list[str], vals: list[str]) -> str:
     """clean | bleed | lost | duplicated — the first defect that applies."""
     low = [t.lower() for t in texts]
     hits = [[j for j, v in enumerate(vals) if v in t] for t in low]
@@ -374,7 +374,7 @@ class Tally:
         return f"{x / self.n:6.1%}" if self.n else "     —"
 
 
-def _ks(c: "collections.Counter") -> str:
+def _ks(c: collections.Counter) -> str:
     return "+".join(f"{k}x{v}" if v > 1 else k for k, v in sorted(c.items()) if v)
 
 
@@ -476,10 +476,10 @@ def report(title: str, rows, results, groups_label: str, mining: bool):
     print(f"rows {n_used}   (ignored by the transcript gate: {ignored}"
           f" · FastRule committed on the fast track: {fast_committed}"
           f" = {fast_committed / n_used:.1%} — these never reach the atomizer in production)")
-    print(f"expected atomic-item counts: "
+    print("expected atomic-item counts: "
           + " · ".join(f"{k} ask{'s' if k > 1 else ''}: {v}" for k, v in sorted(ask_hist.items())))
 
-    print(f"\nM1-M3 — the two stages, whole slice")
+    print("\nM1-M3 — the two stages, whole slice")
     print(_fmt(seg_all, "SEGMENT (step 2)"))
     print(_fmt(dec_all, "ATOMIZER (2 then 3)"))
     print(_fmt(seg_deep, "  ...segment, deep only"))
@@ -495,18 +495,18 @@ def report(title: str, rows, results, groups_label: str, mining: bool):
               f" ({dec_all.compound_exact / dec_all.n_compound:.1%})"
               f"   <- the ceiling FastRule's executor sits under")
 
-    print(f"\nM1 by expected ask count — ATOMIZER")
+    print("\nM1 by expected ask count — ATOMIZER")
     for k in sorted(ask_tally):
         print(_fmt(ask_tally[k], f"{k} ask{'s' if k > 1 else ''}"))
 
-    print(f"\nM4 — mis-typed (right count, wrong kinds; aggregate confusion)")
+    print("\nM4 — mis-typed (right count, wrong kinds; aggregate confusion)")
     print(f"  atomizer  {dec_all.mistyped}/{dec_all.kind_n} "
           f"({dec_all.mistyped / dec_all.kind_n:.1%} of count-correct, "
           f"kind-determinable rows)" if dec_all.kind_n else "  (none scorable)")
     for (w, g), v in dec_all.confusion.most_common(8):
         print(f"     {v:>5}   want {w:<16} got {g}")
 
-    print(f"\nM5 — boundary integrity (compounds with distinguishable anchors)")
+    print("\nM5 — boundary integrity (compounds with distinguishable anchors)")
     tot = sum(dec_all.bound.values())
     if tot:
         for k in ("clean", "bleed", "lost", "duplicated"):
@@ -519,7 +519,7 @@ def report(title: str, rows, results, groups_label: str, mining: bool):
     else:
         print("  (no anchored compounds in this slice)")
 
-    print(f"\nM6 — LLM reachability (segment's splitting power is ONE gated call)")
+    print("\nM6 — LLM reachability (segment's splitting power is ONE gated call)")
     print(f"  compound rows reaching the call   {reach_c_hit:>5}/{reach_c}"
           f" ({reach_c_hit / reach_c:.1%})   <- RECALL CEILING: the rest can never be split"
           if reach_c else "  (no compounds)")
@@ -528,7 +528,7 @@ def report(title: str, rows, results, groups_label: str, mining: bool):
               f" ({reach_a_hit / reach_a:.1%})   (pure cost: a call that should return 1 item)")
     print(f"  model calls attempted             segment {seg_calls} · decompose {dec_calls}")
 
-    print(f"\nM7 — who does the splitting at all")
+    print("\nM7 — who does the splitting at all")
     print(f"  rows SEGMENT returned as >1 item  {seg_split:>5}"
           f" ({seg_split / n_used:.1%})   (0 here means step 2's deterministic "
           f"tier is a no-op on this register)")
@@ -543,7 +543,7 @@ def report(title: str, rows, results, groups_label: str, mining: bool):
           f" ({damaged / damage_pool:.1%})" if damage_pool else
           "  DAMAGE  (no atomic rows)")
 
-    print(f"\nBy tier — ATOMIZER")
+    print("\nBy tier — ATOMIZER")
     for k in sorted(dec_tier):
         print(_fmt(dec_tier[k], k))
 
@@ -586,7 +586,8 @@ def main() -> int:
     global P_DATA
     from assistant.engine.fastrule.datasets import tiers as _sizes
     _sizes.add_argument(ap)  # --size base|20k|40k|80k: the FastRule set's size tier
-    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    from scripts.dataset_tiers import add_argument as _add_tier
+    from scripts.dataset_tiers import resolve as _resolve
     _add_tier(ap)            # --data-tier base|10k|40k: the persona set
     a = ap.parse_args()
     globals()["B_DATA"] = _sizes.ensure(a.size)

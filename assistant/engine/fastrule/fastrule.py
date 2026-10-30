@@ -38,20 +38,25 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-#: `_parse_covers_the_compound` counts asks with the intent layer's joiner
-#: pattern — the same one `AtomicityFeatures`' joiner-mid signal reads, so
-#: routing and the model can never disagree about where a sentence divides.
-from assistant.intent.coordination import ASK_JOINER_RE as _ASK_JOINER_RE
-
 #: PORTED OUT 2026-09-09 (Gil) — `Gatekeeper` and its two store lookups now
 #: live in `llmjudge/gatekeeper.py`, because a veto that can only refuse is
 #: worth more to the model as answerable CONTEXT. This import is the
 #: redirect: the code moved, the call sites here did not, and behaviour is
 #: unchanged. It goes away with the call sites in phase B (see
 #: `llmjudge/PLAN.md` §1.0 and `fastrule/PLAN.md` §3).
-from assistant.engine.llmjudge.gatekeeper import (      # noqa: F401
-    Gatekeeper, _GENERIC_TARGET_RE, _INTERROGATIVE_RE, _POLITE_IMPERATIVE_RE,
-    _names_something_real, _which_store_holds)
+from assistant.engine.llmjudge.gatekeeper import (  # noqa: F401
+    _GENERIC_TARGET_RE,
+    _INTERROGATIVE_RE,
+    _POLITE_IMPERATIVE_RE,
+    Gatekeeper,
+    _names_something_real,
+    _which_store_holds,
+)
+
+#: `_parse_covers_the_compound` counts asks with the intent layer's joiner
+#: pattern — the same one `AtomicityFeatures`' joiner-mid signal reads, so
+#: routing and the model can never disagree about where a sentence divides.
+from assistant.intent.coordination import ASK_JOINER_RE as _ASK_JOINER_RE
 
 # The gate patterns and the verdict type (carried from v1 at retirement).
 _STRONG_COMPOUND_RE = re.compile(
@@ -158,7 +163,7 @@ _REASON_CLASS = {
 }
 
 
-def reason_class(reason: "str | None") -> "str | None":
+def reason_class(reason: str | None) -> str | None:
     """The class of a deferral reason — None when it committed."""
     if not reason:
         return None
@@ -174,7 +179,7 @@ class Atomicity:
     cue for. Scored on its own board — `scripts/atomicity_board.py`.
     """
 
-    def rule_verdict(self, text: str, intents) -> "str | None":
+    def rule_verdict(self, text: str, intents) -> str | None:
         """The rules tier alone — the three gates, v1 semantics verbatim.
 
         Extracted from `judge` so the board
@@ -202,7 +207,7 @@ class Atomicity:
             return "mixed-mode-compound"
         return None
 
-    def judge(self, text: str, intents) -> "str | None":
+    def judge(self, text: str, intents) -> str | None:
         """The MODEL LEADS; the rule gates are overrides for their own
         catches (F16, measured).
 
@@ -336,11 +341,11 @@ class FastRule:
 
     def run(self, text: str, current_view: str = "month") -> FastRuleResult:
         from assistant.engine import llm as _llm
-        from assistant.intent.rule_parser import RuleParserSkip
 
         # JUNK (DEVQA Q52): list management is thrown out before any parse, so
         # the command never reaches the model. Segmentation marks the item.
         from assistant.intent.junk import junk_reason
+        from assistant.intent.rule_parser import RuleParserSkip
         if junk_reason(text):
             return FastRuleResult(False, [], 0.0, "junk")
         rp = _llm.get_rule_parser()

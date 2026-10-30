@@ -62,7 +62,7 @@ TASKS_OUT = HERE / "task_tags.jsonl"
 #: that is the whole experiment. Each list mixes the obvious members with
 #: peripheral ones, because a classifier that only learns the obvious ones has
 #: learned the keyword table with extra steps.
-EVENT_SUBJECTS: "dict[str, list[str]]" = {
+EVENT_SUBJECTS: dict[str, list[str]] = {
     "Work": [
         "standup", "sprint planning", "retro", "one-on-one with my manager",
         "performance review", "quarterly planning", "client call", "handover",
@@ -466,7 +466,7 @@ def _fill(frame: str, subject: str, rng: random.Random) -> str:
 
 
 #: SUBJECTS per task tag. MULTI-label: a subject may belong to several.
-TASK_SUBJECTS: "dict[str, list[str]]" = {
+TASK_SUBJECTS: dict[str, list[str]] = {
     "Groceries": [
         "milk", "eggs", "sourdough", "zucchini", "aubergine", "pak choi",
         "gochujang", "tahini", "oat milk", "kefir", "halloumi", "za'atar",
@@ -561,7 +561,7 @@ TASK_MULTI = {
 }
 
 
-def _split_vocab(subjects: "list[str]", rng: random.Random, test_frac=0.3):
+def _split_vocab(subjects: list[str], rng: random.Random, test_frac=0.3):
     """Hold subjects out, not rows.
 
     THE WHOLE POINT. Splitting rows would put "gym session on tuesday" in train
@@ -686,7 +686,7 @@ import math
 
 TIERS_DIR = HERE / "tiers"
 #: tier name -> minimum rows per set (None = the committed base files).
-TIERS: "dict[str, int | None]" = {"base": None, "20k": 20_000, "40k": 40_000}
+TIERS: dict[str, int | None] = {"base": None, "20k": 20_000, "40k": 40_000}
 TIER_ORDER = list(TIERS)
 #: Most NEW rows any one subject may contribute to a tier. Events have ~120
 #: frames available to a base subject and ~160 to a new one; tasks ~96 / ~128.
@@ -737,7 +737,7 @@ _HOMOPHONES = {"for": "four", "to": "too", "at": "add", "in": "and",
 _FILLERS = ["um", "uh", "like", "you know", "erm", "so"]
 
 
-def _damage(text: str, rng: random.Random) -> "tuple[str, str | None]":
+def _damage(text: str, rng: random.Random) -> tuple[str, str | None]:
     """ASR-style damage to the FRAME words only. Returns (text, op or None)."""
     toks = text.split(" ")
     free = [i for i, t in enumerate(toks) if _S not in t and t]
@@ -775,7 +775,7 @@ def _base_rows(kind: str, seed: int = 5) -> list:
     return build_events(seed) if kind == "event" else build_tasks(seed)
 
 
-def _class_pools(kind: str, base: list, seed: int = 5) -> "dict[str, list]":
+def _class_pools(kind: str, base: list, seed: int = 5) -> dict[str, list]:
     """{class: [new row, ...]} in the order a tier consumes them.
 
     Round-robin over the class's subjects (shuffled), so ANY prefix of a pool

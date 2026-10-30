@@ -6,9 +6,8 @@ import datetime
 import html as _html
 import logging
 import time as _time
-from typing import List
 
-from PyQt6.QtCore import Qt, QEvent, QMimeData, QByteArray, QTimer, pyqtSignal
+from PyQt6.QtCore import QByteArray, QEvent, QMimeData, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QDrag, QFont, QFontMetrics, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QGraphicsDropShadowEffect,
@@ -23,7 +22,9 @@ from PyQt6.QtWidgets import (
 logger = logging.getLogger(__name__)
 
 import assistant.calendar_ui.styles as _styles
+from assistant.calendar_ui import holy_times
 from assistant.calendar_ui import view_prefs as _vp
+from assistant.calendar_ui.month_view import HolidayBanner
 from assistant.calendar_ui.styles import (
     BLUE,
     BLUE_LIGHT,
@@ -34,8 +35,6 @@ from assistant.calendar_ui.styles import (
     WEEKEND_BG,
     WHITE,
 )
-from assistant.calendar_ui import holy_times
-from assistant.calendar_ui.month_view import HolidayBanner
 from assistant.hebrew_calendar import enumerate_holidays, hebrew_day_label
 
 HOUR_HEIGHT = 48       # px per hour at full size (also the ceiling when compressing)
@@ -53,7 +52,7 @@ _TEAL_TODO = "#0e9f8c"   # deadline pill colour (matches month view)
 class TimeIndicatorOverlay(QWidget):
     """Transparent overlay that paints the current-time red line on top of event blocks."""
 
-    def __init__(self, date: datetime.date, parent: "QWidget", hour_height: int = HOUR_HEIGHT):
+    def __init__(self, date: datetime.date, parent: QWidget, hour_height: int = HOUR_HEIGHT):
         super().__init__(parent)
         self._date = date
         self._hour_height = hour_height
@@ -123,7 +122,7 @@ class EventBlock(QLabel):
         super().__init__(parent)
         self.event = event
         self._color = event.get("color", BLUE)
-        from assistant.calendar_ui.merged_db import owner_prefix   # display only
+        from assistant.calendar_ui.merged_db import owner_prefix  # display only
         self._title_raw = owner_prefix(event) + event.get("title", "")
         self._title_html = _html.escape(self._title_raw)
         from assistant.calendar_ui import view_prefs as _vpt
@@ -375,8 +374,8 @@ class DayColumn(QWidget):
 
         self.is_today = date == datetime.date.today()
         self.is_weekend = date.weekday() >= 5
-        self._event_widgets: List[EventBlock] = []
-        self._events: List[dict] = []
+        self._event_widgets: list[EventBlock] = []
+        self._events: list[dict] = []
         self._drag_hover = False
         self._ui_config = None
         self._press_y: int = -1
@@ -426,7 +425,7 @@ class DayColumn(QWidget):
         except Exception:
             return 0
 
-    def _compute_layout(self, events: List[dict], avail_w: int, font_size: int = 11):
+    def _compute_layout(self, events: list[dict], avail_w: int, font_size: int = 11):
         """Returns [(event, x, w, top, height), ...] with overlap columns."""
         if not events:
             return []
@@ -448,7 +447,7 @@ class DayColumn(QWidget):
                                       _STACK_STEP, self._to_min, read_step=_READ_STEP)
         return [(pl.event, pl.x, pl.w, pl.top, pl.height) for pl in self._placed]
 
-    def load_events(self, events: List[dict]) -> None:
+    def load_events(self, events: list[dict]) -> None:
         self._events = events
         for w in self._event_widgets:
             w.deleteLater()
@@ -646,7 +645,7 @@ class WeekView(QWidget):
         self._db = db
         today = datetime.date.today()
         self._week_start = _vp.week_start(today)
-        self._day_columns: List[DayColumn] = []
+        self._day_columns: list[DayColumn] = []
         self._ui_config = None
         self._hebrew_config = None
         self._hour_height = HOUR_HEIGHT
@@ -671,7 +670,7 @@ class WeekView(QWidget):
         self._allday_layout.setContentsMargins(LABEL_WIDTH, 2, 0, 2)
         self._allday_layout.setSpacing(0)
         layout.addWidget(self._allday_row)
-        self._allday_cells: List[QWidget] = []
+        self._allday_cells: list[QWidget] = []
 
         # Scrollable body
         scroll = QScrollArea()
@@ -689,7 +688,7 @@ class WeekView(QWidget):
         time_col = self._time_col
         time_col.setFixedWidth(LABEL_WIDTH)
         time_col.setFixedHeight(self._hour_height * 24)
-        self._time_labels: List[QLabel] = []
+        self._time_labels: list[QLabel] = []
         time_layout = QVBoxLayout(time_col)
         time_layout.setContentsMargins(0, 0, 4, 0)
         time_layout.setSpacing(0)

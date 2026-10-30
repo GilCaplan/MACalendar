@@ -31,7 +31,7 @@ _LEARN = ("Learned", "Whitelisted", "Location set", "Memory")
 _ERR_WORDS = ("error", "failed", "unknown intent", "no action class", "no such action")
 
 
-def category(record: logging.LogRecord) -> "str | None":
+def category(record: logging.LogRecord) -> str | None:
     """Which colour band a line belongs to — None means leave it plain (the
     processing middle: rule/llm/validate/execute chatter you skim past)."""
     if record.levelno >= logging.ERROR:

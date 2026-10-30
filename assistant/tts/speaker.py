@@ -20,7 +20,7 @@ class Speaker:
         """
         if self.mute:
             return
-            
+
         subprocess.Popen(
             ["say", "-v", self.voice, "-r", str(self.rate), text],
             stdout=subprocess.DEVNULL,
@@ -31,7 +31,7 @@ class Speaker:
         """Blocking TTS — waits until speech finishes."""
         if self.mute:
             return
-            
+
         subprocess.run(
             ["say", "-v", self.voice, "-r", str(self.rate), text],
             stdout=subprocess.DEVNULL,

@@ -40,10 +40,9 @@ from __future__ import annotations
 import logging
 import re
 
-from assistant.engine.state import EngineState, Item
 from assistant import clock as _clock  # the moment the command was SAID
-from assistant.engine.llmjudge.llm_fallback import (
-    _guard_inventions, _honour_refusal, _llm_trace)
+from assistant.engine.llmjudge.llm_fallback import _guard_inventions, _honour_refusal, _llm_trace
+from assistant.engine.state import EngineState, Item
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +84,7 @@ def _event_fallback(text: str):
                           end_time=t.get("end_time"))
 
 
-def _target_check_fallback(item: Item, verdict) -> "tuple | None":
+def _target_check_fallback(item: Item, verdict) -> tuple | None:
     """Narrow fallback for ONE shape: FastRule already built a valid object
     for this item (a `needs-target-check` DEFER means it did — that reason is
     only reached from a `Built`, see `fastrule/stage.py`) and asked the model
@@ -120,14 +119,14 @@ def _target_check_fallback(item: Item, verdict) -> "tuple | None":
     return None
 
 
-def _ask_the_model(item: Item, state: EngineState, cfg, verdict) -> "list | None":
+def _ask_the_model(item: Item, state: EngineState, cfg, verdict) -> list | None:
     """One item the rules could not build → intents, from the model.
 
     `verdict` is FastRule's `Defer`, so the model starts from the partial parse
     rather than cold, and a REFUSAL is honoured rather than re-litigated.
     """
-    from assistant.engine.fastrule.fastrule import REFUSAL
     from assistant.engine import llm as _llm
+    from assistant.engine.fastrule.fastrule import REFUSAL
 
     parser = _llm.get_parser(cfg)
     partial = getattr(verdict, "partial", None)
@@ -187,7 +186,7 @@ class _Verdict:
 
     __slots__ = ("reason", "reason_class", "partial")
 
-    def __init__(self, reason: str, reason_class: "str | None") -> None:
+    def __init__(self, reason: str, reason_class: str | None) -> None:
         self.reason = reason
         self.reason_class = reason_class
         self.partial = None
@@ -233,9 +232,8 @@ def rescue(state: EngineState, cfg, pending: list) -> None:
     (which would risk the Mac's own pending-command queue and this loop both
     replaying the same words later).
     """
-    from assistant.exceptions import (LLMTimeoutError, LLMUnavailableError,
-                                      ParseError)
     from assistant.actions.todo.intent import CreateTodoIntent
+    from assistant.exceptions import LLMTimeoutError, LLMUnavailableError, ParseError
 
     model_gone = False
     for item, verdict in pending:

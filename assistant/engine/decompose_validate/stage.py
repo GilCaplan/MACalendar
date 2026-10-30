@@ -35,7 +35,9 @@ The original is kept in `retired/decompose-validate-v1/`.
 from __future__ import annotations
 
 import datetime as dt
+import re
 
+from assistant import clock as _clock  # the moment the command was SAID
 from assistant.engine.decompose_validate import checks as _checks
 from assistant.engine.decompose_validate import decompose as _decompose
 from assistant.engine.decompose_validate import object_rules as _obj
@@ -45,16 +47,13 @@ from assistant.engine.decompose_validate import targeting as _target
 from assistant.engine.decompose_validate import text_repair as _tidy
 from assistant.engine.state import EngineState
 
-import re
-from assistant import clock as _clock  # the moment the command was SAID
-
 #: The value fields this stage fills, written into `item.slots`.
 VALUE_FIELDS = ("date", "start_time", "end_time", "recurrence", "recur_days",
                 "recur_until", "quantity", "reminder_minutes")
 
 
 def _resolve_onto_intent(state: EngineState, item, intent, today,
-                         carried_day: "str | None" = None) -> "str | None":
+                         carried_day: str | None = None) -> str | None:
     """The per-item resolver + validate's checks, written onto a built intent.
 
     THIS REPLACES THE INDEX-PINNING RULES. `_rule_relative_date_pin` and
@@ -417,7 +416,7 @@ def _scope_trailing_date(dicts: list, said: str, anchor) -> list:
     return fixes
 
 
-def resolve_values(state, anchor: "dt.date | None" = None):
+def resolve_values(state, anchor: dt.date | None = None):
     """The TEXT pass's value fill: values into `item.slots`, before objects exist.
 
     Returns (fixes, flags). Flags land in `slots["flags"]` and never in

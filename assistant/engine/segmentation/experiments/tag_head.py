@@ -50,7 +50,7 @@ from assistant.common.scratch_env import scratch_env  # noqa: E402
 scratch_env("th_", keep=("LOCATION", "MODELS", "LABEL_FEEDBACK", "HEARTBEATS",
                          "HUD_STATE", "DEVICE_SECRET", "DEVICES"))
 
-from assistant.engine.segmentation.experiments import run_board as RB      # noqa: E402
+from assistant.engine.segmentation.experiments import run_board as RB  # noqa: E402
 from assistant.engine.segmentation.fastseg.fastseg import tag as shipped_tag  # noqa: E402
 
 #: How decisive the head must be before it is allowed to speak, for arms C and D.
@@ -82,10 +82,9 @@ def _fitting_texts() -> set:
     return out
 
 
-def _review_precheck(action: str) -> "str | None":
+def _review_precheck(action: str) -> str | None:
     """The deterministic review test the shipped tagger uses, unchanged."""
-    from assistant.engine.segmentation.fastseg.kind import (
-        _enforce_pinned_kinds, _kind_of)
+    from assistant.engine.segmentation.fastseg.kind import _enforce_pinned_kinds, _kind_of
     kind = _enforce_pinned_kinds(_kind_of(action), action)
     return "review" if kind == "review" else None
 
@@ -124,7 +123,7 @@ def arms():
     return {"A shipped tagger": A,
             "B review + head": B,
             f"C head when margin>={MARGIN}": C,
-            f"D head vetoes 'event' only": D}
+            "D head vetoes 'event' only": D}
 
 
 def score(rows, fn):

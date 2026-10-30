@@ -76,16 +76,16 @@ class FlashcardError(ValueError):
 
 
 def _now() -> _dt.datetime:
-    return _dt.datetime.now(_dt.timezone.utc)
+    return _dt.datetime.now(_dt.UTC)
 
 
 def _iso(d: _dt.datetime) -> str:
-    return d.astimezone(_dt.timezone.utc).isoformat(timespec="seconds")
+    return d.astimezone(_dt.UTC).isoformat(timespec="seconds")
 
 
 def _parse(s: str) -> _dt.datetime:
     d = _dt.datetime.fromisoformat(s.strip().replace("Z", "+00:00"))
-    return d if d.tzinfo else d.replace(tzinfo=_dt.timezone.utc)
+    return d if d.tzinfo else d.replace(tzinfo=_dt.UTC)
 
 
 def _slug(name: str) -> str:
@@ -102,7 +102,7 @@ def _safe_rel(path: str) -> str:
 
 
 class FlashcardStore:
-    def __init__(self, path: "str | None" = None) -> None:
+    def __init__(self, path: str | None = None) -> None:
         if path is None:
             from assistant.users import paths as _paths
             path = _paths.resolve(os.environ.get("MACALENDAR_FLASHCARDS") or DEFAULT_PATH)
@@ -134,7 +134,7 @@ class FlashcardStore:
 
     # ------------------------------------------------------------ library
 
-    def library(self, now: "_dt.datetime | None" = None) -> "list[dict]":
+    def library(self, now: _dt.datetime | None = None) -> list[dict]:
         """Every subject with its sets and their counts — the tab's front page."""
         now_s = _iso(now or _now())
         with self._conn() as c:
@@ -241,11 +241,11 @@ class FlashcardStore:
             c.execute("INSERT OR REPLACE INTO deleted(kind, id, name, at) VALUES ('subject',?,?,?)",
                       (subject_id, r["name"], _iso(_now())))
 
-    def _sets_of(self, subject_id: int) -> "list[int]":
+    def _sets_of(self, subject_id: int) -> list[int]:
         with self._conn() as c:
             return [r["id"] for r in c.execute("SELECT id FROM sets WHERE subject_id=?", (subject_id,))]
 
-    def create_set(self, subject: "int | str", name: str, *, slug: str = "",
+    def create_set(self, subject: int | str, name: str, *, slug: str = "",
                    source: str = "", lang: str = "", dir: str = "",
                    client_token: str = "") -> int:
         sid = subject if isinstance(subject, int) else self.subject_id(subject)
@@ -418,7 +418,7 @@ class FlashcardStore:
             f.write(data)
         return _safe_rel(rel)
 
-    def _check_images(self, set_id: int, cards: "list[dict]", pending: "dict | None" = None) -> None:
+    def _check_images(self, set_id: int, cards: list[dict], pending: dict | None = None) -> None:
         for card in cards:
             for rel in cardformat.images(card):
                 rel = _safe_rel(rel)
@@ -431,8 +431,8 @@ class FlashcardStore:
 
     # ------------------------------------------------------------ import
 
-    def import_doc(self, doc: dict, *, media: "dict[str, bytes] | None" = None,
-                   mode: str = "replace", base_dir: "str | None" = None) -> "list[dict]":
+    def import_doc(self, doc: dict, *, media: dict[str, bytes] | None = None,
+                   mode: str = "replace", base_dir: str | None = None) -> list[dict]:
         """Import one set file (or a file with `sets:`). Returns a summary per set.
 
         `mode="replace"` makes the set exactly the file: cards no longer in it
@@ -524,7 +524,7 @@ class FlashcardStore:
         return [{"subject": subject, "set": name, "set_id": set_id, "added": added,
                  "kept": kept, "removed": removed}]
 
-    def import_file(self, filename: str, data: bytes, *, mode: str = "replace") -> "list[dict]":
+    def import_file(self, filename: str, data: bytes, *, mode: str = "replace") -> list[dict]:
         """A .yaml/.yml/.json set file, or a .zip of set files and their pictures."""
         low = filename.lower()
         if low.endswith(".zip"):
@@ -547,7 +547,7 @@ class FlashcardStore:
             return self.import_doc(_load(filename, data), mode=mode)
         raise FlashcardError(f"{filename}: import a .yaml, .json or .zip file.")
 
-    def import_path(self, path: str, *, mode: str = "replace") -> "list[dict]":
+    def import_path(self, path: str, *, mode: str = "replace") -> list[dict]:
         """A file on disk; pictures are looked for beside it."""
         with open(path, "rb") as f:
             data = f.read()
@@ -555,7 +555,7 @@ class FlashcardStore:
             return self.import_file(os.path.basename(path), data, mode=mode)
         return self.import_doc(_load(path, data), mode=mode, base_dir=os.path.dirname(os.path.abspath(path)))
 
-    def import_inbox(self) -> "list[dict]":
+    def import_inbox(self) -> list[dict]:
         """Import every set file dropped into the inbox; move each one out after.
 
         This is the agent door: write a set file (FORMAT.md) into
@@ -589,8 +589,8 @@ class FlashcardStore:
 
     # ------------------------------------------------------------ study
 
-    def study(self, set_ids: "list[int]", *, mode: str = "smart", types: "list[str] | None" = None,
-              limit: int = 20, now: "_dt.datetime | None" = None, seed: "int | None" = None) -> "list[dict]":
+    def study(self, set_ids: list[int], *, mode: str = "smart", types: list[str] | None = None,
+              limit: int = 20, now: _dt.datetime | None = None, seed: int | None = None) -> list[dict]:
         """A session's queue across one, several or all sets, mixed.
 
         smart: items due now (most overdue first), then new ones.
@@ -634,7 +634,7 @@ class FlashcardStore:
             rng.shuffle(queue)
         return queue[:limit] if limit and limit > 0 else queue
 
-    def review(self, card_id: int, item: str, grade: int, *, at: "str | None" = None,
+    def review(self, card_id: int, item: str, grade: int, *, at: str | None = None,
                source: str = "", client_token: str = "") -> dict:
         """Record one answer and move the item. `at` is when it happened, so a
         review the phone queued on a train schedules from the train, not from

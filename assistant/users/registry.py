@@ -114,7 +114,7 @@ def save(data: dict) -> None:
 
 # ------------------------------------------------------------------ reading
 
-def implicit_user() -> "str | None":
+def implicit_user() -> str | None:
     """Who a process nobody logged into acts as: the admin while login is not
     required, nobody otherwise — and nobody before the migration (no file)."""
     if not exists():
@@ -125,7 +125,7 @@ def implicit_user() -> "str | None":
     return admin_id(data)
 
 
-def admin_id(data: "dict | None" = None) -> "str | None":
+def admin_id(data: dict | None = None) -> str | None:
     data = data or load()
     for uid, u in data["users"].items():
         if u.get("role") == "admin":
@@ -138,7 +138,7 @@ def user_ids(include_disabled: bool = False) -> list[str]:
             if include_disabled or not u.get("disabled")]
 
 
-def get(user_id: str) -> "dict | None":
+def get(user_id: str) -> dict | None:
     u = load()["users"].get(user_id)
     return public(user_id, u) if u else None
 
@@ -151,7 +151,7 @@ def public(user_id: str, u: dict) -> dict:
     return out
 
 
-def by_username(username: str) -> "str | None":
+def by_username(username: str) -> str | None:
     name = (username or "").strip().lower()
     for uid, u in load()["users"].items():
         if u.get("username") == name:
@@ -159,7 +159,7 @@ def by_username(username: str) -> "str | None":
     return None
 
 
-def verify_login(username: str, password: str) -> "str | None":
+def verify_login(username: str, password: str) -> str | None:
     """The user id for a correct username + password, else None. A disabled
     account never logs in. Always runs one scrypt, so a wrong USERNAME takes
     as long as a wrong password and the timing says nothing."""
@@ -188,7 +188,7 @@ def has_password(user_id: str) -> bool:
     return bool(load()["users"].get(user_id, {}).get("password"))
 
 
-_DUMMY: "dict | None" = None
+_DUMMY: dict | None = None
 
 
 def _dummy() -> dict:
@@ -211,7 +211,7 @@ def _mutate(fn) -> Any:
 
 
 def create_user(username: str, password: str, display_name: str = "",
-                role: str = "user", color: "str | None" = None) -> str:
+                role: str = "user", color: str | None = None) -> str:
     name = (username or "").strip().lower()
     if not _USERNAME.match(name):
         raise ValueError("a username is 2–32 of a–z, 0–9, _ . -")
@@ -238,7 +238,7 @@ def create_user(username: str, password: str, display_name: str = "",
     return uid
 
 
-def password_rules(user_id: str) -> "tuple[int, bool]":
+def password_rules(user_id: str) -> tuple[int, bool]:
     """(shortest allowed, may it be empty) for a password `user_id` CHOOSES.
     The admin follows no rule (Gil, 2026-10-02: "admin can change however he
     wants"); everyone else follows the admin's policy."""
@@ -251,7 +251,7 @@ def password_rules(user_id: str) -> "tuple[int, bool]":
 
 
 def set_password(user_id: str, password: str, must_change: bool = False,
-                 min_length: "int | None" = None, allow_empty: "bool | None" = None) -> None:
+                 min_length: int | None = None, allow_empty: bool | None = None) -> None:
     """Rules default to `password_rules(user_id)`; the admin setting someone
     else's passes `min_length=0, allow_empty=True`. Empty = no password."""
     rule_min, rule_empty = password_rules(user_id)
@@ -290,10 +290,10 @@ def set_setting(user_id: str, key: str, value: Any) -> None:
     _mutate(lambda data: data["users"][user_id].setdefault("settings", {}).__setitem__(key, value))
 
 
-def set_policy(require_login: "bool | None" = None,
-               auto_signout_days: "int | None | bool" = False,
-               password_min_length: "int | None" = None,
-               allow_empty_password: "bool | None" = None) -> None:
+def set_policy(require_login: bool | None = None,
+               auto_signout_days: int | None | bool = False,
+               password_min_length: int | None = None,
+               allow_empty_password: bool | None = None) -> None:
     """The admin's account policy. `auto_signout_days`: None or 0 = off (a
     sign-in lasts until someone signs it out), N = end a sign-in after N days
     unused. `False` (the default) leaves it as it is."""
@@ -318,7 +318,7 @@ def set_policy(require_login: "bool | None" = None,
 
 # ------------------------------------------------------------------ sharing
 
-def set_share(owner: str, grantee: str, level: "str | None") -> None:
+def set_share(owner: str, grantee: str, level: str | None) -> None:
     """Share `owner`'s whole calendar + to-dos with `grantee` at `level`, or
     stop sharing (`level=None`). One row per pair; the level replaces."""
     if owner == grantee:
@@ -338,7 +338,7 @@ def set_share(owner: str, grantee: str, level: "str | None") -> None:
     _mutate(go)
 
 
-def share_level(owner: str, grantee: str) -> "str | None":
+def share_level(owner: str, grantee: str) -> str | None:
     for s in load()["shares"]:
         if s["owner"] == owner and s["grantee"] == grantee:
             return s["level"]
@@ -443,7 +443,7 @@ def clear_avatar(user_id: str) -> None:
     _mutate(lambda d: d["users"].get(user_id, {}).pop("avatar", None))
 
 
-def avatar_file(user_id: str) -> "tuple[str, str] | None":
+def avatar_file(user_id: str) -> tuple[str, str] | None:
     """(path, mimetype) of `user_id`'s photo, or None when they have none."""
     rec = (load()["users"].get(user_id) or {}).get("avatar")
     if not rec or rec.get("type") not in _AVATAR_TYPES:

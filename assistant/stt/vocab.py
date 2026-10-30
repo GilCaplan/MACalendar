@@ -67,7 +67,7 @@ _PROTECTED = {
     "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "half",
     "quarter", "past", "till", "until", "before", "after", "about", "around",
     "execute", "done", "stop", "go", "submit", "confirm", "please", "walk", "call",
-    "with", "into", "onto", "over", "under", "also", "some", "more", "note",
+    "into", "onto", "over", "under", "also", "some", "more", "note",
 }
 
 
@@ -148,7 +148,7 @@ def _base_forms(flat: str) -> set:
     return out
 
 
-def _edge_needed(flats: "list[str]", flat_t: str, dmg: "tuple[bool, ...]",
+def _edge_needed(flats: list[str], flat_t: str, dmg: tuple[bool, ...],
                  score: float) -> bool:
     """Is every UNDAMAGED word at the window's edge actually needed?
 
@@ -354,7 +354,7 @@ class VocabEntry:
         return d
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "VocabEntry":
+    def from_dict(cls, d: dict[str, Any]) -> VocabEntry:
         return cls(
             word=str(d.get("word", "")).strip(),
             aliases=[str(a) for a in d.get("aliases", []) if str(a).strip()],
@@ -380,7 +380,7 @@ class Correction:
 class VocabStore:
     """Thread-safe, file-backed vocabulary. Reloads if the file changes on disk."""
 
-    def __init__(self, path: "str | None" = None) -> None:
+    def __init__(self, path: str | None = None) -> None:
         # RESOLVED AT CALL TIME, not bound as a default. `VOCAB_PATH` is read
         # from the environment at IMPORT, so a default argument freezes
         # whatever `MACALENDAR_VOCAB` said then — and a test that sets it
@@ -396,7 +396,7 @@ class VocabStore:
         self._lock = threading.RLock()
         self._entries: list[VocabEntry] = []
         #: word-sound index, rebuilt lazily; None means "stale"
-        self._phonetic_cache: "dict[str, list[str]] | None" = None
+        self._phonetic_cache: dict[str, list[str]] | None = None
         self._recent: list[dict[str, Any]] = []
         self.auto_correct: bool = True
         self.learn_aliases: bool = True
@@ -417,7 +417,7 @@ class VocabStore:
             if mtime == self._mtime:
                 return
             try:
-                with open(self._path, "r", encoding="utf-8") as f:
+                with open(self._path, encoding="utf-8") as f:
                     data = json.load(f)
             except Exception as e:  # corrupt file — don't crash the assistant
                 logger.warning("Vocab file unreadable (%s); starting empty", e)
@@ -521,10 +521,10 @@ class VocabStore:
         self,
         word: str,
         *,
-        label: "str | None" = None,
-        expands_to: "str | None" = None,
-        aliases: "list[str] | None" = None,
-    ) -> "VocabEntry | None":
+        label: str | None = None,
+        expands_to: str | None = None,
+        aliases: list[str] | None = None,
+    ) -> VocabEntry | None:
         """Edit an existing word. Returns None if there is no such word.
 
         Only the fields passed are touched, so a caller that knows about
@@ -716,7 +716,7 @@ class VocabStore:
             return False
         return flat not in vocab_flat
 
-    def _repairable_alone(self, token: str, ctx: "_Ctx") -> bool:
+    def _repairable_alone(self, token: str, ctx: _Ctx) -> bool:
         """Would the SINGLE-WORD pass fix this token by itself?
 
         Gil, 2026-09-19: *"in cases where two sequential words, one is good and
@@ -737,8 +737,8 @@ class VocabStore:
         ctx.alone[token] = ok
         return ok
 
-    def _match_window(self, window: str, m: int, pre: "_Pre", ctx: "_Ctx",
-                      dmg: "tuple[bool, ...]", toks: "tuple[str, ...]") -> "tuple[str | None, float]":
+    def _match_window(self, window: str, m: int, pre: _Pre, ctx: _Ctx,
+                      dmg: tuple[bool, ...], toks: tuple[str, ...]) -> tuple[str | None, float]:
         """Does this window of *m* tokens spell `pre.entry`'s word, badly?
 
         Everything is compared SPACE-STRIPPED, because the token count moves
@@ -818,7 +818,7 @@ class VocabStore:
                     return "phonetic", score
         return None, 0.0
 
-    def _unambiguous(self, window: str, m: int, pre: "_Pre", ctx: "_Ctx",
+    def _unambiguous(self, window: str, m: int, pre: _Pre, ctx: _Ctx,
                      dmg, toks, score: float) -> bool:
         """Is this window one entry's word, or the shape of several of them?
 
@@ -1039,7 +1039,7 @@ class VocabStore:
             f"{e.word} = {e.expands_to}" for e in found)
 
     @staticmethod
-    def _looks_like_english(word: str, english: "set[str]") -> bool:
+    def _looks_like_english(word: str, english: set[str]) -> bool:
         """Is this an ordinary word, allowing for a word list from 1934?
 
         `/usr/share/dict/words` on macOS is web2 and has no inflections — no
@@ -1117,7 +1117,7 @@ _store: VocabStore | None = None
 _store_lock = threading.Lock()
 
 
-_user_stores: "dict[str, VocabStore]" = {}
+_user_stores: dict[str, VocabStore] = {}
 
 
 def get_vocab() -> VocabStore:
@@ -1142,7 +1142,7 @@ def get_vocab() -> VocabStore:
         return st
 
 
-def _shared_vocab_stores() -> "list[VocabStore]":
+def _shared_vocab_stores() -> list[VocabStore]:
     """The vocabularies shared WITH the bound user, in the order they apply."""
     from assistant import users
     uid = users.current()

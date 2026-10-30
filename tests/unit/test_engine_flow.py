@@ -10,10 +10,10 @@ from unittest.mock import MagicMock
 import pytest
 
 import assistant.engine as engine
-import assistant.engine.llm as engine_llm
-import assistant.engine.fastrule.stage as generate
-import assistant.engine.llmjudge.rescue as _rescue
 import assistant.engine.fastrule.fast_track as fast_track
+import assistant.engine.fastrule.stage as generate
+import assistant.engine.llm as engine_llm
+import assistant.engine.llmjudge.rescue as _rescue
 import assistant.stt.vocab as vocab_mod
 from assistant.engine.state import EngineState, Item
 from assistant.exceptions import OllamaUnavailableError
@@ -337,7 +337,6 @@ def test_the_wrapper_round_trips_through_segment(cfg):
 def test_repeated_attempt_messages_fold_into_one(monkeypatch):
     """A loop-back that fails the same way each attempt must apologise once,
     not once per re-entry (found live: three identical "couldn't read"s)."""
-    from assistant.exceptions import ParseError
     monkeypatch.setattr(fast_track, "fast_propose", lambda state, cfg: False)
 
     def failing_run(state, cfg):
@@ -439,7 +438,7 @@ def test_the_diagram_chain_labels_exist_for_this_version():
     from assistant.trace import BRAIN_VERSION, CHAINS
     assert BRAIN_VERSION in CHAINS
     stages = {s for s, _label in CHAINS[BRAIN_VERSION]}
-    from assistant.trace import VOCAB, RULE, VALIDATE, LLM, EXECUTE, VERIFY, DONE
+    from assistant.trace import DONE, EXECUTE, LLM, RULE, VALIDATE, VERIFY, VOCAB
     assert stages <= {VOCAB, RULE, VALIDATE, LLM, EXECUTE, VERIFY, DONE}
 
 
@@ -492,7 +491,6 @@ def test_fastrule_work_travels_forward_when_it_declines(registry_with_real_actio
     context for the LLM stages. It used to be discarded on defer, so the
     deep track started cold on a command that had already been read once."""
     from assistant.engine import load_config
-    from assistant.engine.fastrule import fast_track as generate
     from assistant.engine.state import EngineState
 
     st = EngineState(raw_text="book the gym at 6 and remind me to buy milk",
@@ -812,7 +810,9 @@ def test_a_fast_item_that_named_today_stays_today(registry_with_real_actions):
     morning" said after 9 moved to tomorrow (Board D run as production,
     2026-09-26). A single fast item carries the sentence as its source."""
     import datetime as dt
+
     from freezegun import freeze_time
+
     from assistant.engine.decompose_validate import stage as dv
     from assistant.engine.llm import get_rule_parser
     c = engine.load_config()

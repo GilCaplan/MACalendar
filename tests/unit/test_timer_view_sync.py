@@ -13,10 +13,10 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtWidgets import QApplication            # noqa: E402
+from PyQt6.QtWidgets import QApplication  # noqa: E402
 
 from assistant.calendar_ui import timer_view as tv  # noqa: E402
-from assistant.db import CalendarDB                 # noqa: E402
+from assistant.db import CalendarDB  # noqa: E402
 
 
 @pytest.fixture(scope="module")

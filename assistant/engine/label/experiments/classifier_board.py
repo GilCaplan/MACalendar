@@ -43,7 +43,6 @@ from __future__ import annotations
 import argparse
 import collections
 import json
-import os
 import pathlib
 import re
 
@@ -55,7 +54,8 @@ _S = pathlib.Path(scratch_env(
 
 STAGE = pathlib.Path(__file__).resolve().parents[1]
 DATA = STAGE.parent / "fastrule" / "datasets" / "fastrule_7200.jsonl"
-from assistant.users.paths import personal_store as _personal_store   # the admin's, since users
+from assistant.users.paths import personal_store as _personal_store  # the admin's, since users
+
 REAL_DB = pathlib.Path(_personal_store("calendar.db"))
 
 #: The two-tier hierarchy, for the flat-vs-tiered comparison. Grouped by what
@@ -133,11 +133,11 @@ def _vectoriser():
 
 
 def models():
+    from sklearn.decomposition import TruncatedSVD
     from sklearn.dummy import DummyClassifier
     from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
     from sklearn.linear_model import LogisticRegression
     from sklearn.neighbors import KNeighborsClassifier
-    from sklearn.decomposition import TruncatedSVD
     from sklearn.pipeline import make_pipeline
     from sklearn.tree import DecisionTreeClassifier
     return [
@@ -166,7 +166,7 @@ def models():
 # ---------------------------------------------------------------------------
 
 def _report(name: str, y_true, y_pred) -> dict:
-    from sklearn.metrics import (accuracy_score, precision_recall_fscore_support)
+    from sklearn.metrics import accuracy_score, precision_recall_fscore_support
     acc = accuracy_score(y_true, y_pred)
     p, r, f, _ = precision_recall_fscore_support(
         y_true, y_pred, average="macro", zero_division=0)
@@ -189,6 +189,7 @@ def _print_table(title: str, rows: list, note: str = "") -> None:
 def run_events(args) -> None:
     import numpy as np
     from sklearn.pipeline import Pipeline
+
     from assistant.actions.calendar import categories as _cat
 
     texts, labels, splits, subjects = load_events(getattr(args, "data_tier", "base"))
@@ -274,7 +275,9 @@ def _real_events(fitted: dict) -> None:
     `../datasets/REAL_GOLD.md` records what replaced it and who labelled it.
     """
     import json as _json
+
     import numpy as np
+
     from assistant.actions.calendar import categories as _cat
 
     path = STAGE / "datasets" / "real_event_gold.jsonl"
@@ -289,9 +292,9 @@ def _real_events(fitted: dict) -> None:
     print(f"\n  REAL USAGE — {len(rows)} real titles from the utterance pool, "
           f"labelled by hand")
     print(f"    {len(present)} of 13 categories present: {', '.join(present)}")
-    print(f"    labelled by Claude, not by the user — see datasets/REAL_GOLD.md. "
-          f"EVALUATION ONLY,\n    never trained on: a set fitted against cannot "
-          f"answer the question it exists for.")
+    print("    labelled by Claude, not by the user — see datasets/REAL_GOLD.md. "
+          "EVALUATION ONLY,\n    never trained on: a set fitted against cannot "
+          "answer the question it exists for.")
 
     rule_pred = [_cat.classify(t) for t in rt]
     rrows = [_report("RULES (the incumbent)", ry, rule_pred)]
@@ -348,6 +351,7 @@ def run_tasks(args) -> None:
     from sklearn.multiclass import OneVsRestClassifier
     from sklearn.pipeline import Pipeline
     from sklearn.preprocessing import MultiLabelBinarizer
+
     from assistant.actions.todo import tagging as _tag
 
     texts, labels, splits, subjects = load_tasks(getattr(args, "data_tier", "base"))
@@ -399,6 +403,7 @@ def run_tasks(args) -> None:
 
 def _real_tasks(fitted, mlb, palette, score) -> None:
     import numpy as np
+
     from assistant.actions.todo import tagging as _tag
 
     _, todos = load_real()

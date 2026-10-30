@@ -52,7 +52,7 @@ INSTRUCTIONS = (
 _LATIN_ONLY = re.compile(r"^[\x00-\x7FÀ-ɏ\s\W\d]*$")
 
 
-def _store(path: "str | None") -> FlashcardStore:
+def _store(path: str | None) -> FlashcardStore:
     if path:
         return FlashcardStore(path)
     if os.environ.get("MACALENDAR_FLASHCARDS"):
@@ -91,7 +91,7 @@ def export(store: FlashcardStore, out: pathlib.Path) -> dict:
             "to_translate": sum(_needs_english(c) for d in sets for c in d["cards"])}
 
 
-def apply(store: FlashcardStore, path: pathlib.Path) -> "list[str]":
+def apply(store: FlashcardStore, path: pathlib.Path) -> list[str]:
     """Check the translated file and drop each set into the inbox. Returns the files written."""
     data = json.loads(path.read_text(encoding="utf-8"))
     written = []
@@ -122,7 +122,7 @@ def apply(store: FlashcardStore, path: pathlib.Path) -> "list[str]":
     return written
 
 
-def main(argv: "list[str] | None" = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--db", help="a flashcards.db other than your own (for trying it out)")
     sub = ap.add_subparsers(dest="cmd", required=True)

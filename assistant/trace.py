@@ -12,7 +12,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # The brain that produced a trace, and the shape its chain of thought reads in.
 # ONE source of truth, imported by the engine (which stamps BRAIN_VERSION onto
 # every trace and response), by the thinking panel (which renders by it), and
@@ -154,7 +153,7 @@ STAGE_INFO = {
 }
 
 
-def stage_info(version: str, label: str) -> "tuple[str, str] | None":
+def stage_info(version: str, label: str) -> tuple[str, str] | None:
     """(heading, body) for a chain slot's \u24d8, or None if unknown."""
     return STAGE_INFO.get(version, {}).get(label)
 

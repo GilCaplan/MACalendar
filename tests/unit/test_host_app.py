@@ -222,7 +222,8 @@ def test_switching_role_is_remembered_and_stops_the_brain(tray, monkeypatch):
 
 
 def test_the_installer_can_set_the_role_without_a_window(monkeypatch, capsys):
-    from assistant.host import role, tray as tray_mod
+    from assistant.host import role
+    from assistant.host import tray as tray_mod
     monkeypatch.setattr("sys.argv", ["host", "--role", "helper"])
     tray_mod.main()
     assert role.get() == role.HELPER
@@ -239,10 +240,11 @@ def test_the_server_menu_has_every_app(tray):
 
 
 def test_the_hud_star_steps_aside_while_the_server_menu_is_up(tray):
-    from assistant import thinking_hud
-    from assistant.heartbeat import beat
-    import json, os, time
-    from assistant import heartbeat
+    import json
+    import os
+    import time
+
+    from assistant import heartbeat, thinking_hud
     path = os.path.join(heartbeat._DIR, "host.json")
     if os.path.exists(path):
         os.remove(path)

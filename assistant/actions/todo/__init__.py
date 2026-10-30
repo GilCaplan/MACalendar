@@ -2,8 +2,8 @@
 
 from assistant.actions.todo.action import (  # noqa: F401
     AddSubtaskAction,
-    CompleteTodoAction,
     CompleteSubtaskAction,
+    CompleteTodoAction,
     CreateTodoAction,
     DeleteSubtaskAction,
     DeleteTodoAction,

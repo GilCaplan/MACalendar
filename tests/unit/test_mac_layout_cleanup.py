@@ -10,14 +10,13 @@ messy and not so nice to look at"), held in place.
 """
 from __future__ import annotations
 
-
 import pytest
 
 pytest.importorskip("PyQt6")
 
-from PyQt6.QtWidgets import QApplication, QWidget     # noqa: E402
+from PyQt6.QtWidgets import QApplication, QWidget  # noqa: E402
 
-from assistant.calendar_ui.window import CalendarWindow   # noqa: E402
+from assistant.calendar_ui.window import CalendarWindow  # noqa: E402
 
 
 @pytest.fixture(scope="module")

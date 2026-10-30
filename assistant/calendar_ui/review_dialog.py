@@ -13,10 +13,25 @@ import datetime as _dt
 
 from PyQt6.QtCore import QDate, Qt, QTime
 from PyQt6.QtWidgets import (
-    QButtonGroup, QCheckBox, QComboBox, QDateEdit, QDialog, QDialogButtonBox,
-    QFormLayout, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
-    QMessageBox, QPlainTextEdit, QPushButton, QScrollArea, QTimeEdit,
-    QVBoxLayout, QWidget,
+    QButtonGroup,
+    QCheckBox,
+    QComboBox,
+    QDateEdit,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QScrollArea,
+    QTimeEdit,
+    QVBoxLayout,
+    QWidget,
 )
 
 from assistant.calendar_ui import icons
@@ -368,8 +383,9 @@ class CorrectionDialog(QDialog):
         self._chips["Didn't ask for this"].setChecked(on)
 
     def _add(self, kind: str) -> None:
-        from assistant.intent import review
         import datetime as _d
+
+        from assistant.intent import review
         row = review.FixRow(index=None, action="", kind=kind, choice=review.CHANGE,
                             date=_d.date.today().isoformat() if kind == "event" else "",
                             start="09:00" if kind == "event" else "",

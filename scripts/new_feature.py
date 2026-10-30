@@ -57,7 +57,7 @@ class Plan:
 
     def __init__(self, dry: bool) -> None:
         self.dry = dry
-        self.writes: "list[tuple[str, str, str]]" = []     # (path, content, what)
+        self.writes: list[tuple[str, str, str]] = []     # (path, content, what)
 
     def new(self, path: str, content: str) -> None:
         if os.path.exists(path):
@@ -204,7 +204,7 @@ class {pascal(a.name)}View(FeaturePanel):
 ''')
 
 
-def ios_tab(plan: Plan, a) -> "list[str]":
+def ios_tab(plan: Plan, a) -> list[str]:
     if a.no_ios:
         return []
     P = pascal(a.name)

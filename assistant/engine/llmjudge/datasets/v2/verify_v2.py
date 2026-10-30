@@ -130,7 +130,9 @@ def intended_still_reachable(row: dict) -> int:
 
 def main() -> int:
     import argparse
-    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+
+    from scripts.dataset_tiers import add_argument as _add_tier
+    from scripts.dataset_tiers import resolve as _resolve
     ap = argparse.ArgumentParser()
     _add_tier(ap)
     a = ap.parse_args()

@@ -107,6 +107,7 @@ def register(app) -> None:
         if (bad := _local_only()) is not None:
             return bad
         import requests
+
         from assistant.pairing.addresses import server_name
         b = request.get_json(silent=True) or {}
         urls = [u.rstrip("/") for u in (b.get("urls") or []) if isinstance(u, str) and u]

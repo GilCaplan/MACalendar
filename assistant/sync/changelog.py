@@ -27,7 +27,7 @@ EXCLUDED = frozenset({"calendar_sources", "calendar_sync_deletes", "reminder_log
 
 #: Integer ids other rows point at: when a replica's new row must take another
 #: id (the hub gave that one to the phone meanwhile), these columns follow it.
-FKS: "dict[str, list[tuple[str, str]]]" = {
+FKS: dict[str, list[tuple[str, str]]] = {
     "events": [("events", "series_id"), ("todos", "source_event_id"),
                ("todos", "linked_event_id"), ("assignments", "calendar_event_id"),
                ("workout_plan_items", "event_id"), ("reminder_log", "event_id")],
@@ -44,7 +44,7 @@ def connect(path: str) -> sqlite3.Connection:
     return conn
 
 
-def tables(conn: sqlite3.Connection) -> "dict[str, str]":
+def tables(conn: sqlite3.Connection) -> dict[str, str]:
     """Every replicated table → its primary-key column."""
     out = {}
     for (name,) in conn.execute("SELECT name FROM sqlite_master WHERE type='table'"):
@@ -56,7 +56,7 @@ def tables(conn: sqlite3.Connection) -> "dict[str, str]":
     return out
 
 
-def columns(conn: sqlite3.Connection, table: str) -> "list[str]":
+def columns(conn: sqlite3.Connection, table: str) -> list[str]:
     return [r["name"] for r in conn.execute(f"PRAGMA table_info({table})")]
 
 
@@ -95,7 +95,7 @@ def install(conn: sqlite3.Connection) -> None:
             BEGIN INSERT INTO {LOG}(tbl, rid, op, origin) VALUES ('{t}', OLD.{pk}, 'd', {origin}); END""")
 
 
-def row(conn: sqlite3.Connection, table: str, pk: str, rid) -> "dict | None":
+def row(conn: sqlite3.Connection, table: str, pk: str, rid) -> dict | None:
     r = conn.execute(f"SELECT * FROM {table} WHERE {pk} = ?", (rid,)).fetchone()
     return dict(r) if r else None
 

@@ -100,7 +100,7 @@ def stream(chat_id: str, question: str, sources: list, window: list, *,
     """
     msgs = messages(question, sources, window, lang)
     shown = sources[:MAX_SOURCES]
-    q: "queue.Queue" = queue.Queue()
+    q: queue.Queue = queue.Queue()
     ctx = contextvars.copy_context()
 
     def work():

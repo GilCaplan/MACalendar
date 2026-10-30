@@ -34,6 +34,7 @@ import re
 from assistant.common.wordlists import MONTH_ABBR_INDEX as _MONTHS
 from assistant.common.wordlists import WEEKDAY_INDEX as _WD
 from assistant.common.wordlists import WEEKDAYS
+
 #: ABBREVIATIONS are in _MONTHS too ("Oct 6", "sept 14"): without them an
 #: ordinary written date resolved to nothing and left an `until` bound unapplied.
 _NUMBER = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4,
@@ -83,7 +84,7 @@ def _next_calendar_week(anchor: dt.date, name: str) -> dt.date:
     return anchor + dt.timedelta(days=(7 - anchor.weekday()) + _WD[name])
 
 
-def _roll_to_day(anchor: dt.date, day: int, month: "int | None" = None) -> "dt.date | None":
+def _roll_to_day(anchor: dt.date, day: int, month: int | None = None) -> dt.date | None:
     """The soonest future date with this day-of-month (and month, if named).
 
     A named MONTH is honoured exactly — "the 20th of November" is November,
@@ -112,7 +113,7 @@ def _roll_to_day(anchor: dt.date, day: int, month: "int | None" = None) -> "dt.d
     return None
 
 
-def resolve_date(said: str, anchor: dt.date) -> "str | None":
+def resolve_date(said: str, anchor: dt.date) -> str | None:
     """One item's time words -> an ISO date, or None if they name no day.
 
     Ordered most specific first. A month-named ordinal must be tried before the
@@ -297,7 +298,7 @@ _SPOKEN_CLOCK = re.compile(
     "|".join(re.escape(m) for m in _SPOKEN_MINUTE) + r")\b")
 
 
-def bare_hour_is_ambiguous(said: str) -> "int | None":
+def bare_hour_is_ambiguous(said: str) -> int | None:
     """The hour, when a command says a bare 7 or 8 and nothing settles which.
 
     Gil, 2026-09-20 (DEVQA Q28): *"Ask the speaker when it is genuinely 7 or
@@ -321,7 +322,7 @@ def bare_hour_is_ambiguous(said: str) -> "int | None":
     return {"seven": 7, "eight": 8}.get(word, 0) or int(word)
 
 
-def _bare_hour(h: int, minute: int, said: str) -> "str | None":
+def _bare_hour(h: int, minute: int, said: str) -> str | None:
     """THE BARE-HOUR CONVENTION: 1-8 is PM; a morning word is what says otherwise.
 
     A bare hour in calendar speech is far more often the afternoon — "gym at 5"
@@ -400,7 +401,7 @@ _EXPLICIT_CLOCK = re.compile(
     re.I)
 
 
-def window_for(said: str) -> "tuple[str, str] | None":
+def window_for(said: str) -> tuple[str, str] | None:
     """The coarse window a phrase names, or None.
 
     Returns None when the sentence STATES a clock, because then the window is not
@@ -425,7 +426,7 @@ def window_for(said: str) -> "tuple[str, str] | None":
     return None
 
 
-def resolve_clock(said: str, context: str = "") -> "str | None":
+def resolve_clock(said: str, context: str = "") -> str | None:
     """One item's time words -> "HH:MM", or None if they name no clock time."""
     t = (said or "").lower()
     ctx = f"{t} {context or ''}"
@@ -543,7 +544,7 @@ _RANGE_TAIL = re.compile(
     r"jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\b.*$", re.I)
 
 
-def resolve_range(said: str, context: str = "") -> "tuple[str, str] | None":
+def resolve_range(said: str, context: str = "") -> tuple[str, str] | None:
     """"from 3 to 4pm" / "between 2 and 4" -> (start, end)."""
     t = (said or "").lower()
     # RIGHTMOST first. "a month from today from 2 to 4pm" has two "from"s, and
@@ -561,7 +562,7 @@ def resolve_range(said: str, context: str = "") -> "tuple[str, str] | None":
     if not m:
         return None
 
-    def _side(part: str, ctx: str) -> "str | None":
+    def _side(part: str, ctx: str) -> str | None:
         """Inside a range, a BARE NUMBER is a clock time. Outside one it is not
         -- "buy 3 apples" must never become 03:00 -- which is why this lives
         here and not in resolve_clock. Without it "from 3 to 4pm" failed
@@ -606,7 +607,7 @@ def resolve_range(said: str, context: str = "") -> "tuple[str, str] | None":
 # RECURRENCE
 # ---------------------------------------------------------------------------
 
-def resolve_recurrence(said: str) -> "dict | None":
+def resolve_recurrence(said: str) -> dict | None:
     """-> {cadence, days, rounded} or None.
 
     `cadence` is only ever daily|weekly|monthly|yearly — the product's rule.
@@ -697,7 +698,7 @@ _TAIL_CONTINUES = re.compile(
     r"next|this|every|each)\b")
 
 
-def resolve_lead_time(said: str) -> "int | None":
+def resolve_lead_time(said: str) -> int | None:
     """"half an hour before" -> 30 minutes."""
     t = (said or "").lower()
     # HALF FIRST. "half an hour before" matched on "an hour" and returned 60 —
@@ -736,7 +737,7 @@ def resolve_lead_time(said: str) -> "int | None":
                 "day": 1440, "week": 10080}[m.group(3)]
 
 
-def resolve_duration(said: str) -> "int | None":
+def resolve_duration(said: str) -> int | None:
     """"for an hour" -> 60 minutes. The event's LENGTH, not when it starts.
 
     Read from the ACTION words rather than the time, because segmentation keeps
@@ -769,7 +770,7 @@ _DURATION_UNIT = (r"(?:mins?|minutes?|hrs?|hours?|days?|weeks?|months?|years?|"
                   r"seconds?|secs?)\b")
 
 
-def resolve_quantity(said: str) -> "int | None":
+def resolve_quantity(said: str) -> int | None:
     """"5 apples" / "a dozen eggs" -> the count."""
     t = (said or "").lower()
     for phrase in ("half a dozen", "a couple of", "a dozen"):
@@ -806,7 +807,7 @@ _START = re.compile(r"\b(?:starting|start(?:s|ing)? on|beginning|begins)\b\s*(.+
 _EXCLUSIVE = ("until", "till", "up to")
 
 
-def resolve_until(said: str, anchor: dt.date) -> "str | None":
+def resolve_until(said: str, anchor: dt.date) -> str | None:
     """The END of a series, or None. Applies the until/through convention."""
     m = _UNTIL.search((said or "").lower())
     if not m:

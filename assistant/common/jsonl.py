@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Iterable, Iterator
+from collections.abc import Iterable, Iterator
+from typing import Any
 
 
 def rows(lines: Iterable[str]) -> Iterator[Any]:
@@ -24,7 +25,7 @@ def rows(lines: Iterable[str]) -> Iterator[Any]:
             continue                    # a half-written line; re-read next time
 
 
-def tail(path: str, offset: int) -> "tuple[list, int]":
+def tail(path: str, offset: int) -> tuple[list, int]:
     """(rows written since `offset`, the new offset). A file now SHORTER than
     the offset was trimmed or replaced: nothing is returned and the reader
     restarts from the file's current end."""

@@ -20,7 +20,8 @@ from __future__ import annotations
 
 from flask import Blueprint, Flask, jsonify, request
 
-from assistant.calendar_sync import connect, guide as _guide, scheduler
+from assistant.calendar_sync import connect, scheduler
+from assistant.calendar_sync import guide as _guide
 
 bp = Blueprint("calendar_sync", __name__, url_prefix="/calendar_sync")
 

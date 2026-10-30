@@ -19,10 +19,8 @@ import urllib.request
 import pytest
 
 from assistant.calendar_sync import connect, google_oauth, google_sync, scheduler
-from assistant.calendar_sync.google_client import GoogleCalendarClient
-from assistant.config import AppConfig, GoogleCalendarConfig, load_config
+from assistant.config import GoogleCalendarConfig, load_config
 from assistant.db import CalendarDB
-
 
 # ---------------------------------------------------------------------------
 # A fake Google: token endpoint + Calendar API events collection
@@ -40,7 +38,7 @@ class Resp:
 
 
 def _stamp(dt: datetime.datetime) -> str:
-    return dt.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    return dt.astimezone(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
 class FakeGoogle:
@@ -61,14 +59,14 @@ class FakeGoogle:
         self.events[gid] = {
             "id": gid, "status": status, "summary": summary,
             "start": {"dateTime": start}, "end": {"dateTime": end},
-            "updated": _stamp(when or datetime.datetime.now(datetime.timezone.utc)),
+            "updated": _stamp(when or datetime.datetime.now(datetime.UTC)),
         }
         self.changed.append(gid)
 
     def cancel(self, gid, when=None):
         ev = self.events[gid]
         ev["status"] = "cancelled"
-        ev["updated"] = _stamp(when or datetime.datetime.now(datetime.timezone.utc))
+        ev["updated"] = _stamp(when or datetime.datetime.now(datetime.UTC))
         self.changed.append(gid)
 
     # -- transport --
@@ -109,7 +107,7 @@ class FakeGoogle:
             new = f"new{self.next_id}"
             self.next_id += 1
             self.events[new] = {**json, "id": new, "status": "confirmed",
-                                "updated": _stamp(datetime.datetime.now(datetime.timezone.utc))}
+                                "updated": _stamp(datetime.datetime.now(datetime.UTC))}
             return Resp(200, self.events[new])
         if method == "PATCH":
             if gid not in self.events or self.events[gid]["status"] == "cancelled":
@@ -249,7 +247,7 @@ def test_an_all_day_event_uses_the_local_all_day_convention(db, config, connecte
     fake = FakeGoogle()
     fake.events["d"] = {"id": "d", "status": "confirmed", "summary": "Holiday",
                         "start": {"date": "2026-10-05"}, "end": {"date": "2026-10-06"},
-                        "updated": _stamp(datetime.datetime.now(datetime.timezone.utc))}
+                        "updated": _stamp(datetime.datetime.now(datetime.UTC))}
     _run(db, config, fake)
     row = db.get_events_by_external_source("google")[0]
     assert (row["date"], row["start_time"], row["end_time"]) == ("2026-10-05", "00:00", "23:59")
@@ -314,7 +312,7 @@ def test_deletes_for_one_provider_never_eat_another_providers_tombstones(db):
 
 def test_a_newer_local_edit_beats_an_older_remote_one(db, config, connected):
     fake = FakeGoogle()
-    past = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=2)
+    past = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=2)
     fake.put("g1", "Original", "2026-10-01T09:00:00Z", "2026-10-01T10:00:00Z", when=past)
     _run(db, config, fake)
     eid = db.get_events_by_external_source("google")[0]["id"]
@@ -333,7 +331,7 @@ def test_a_newer_remote_edit_beats_an_older_local_one(db, config, connected):
     _run(db, config, fake)
     eid = db.get_events_by_external_source("google")[0]["id"]
     db.update_event(eid, title="Local edit")
-    future = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=5)
+    future = datetime.datetime.now(datetime.UTC) + datetime.timedelta(minutes=5)
     fake.put("g1", "Remote edit", "2026-10-01T09:00:00Z", "2026-10-01T10:00:00Z", when=future)
     out = _run(db, config, fake)
     row = db.get_event(eid)
@@ -343,7 +341,7 @@ def test_a_newer_remote_edit_beats_an_older_local_one(db, config, connected):
 
 def test_a_remote_delete_of_an_event_edited_since_recreates_it(db, config, connected):
     fake = FakeGoogle()
-    past = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=1)
+    past = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=1)
     fake.put("g1", "Original", "2026-10-01T09:00:00Z", "2026-10-01T10:00:00Z", when=past)
     _run(db, config, fake)
     eid = db.get_events_by_external_source("google")[0]["id"]

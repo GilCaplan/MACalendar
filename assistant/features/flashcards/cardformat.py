@@ -212,7 +212,7 @@ def english_that_fits(en: dict, card: dict) -> dict:
     return out
 
 
-def items(card: dict) -> "list[str]":
+def items(card: dict) -> list[str]:
     """The study items one card schedules separately ('' is the card itself)."""
     kind = card["type"]
     if kind == "cloze":
@@ -233,5 +233,5 @@ def key(card: dict) -> str:
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
 
 
-def images(card: dict) -> "list[str]":
+def images(card: dict) -> list[str]:
     return [card["image"]] if card.get("image") else []

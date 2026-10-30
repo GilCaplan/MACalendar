@@ -50,9 +50,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from assistant.engine.state import CheckFinding
 from assistant.engine.llmjudge import findings as F
 from assistant.engine.llmjudge import render
+from assistant.engine.state import CheckFinding
 
 #: "rename X to Y" / "change X to Y" / "call it Y instead of X" — a sentence
 #: that names two things on purpose. See `title_dropped_the_verb`.
@@ -95,7 +95,7 @@ _TITLE_STOP = {
 }
 
 
-def tokens(text: str) -> "list[str]":
+def tokens(text: str) -> list[str]:
     """The words of a string, as every grounding test here reads them.
 
     ONE definition, because there were four and they disagreed about a quote
@@ -140,9 +140,9 @@ class Produced:
     removable: bool = False
 
 
-def collect(state) -> "list[Produced]":
+def collect(state) -> list[Produced]:
     """Everything the engine decided about, as the comparable surface."""
-    out: "list[Produced]" = []
+    out: list[Produced] = []
     for it in state.items:
         if it.intent is None or not it.action:
             continue
@@ -190,7 +190,7 @@ def names_nothing_spoken(title: str, raw_text: str) -> bool:
     return True
 
 
-def unspoken_word(title: str, raw_text: str) -> "str | None":
+def unspoken_word(title: str, raw_text: str) -> str | None:
     """The first content word of this title the transcript never said, if any.
 
     **THE IDENTITY TEST, since 2026-09-10 — and it replaces zero-overlap.**
@@ -691,7 +691,7 @@ def _coordinated_findings(state, produced) -> list:
     return out
 
 
-def judge(state, produced) -> "list[CheckFinding]":
+def judge(state, produced) -> list[CheckFinding]:
     """Everything wrong with what was produced, one object at a time.
 
     **NO MODEL IS CONSULTED, at all, since 2026-09-10.** The signature used to

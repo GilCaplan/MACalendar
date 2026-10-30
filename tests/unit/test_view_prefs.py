@@ -151,7 +151,9 @@ for d in CommandLine.arguments.dropFirst() {
 def test_the_phone_fits_the_shown_hours_like_the_mac(tmp_path):
     """Show hours on the phone: the rows fill the screen with the chosen span,
     within bounds; a nonsense range is the whole day; it opens at the first."""
-    import pathlib, subprocess
+    import pathlib
+    import subprocess
+
     from assistant.calendar_ui import visible_hours as vh
     root = pathlib.Path(__file__).resolve().parents[2]
     src = (root / "MACalendar-iOS/MACalendar-iOS/Settings/AppSettings.swift").read_text()
@@ -177,7 +179,9 @@ def test_the_phone_widens_the_shown_hours_like_the_mac(tmp_path):
     """Only the chosen hours are drawn, widened for an event outside them —
     the phone's CalendarPrefs.shownSpan and the Mac's visible_hours.widen
     must agree, or one surface hides an event the other shows."""
-    import pathlib, subprocess
+    import pathlib
+    import subprocess
+
     from assistant.calendar_ui import visible_hours as vh
     root = pathlib.Path(__file__).resolve().parents[2]
     src = (root / "MACalendar-iOS/MACalendar-iOS/Settings/AppSettings.swift").read_text()

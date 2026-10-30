@@ -19,9 +19,26 @@ import os
 from PyQt6.QtCore import QDate, QSettings, QSize, Qt, QTimer
 from PyQt6.QtGui import QColor, QPainter, QPixmap
 from PyQt6.QtWidgets import (
-    QAbstractItemView, QCheckBox, QColorDialog, QComboBox, QDateEdit, QDialog, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPushButton, QSizePolicy, QSpinBox, QToolButton, QVBoxLayout, QWidget,
+    QAbstractItemView,
+    QCheckBox,
+    QColorDialog,
+    QComboBox,
+    QDateEdit,
+    QDialog,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QSizePolicy,
+    QSpinBox,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
 )
-
 
 from assistant.calendar_ui import icons
 from assistant.calendar_ui import styles as _styles
@@ -121,7 +138,7 @@ def _tile_icon(color: str, glyph: str):
 _FOLD_STARTS = (("open", "All open"), ("closed", "All closed"), ("last", "As I left them"))
 
 
-def _folded_at_start() -> "set[str]":
+def _folded_at_start() -> set[str]:
     """The groups shut when Settings opens: none, all, or as last left.
     All, unless changed — Gil's standing call (2026-09-18, "Default is
     minimized please"); the headings are then the sidebar's contents."""
@@ -187,8 +204,8 @@ def open_settings(self) -> None:
 
     group = QButtonGroup(dialog)
     group.setExclusive(True)
-    made: "list[tuple[str, QToolButton, QWidget]]" = []     # (title, row, page)
-    groups: "list[QVBoxLayout]" = []                        # each page's controls
+    made: list[tuple[str, QToolButton, QWidget]] = []     # (title, row, page)
+    groups: list[QVBoxLayout] = []                        # each page's controls
 
     def fold(page: QVBoxLayout, title: str) -> QVBoxLayout:
         """A sub-group of a long page that folds (Gil, 2026-10-01: "minimize
@@ -450,7 +467,8 @@ def open_settings(self) -> None:
 
     # Which hours Week and Day fit to the window (Gil, 2026-09-29): the rest
     # stay a scroll away, so nothing outside them is ever hidden.
-    from assistant.calendar_ui.visible_hours import label as _hour_label, span as _span
+    from assistant.calendar_ui.visible_hours import label as _hour_label
+    from assistant.calendar_ui.visible_hours import span as _span
     _first, _last = _span(self._config.ui)
     hours_from_combo, hours_to_combo = QComboBox(), QComboBox()
     hours_from_combo.setObjectName("hours_from")
@@ -1266,7 +1284,9 @@ def open_settings(self) -> None:
     # Shown as live demos, not names (Gil, 2026-10-10): each style moving to
     # a made-up voice, click one to use it on this Mac. The combo stays as
     # the value Save reads, hidden.
-    from PyQt6.QtWidgets import QButtonGroup as _QButtonGroup, QGridLayout as _QGrid
+    from PyQt6.QtWidgets import QButtonGroup as _QButtonGroup
+    from PyQt6.QtWidgets import QGridLayout as _QGrid
+
     from assistant.calendar_ui.mic_meter import MicStyleTile as _MicStyleTile
     mic_visual_combo.setVisible(False)
     mic_tiles = QWidget()
@@ -1487,6 +1507,7 @@ def open_settings(self) -> None:
     # A float box over the HUD's whole range, so opening and saving Settings
     # never rewrites a hand-set value (2.5 s, 300 s) to what an int box holds.
     from PyQt6.QtWidgets import QDoubleSpinBox
+
     from assistant.config import THINKING_HIDE_MAX_SEC
     thinking_hide_spin = QDoubleSpinBox()
     thinking_hide_spin.setObjectName("thinking_hide_spin")
@@ -1863,7 +1884,7 @@ def open_settings(self) -> None:
 # category_leads persistence
 # ------------------------------------------------------------------
 
-def _persist_category_leads(leads: "dict[str, int]", path: "str | None" = None) -> bool:
+def _persist_category_leads(leads: dict[str, int], path: str | None = None) -> bool:
     """`notifications.category_leads`, written by the ordinary config writer.
 
     Until 2026-09-22 this file carried its own YAML writer for the mapping

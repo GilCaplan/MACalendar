@@ -48,6 +48,7 @@ import os
 import pathlib
 import time
 
+
 #: THE REAL CLOCK — the one `freezegun` cannot reach.
 #:
 #: Every board here runs inside `freeze_time(CLOCK)` so that a case depending on
@@ -96,7 +97,7 @@ CHECKPOINT_DIR = pathlib.Path(
 _REPO_DIR = pathlib.Path(__file__).resolve().parent
 
 
-def _git_head() -> "str | None":
+def _git_head() -> str | None:
     """The commit this process's code is actually running, or None outside a
     git checkout. Best-effort: a checkpoint must work in a stray sandbox with
     no `git` on PATH exactly as well as it does in the repo."""
@@ -109,7 +110,7 @@ def _git_head() -> "str | None":
         return None
 
 
-def _git_dirty() -> "bool | None":
+def _git_dirty() -> bool | None:
     """Whether the working tree differs from HEAD, or None if that can't be
     answered. A dirty tree means even a HEAD match doesn't prove the code
     that produced this checkpoint is the code running now."""
@@ -125,14 +126,14 @@ def _git_dirty() -> "bool | None":
 class Checkpoint:
     """One long run's completed units, on disk, resumable."""
 
-    def __init__(self, name: str, total: "int | None" = None, every: int = 25,
+    def __init__(self, name: str, total: int | None = None, every: int = 25,
                  resume: bool = True) -> None:
         self.name = name
         self.total = total
         self.every = max(1, every)
         self.path = CHECKPOINT_DIR / f"{name}.jsonl"
         self._done: dict = {}
-        self._meta: "dict | None" = None
+        self._meta: dict | None = None
         self._t0 = _now()
         self._since_print = 0
         self._fh = None

@@ -17,7 +17,7 @@ import shutil
 import sqlite3
 import threading
 import time
-from typing import Callable
+from collections.abc import Callable
 from urllib.parse import quote
 
 from assistant.sync import changelog as cl
@@ -29,7 +29,7 @@ BATCH = 500
 
 
 class Replica:
-    def __init__(self, path: str, name: str, transport: Transport, urls: "list[str] | None" = None):
+    def __init__(self, path: str, name: str, transport: Transport, urls: list[str] | None = None):
         self.path = path
         self.name = name
         self.transport = transport
@@ -43,7 +43,7 @@ class Replica:
         cl.install(conn)
         return conn
 
-    def cursor(self) -> "int | None":
+    def cursor(self) -> int | None:
         conn = self._conn()
         try:
             (c,) = conn.execute(f"SELECT cursor FROM {cl.STATE}").fetchone()
@@ -114,7 +114,7 @@ class Replica:
             if not reply.get("more"):
                 return n
 
-    def sync(self) -> "tuple[int, int]":
+    def sync(self) -> tuple[int, int]:
         return self.push(), self.pull()
 
     # ------------------------------------------------------------------
@@ -263,7 +263,7 @@ def http_transport(hub: str, api_key: str = "", timeout: float = 10) -> Transpor
         base = "http://" + base
     headers = {"X-API-Key": api_key} if api_key else {}
 
-    def call(method: str, path: str, body: "dict | None") -> dict:
+    def call(method: str, path: str, body: dict | None) -> dict:
         r = requests.request(method, base + path, json=body, headers=headers, timeout=timeout)
         r.raise_for_status()
         return r.json()
@@ -283,9 +283,10 @@ def start_background(cfg) -> bool:
         _started = True
 
     def _loop() -> None:
+        import socket
+
         from assistant.config import load_config
         from assistant.db import get_db
-        import socket
         from assistant.pairing.addresses import candidate_urls
         backoff, last_pull = 1.0, 0.0
         urls, urls_at = [], 0.0

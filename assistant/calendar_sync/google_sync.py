@@ -30,8 +30,7 @@ from zoneinfo import ZoneInfo
 
 from assistant.calendar_sync import google_oauth
 from assistant.calendar_sync.common import local_timezone_name, parse_iso
-from assistant.calendar_sync.google_client import (
-    GoogleAPIError, GoogleCalendarClient, SyncTokenExpired)
+from assistant.calendar_sync.google_client import GoogleAPIError, GoogleCalendarClient, SyncTokenExpired
 from assistant.db import CalendarDB, _utcnow_iso
 from assistant.exceptions import AuthError, AuthExpiredError
 
@@ -47,7 +46,7 @@ def _zone(tz_name: str):
     try:
         return ZoneInfo(tz_name)
     except Exception:
-        return datetime.timezone.utc
+        return datetime.UTC
 
 
 def google_event_to_dict(ev: dict, tz_name: str, color: str = DEFAULT_COLOR) -> dict | None:
@@ -180,7 +179,7 @@ def pull(db: CalendarDB, client: GoogleCalendarClient, source: dict, tz_name: st
 
 
 def _full_sync_start() -> str:
-    t = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=_FULL_SYNC_PAST_DAYS)
+    t = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=_FULL_SYNC_PAST_DAYS)
     return t.replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 

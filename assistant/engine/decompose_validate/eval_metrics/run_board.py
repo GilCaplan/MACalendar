@@ -26,10 +26,10 @@ import sys
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))))))
 sys.path.insert(0, _ROOT)
-from assistant.engine.decompose_validate import checks as C               # noqa: E402
-from assistant.engine.decompose_validate import resolve as R              # noqa: E402
-from assistant.engine.decompose_validate.datasets import perturb as P      # noqa: E402
-from assistant.engine.decompose_validate.eval_metrics import score as S    # noqa: E402
+from assistant.engine.decompose_validate import checks as C  # noqa: E402
+from assistant.engine.decompose_validate import resolve as R  # noqa: E402
+from assistant.engine.decompose_validate.datasets import perturb as P  # noqa: E402
+from assistant.engine.decompose_validate.eval_metrics import score as S  # noqa: E402
 
 _DATA = os.path.join(_ROOT, "assistant", "engine", "decompose_validate",
                      "datasets", "generated.jsonl")

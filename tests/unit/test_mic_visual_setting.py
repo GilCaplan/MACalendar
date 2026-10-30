@@ -13,15 +13,23 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-import yaml                                                          # noqa: E402
-from PyQt6.QtCore import QPoint, Qt                                  # noqa: E402
-from PyQt6.QtTest import QTest                                       # noqa: E402
-from PyQt6.QtWidgets import (                                        # noqa: E402
-    QAbstractButton, QApplication, QComboBox, QPushButton, QScrollArea, QToolButton,
+import yaml  # noqa: E402
+from PyQt6.QtCore import QPoint, Qt  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import (  # noqa: E402
+    QAbstractButton,
+    QApplication,
+    QComboBox,
+    QPushButton,
+    QScrollArea,
+    QToolButton,
 )
 
-from tests.unit.test_event_defaults_ui import (                      # noqa: E402,F401
-    _Window, _drive, app, scratch,
+from tests.unit.test_event_defaults_ui import (  # noqa: E402,F401
+    _drive,
+    _Window,
+    app,
+    scratch,
 )
 
 

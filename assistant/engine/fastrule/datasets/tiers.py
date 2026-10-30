@@ -63,7 +63,7 @@ def ensure(size: str = "base") -> pathlib.Path:
     return p
 
 
-def load(size: str = "base", split: "str | None" = None) -> list[dict]:
+def load(size: str = "base", split: str | None = None) -> list[dict]:
     rows = [json.loads(line) for line in ensure(size).open(encoding="utf-8") if line.strip()]
     return [r for r in rows if split is None or r["split"] == split]
 

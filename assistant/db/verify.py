@@ -23,7 +23,7 @@ from contextlib import closing
 from assistant.db.schema import _LEGACY_LINK_SOURCE
 
 
-def _rows(path: str) -> "dict[str, list[dict]]":
+def _rows(path: str) -> dict[str, list[dict]]:
     with closing(sqlite3.connect(f"file:{path}?mode=ro", uri=True)) as conn:
         conn.row_factory = sqlite3.Row
         tables = [r[0] for r in conn.execute(
@@ -42,7 +42,7 @@ def _expected(table: str, old: dict, column: str, new) -> bool:
     return False
 
 
-def compare(before: dict, after: dict) -> "list[str]":
+def compare(before: dict, after: dict) -> list[str]:
     """What the migrated copy lost or changed, one line each. New tables, new
     columns, the built-in tags seeded into an empty palette, and the store's
     own open-time rewrites are expected and not reported."""
@@ -90,7 +90,7 @@ def verify(path: str) -> int:
     return 1 if problems else 0
 
 
-def main(argv: "list[str] | None" = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if argv:
         path = argv[0]

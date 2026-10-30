@@ -162,8 +162,7 @@ def _udir(uid):
 
 def test_each_store_writes_only_the_bound_users_file(two):
     a, b = two
-    from assistant import llm_bus, trace_bus
-    from assistant.actions.calendar import categories
+    from assistant import trace_bus
     from assistant.db import get_db
     from assistant.engine.label import feedback
     from assistant.intent.context import context_memory

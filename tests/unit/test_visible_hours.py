@@ -79,6 +79,7 @@ def test_the_week_shows_the_chosen_hours_and_nothing_else(week, qapp_offscreen):
 
 def test_an_event_outside_the_hours_widens_them(qapp_offscreen, tmp_path):
     import datetime
+
     from assistant.actions.calendar.intent import CalendarIntent
     from assistant.calendar_ui.day_view import DayView
     from assistant.calendar_ui.week_view import WeekView

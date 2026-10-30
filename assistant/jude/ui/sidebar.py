@@ -11,8 +11,14 @@ from __future__ import annotations
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
-    QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
+
 from assistant.calendar_ui import icons as _icons
 
 # Wide enough for the three mode buttons on ONE ROW without eliding. At 236 they
@@ -79,7 +85,7 @@ class Sidebar(QWidget):
     def __init__(self, theme, parent=None) -> None:
         super().__init__(parent)
         self._theme = theme
-        self._rows: "dict[str, _ChatRow]" = {}
+        self._rows: dict[str, _ChatRow] = {}
         self._mode = "qa"
         self.setObjectName("sidebar")          # styled by get_app_style()
         self.setFixedWidth(SIDEBAR_WIDTH)
@@ -107,7 +113,7 @@ class Sidebar(QWidget):
 
         modes = QHBoxLayout()
         modes.setSpacing(2)
-        self._mode_buttons: "dict[str, QPushButton]" = {}
+        self._mode_buttons: dict[str, QPushButton] = {}
         for key, label in MODES:
             button = QPushButton(label)
             button.setIcon(_icons.icon(MODE_ICONS[key], theme.text2, 13))
@@ -165,7 +171,7 @@ class Sidebar(QWidget):
 
     # --------------------------------------------------------------- chats
 
-    def set_chats(self, chats: list, active_id: "str | None" = None) -> None:
+    def set_chats(self, chats: list, active_id: str | None = None) -> None:
         while self._list.count() > 1:
             item = self._list.takeAt(0)
             widget = item.widget()
@@ -184,7 +190,7 @@ class Sidebar(QWidget):
             self._list.insertWidget(self._list.count() - 1, row)
         self.set_active(active_id)
 
-    def set_active(self, chat_id: "str | None") -> None:
+    def set_active(self, chat_id: str | None) -> None:
         for key, row in self._rows.items():
             row.set_active(key == chat_id)
 

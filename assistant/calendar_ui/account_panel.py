@@ -30,8 +30,20 @@ import os
 from PyQt6.QtCore import QBuffer, QIODevice, Qt
 from PyQt6.QtGui import QImage, QPainter, QPainterPath, QPixmap
 from PyQt6.QtWidgets import (
-    QCheckBox, QComboBox, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QLineEdit,
-    QMessageBox, QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget,
+    QCheckBox,
+    QComboBox,
+    QFileDialog,
+    QFrame,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
 )
 
 from assistant import users
@@ -114,7 +126,7 @@ def photo_bytes(path: str, side: int = 512) -> bytes:
     return bytes(buf.data())
 
 
-def _choose_photo(parent) -> "bytes | None":
+def _choose_photo(parent) -> bytes | None:
     """Ask for a picture and return it ready to save, or None (cancelled,
     or not a picture — which is said)."""
     path, _ = QFileDialog.getOpenFileName(
@@ -148,7 +160,7 @@ def _relation(me: str, other: str) -> str:
 class _PersonCard(QFrame):
     """Everything about one person, on one card."""
 
-    def __init__(self, panel: "AccountPanel", uid: str) -> None:
+    def __init__(self, panel: AccountPanel, uid: str) -> None:
         super().__init__()
         self.panel, self.uid = panel, uid
         me, admin = panel.me, panel.is_admin

@@ -220,8 +220,9 @@ def _loaded_registry():
 # ---------------------------------------------------------------------------
 
 def test_the_number_of_examples_retrieved_matches_the_default(all_prose):
-    from assistant.intent.memory import CommandMemory
     import inspect
+
+    from assistant.intent.memory import CommandMemory
     k = inspect.signature(CommandMemory.retrieve).parameters["k"].default
     for name, text in all_prose.items():
         if "past command" not in text.lower() and "closest" not in text.lower() \
@@ -420,7 +421,7 @@ def test_the_multi_item_title_cap_is_current(all_prose):
             f"match the {cap} in rule_parser.py")
 
 
-def _real_store_files(name: str) -> "list[pathlib.Path]":
+def _real_store_files(name: str) -> list[pathlib.Path]:
     """Every real copy of a personal store: the pre-users top level AND each
     user's folder (DEVQA Q65). After the users migration the files moved into
     `users/<uid>/`, and these checks — which read the REAL stores on purpose —
@@ -442,6 +443,7 @@ def test_the_table_and_column_counts_are_current(all_prose):
     # itself, which tag discovery used to do on first use.
     import sqlite3
     import tempfile
+
     from assistant.db import CalendarDB
     db = pathlib.Path(tempfile.mkdtemp()) / "schema.db"
     CalendarDB(path=str(db))
@@ -715,8 +717,7 @@ def test_the_deep_stage_names_match_the_state_contract(all_prose):
 
 def test_the_deferral_reason_classes_are_current(all_prose):
     """A deferral's class decides the handoff — there are exactly three."""
-    from assistant.engine.fastrule.fastrule import (INCAPACITY, REFUSAL, STRUCTURE,
-                                           _REASON_CLASS)
+    from assistant.engine.fastrule.fastrule import _REASON_CLASS, INCAPACITY, REFUSAL, STRUCTURE
     classes = {REFUSAL, STRUCTURE, INCAPACITY}
     assert set(_REASON_CLASS.values()) == classes, (
         "a deferral reason now maps to a class the page does not describe")
@@ -765,8 +766,7 @@ def test_the_classifier_feature_counts_are_current(all_prose):
     there are has to track the list, or it is quoting a number from a model
     that no longer exists.
     """
-    from assistant.intent.classifier import (AtomicityFeatures, KindFeatures,
-                                             OperationFeatures)
+    from assistant.intent.classifier import AtomicityFeatures, KindFeatures, OperationFeatures
     counts = {"OperationFeatures": len(OperationFeatures.names),
               "KindFeatures": len(KindFeatures.names),
               "AtomicityFeatures": len(AtomicityFeatures.names)}

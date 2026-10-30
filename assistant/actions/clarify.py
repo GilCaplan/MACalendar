@@ -1,6 +1,6 @@
 """Clarification action — returned by the LLM when the user's request is ambiguous."""
 
-from typing import ClassVar, Type
+from typing import ClassVar
 
 from assistant.actions import register
 from assistant.actions.base import BaseAction, BaseIntent
@@ -26,7 +26,7 @@ class ClarifyAction(BaseAction):
         "'schedule a meeting Tuesday at 2pm' (fully specified), "
         "'add a dentist appointment next Monday at 10am' (day and time given)."
     )
-    intent_model: ClassVar[Type[BaseIntent]] = ClarifyIntent
+    intent_model: ClassVar[type[BaseIntent]] = ClarifyIntent
     parameters_schema: ClassVar[dict] = {
         "type": "object",
         "properties": {

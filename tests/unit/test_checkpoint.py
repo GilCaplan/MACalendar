@@ -17,8 +17,8 @@ import textwrap
 
 import pytest
 
-from assistant.checkpoint import Checkpoint
 import assistant.checkpoint as ckmod
+from assistant.checkpoint import Checkpoint
 
 
 @pytest.fixture(autouse=True)
@@ -136,6 +136,7 @@ def test_progress_is_real_time_even_inside_a_frozen_clock(scratch, capsys):
     reproducibility fiction.
     """
     import datetime as dt
+
     from freezegun import freeze_time
 
     ck = Checkpoint("frozen", total=4, every=2)
@@ -199,6 +200,7 @@ def test_every_row_and_the_progress_line_carry_a_real_wall_clock_time(scratch, c
     inside the frozen one every board runs under (the meter's own lesson)."""
     import datetime as dt
     import re
+
     from freezegun import freeze_time
 
     ck = Checkpoint("stamped", total=2, every=1)

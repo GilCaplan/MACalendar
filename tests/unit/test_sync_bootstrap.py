@@ -158,7 +158,7 @@ def test_the_bootstrap_serves_the_same_rules(client):
 # tagging.py that the port has never heard of.
 # ---------------------------------------------------------------------------
 
-def _swift_port(title: str, rules: dict) -> "str | None":
+def _swift_port(title: str, rules: dict) -> str | None:
     """TagClassifier.tag(for:), in Python. Keep the two in step."""
     def normalise(s: str) -> str:
         blanked = "".join(

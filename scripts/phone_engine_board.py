@@ -156,6 +156,7 @@ def board_d(split: str, n: int) -> int:
     The rows: the FastRule set's `split`, actions create/update/delete/
     complete, shuffled with seed 31, first `n` — as `board_d.main` picks them."""
     import random
+
     from assistant.engine.llmjudge.experiments import board_d as bd
     rows = [json.loads(line) for line in bd.DATA.open()]
     rows = [r for r in rows if r["split"] == split

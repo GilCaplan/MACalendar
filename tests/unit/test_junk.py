@@ -30,11 +30,12 @@ def test_everything_else_is_not(words):
 
 
 def test_the_front_door_defers_it_and_segmentation_marks_why():
-    from assistant.engine.fastrule.fastrule import FastRule
-    from assistant.intent.rule_parser import RULE_THRESHOLD
     import types
+
     from assistant.engine import segmentation as S
+    from assistant.engine.fastrule.fastrule import FastRule
     from assistant.engine.state import EngineState
+    from assistant.intent.rule_parser import RULE_THRESHOLD
     assert FastRule(RULE_THRESHOLD).run("open grocery list").reason == "junk"
     st = EngineState(raw_text="x", text="create a new list, and then put walk the dog on my to do list",
                      source="test")

@@ -22,8 +22,8 @@ import datetime
 
 import pytest
 
-from assistant.intent.rule_parser import RULE_THRESHOLD, RuleBasedParser, RuleParserSkip
 from assistant.intent.context import context_memory
+from assistant.intent.rule_parser import RULE_THRESHOLD, RuleBasedParser, RuleParserSkip
 
 
 def _tomorrow() -> str:
@@ -33,13 +33,22 @@ def _tomorrow() -> str:
 @pytest.fixture
 def parser(isolated_registry):
     from assistant.actions.calendar.action import (
-        CreateEventAction, UpdateEventAction, DeleteEventAction, QueryScheduleAction
-    )
-    from assistant.actions.todo.action import (
-        CreateTodoAction, CompleteTodoAction, DeleteTodoAction, UpdateTodoAction,
-        QueryTodoAction, AddSubtaskAction, CompleteSubtaskAction, DeleteSubtaskAction,
+        CreateEventAction,
+        DeleteEventAction,
+        QueryScheduleAction,
+        UpdateEventAction,
     )
     from assistant.actions.clarify import ClarifyAction
+    from assistant.actions.todo.action import (
+        AddSubtaskAction,
+        CompleteSubtaskAction,
+        CompleteTodoAction,
+        CreateTodoAction,
+        DeleteSubtaskAction,
+        DeleteTodoAction,
+        QueryTodoAction,
+        UpdateTodoAction,
+    )
 
     for cls in [
         CreateEventAction, UpdateEventAction, DeleteEventAction, QueryScheduleAction,

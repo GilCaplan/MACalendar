@@ -85,7 +85,7 @@ def check_tier(tier: str) -> str:
     return tier
 
 
-def tier_path(base: "pathlib.Path | str", tier: str) -> pathlib.Path:
+def tier_path(base: pathlib.Path | str, tier: str) -> pathlib.Path:
     """`x/name.jsonl` -> `x/tiers/name.<tier>.jsonl`; base -> itself."""
     base = pathlib.Path(base)
     if check_tier(tier) == "base":
@@ -93,7 +93,7 @@ def tier_path(base: "pathlib.Path | str", tier: str) -> pathlib.Path:
     return base.parent / "tiers" / f"{base.stem}.{tier}{base.suffix}"
 
 
-def is_fresh(base: "pathlib.Path | str", tier: str) -> bool:
+def is_fresh(base: pathlib.Path | str, tier: str) -> bool:
     """A grown tier is current only if it still STARTS with the base file's
     bytes. A base regeneration therefore makes every tier stale by itself,
     with no stamp to forget to update."""
@@ -107,7 +107,7 @@ def is_fresh(base: "pathlib.Path | str", tier: str) -> bool:
         return fh.read(len(want)) == want
 
 
-def write_tier(base: "pathlib.Path | str", tier: str, grown: list,
+def write_tier(base: pathlib.Path | str, tier: str, grown: list,
                dumps=None) -> pathlib.Path:
     """Write `tier` as the base file's bytes VERBATIM, then one line per grown
     row. Written to a temporary name and renamed, so a killed build never

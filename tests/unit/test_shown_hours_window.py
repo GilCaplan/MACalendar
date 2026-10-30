@@ -62,8 +62,10 @@ def test_picking_the_hours_in_settings_and_saving_shows_them(app, monkeypatch):
     """The whole path a person takes: Settings ▸ Appearance, the two menus,
     Save Config — through the real dialog on the real window, with clicks."""
     import os
+
     from PyQt6.QtCore import Qt
     from PyQt6.QtTest import QTest
+
     from assistant.calendar_ui import settings_dialog
     from assistant.calendar_ui.settings_dialog import open_settings
     from assistant.calendar_ui.window import CalendarWindow

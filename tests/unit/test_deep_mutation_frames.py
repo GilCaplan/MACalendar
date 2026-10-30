@@ -40,6 +40,7 @@ def test_the_rescue_retries_a_create_as_the_frame_says(monkeypatch):
     the frame stated, and its delete is kept."""
     from types import SimpleNamespace
     from unittest.mock import MagicMock
+
     import assistant.engine as engine
     import assistant.engine.llm as engine_llm
     from assistant.actions.todo.intent import CreateTodoIntent

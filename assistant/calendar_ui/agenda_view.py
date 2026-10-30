@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import datetime
-from typing import List
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -182,8 +181,8 @@ class AgendaView(QWidget):
                                         QSizePolicy.Policy.Expanding)
         layout.addWidget(self._empty_label, stretch=1)
 
-        self._rows: List[_EventRow] = []
-        self._headers: List[_DayHeader] = []
+        self._rows: list[_EventRow] = []
+        self._headers: list[_DayHeader] = []
         self._apply_theme_styles()
         self.refresh()
 

@@ -15,8 +15,8 @@ import sys
 # Allow running from the project root
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from assistant.config import load_config
 from assistant.actions.calendar.auth import MSALAuth
+from assistant.config import load_config
 
 
 def main():

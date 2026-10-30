@@ -52,12 +52,11 @@ scratch_env("seg_prompt_lab_", keep=("LOCATION", "MODELS", "LABEL_FEEDBACK",
                                      "HEARTBEATS", "HUD_STATE",
                                      "DEVICE_SECRET", "DEVICES"))
 
+from assistant.engine.segmentation.experiments import score as sc  # noqa: E402
+from assistant.engine.segmentation.experiments.run_board import assign_splits, stratified_sample  # noqa: E402
+from assistant.engine.segmentation.fastseg.fastseg import _tidy, assign_times, fastseg  # noqa: E402
+from assistant.engine.segmentation.fastseg.fastseg import tag as fs_tag
 from assistant.engine.segmentation.llmseg import llmseg
-from assistant.engine.segmentation.experiments import score as sc              # noqa: E402
-from assistant.engine.segmentation.fastseg.fastseg import (fastseg, assign_times,  # noqa: E402
-                                    tag as fs_tag, _tidy)
-from assistant.engine.segmentation.experiments.run_board import (assign_splits,          # noqa: E402
-                                      stratified_sample)
 
 _CACHE = os.path.join(_HERE, "experiments", "runs", "prompt_lab_cache.jsonl")
 
@@ -217,19 +216,19 @@ def _mark_prompt(marked: str, n_marks: int) -> str:
                                more=more, more_keys=more_keys)
 
 
-def _candidate_joins(text: str) -> "list[tuple[int, int]]":
+def _candidate_joins(text: str) -> list[tuple[int, int]]:
     return [(m.start(), m.end()) for m in _JOIN_RE.finditer(text)]
 
 
-def _mark_text(text: str, cands: "list[tuple[int, int]]") -> str:
+def _mark_text(text: str, cands: list[tuple[int, int]]) -> str:
     marked = text
     for i, (_s, e) in reversed(list(enumerate(cands, 1))):
         marked = marked[:e] + f" <{i}>" + marked[e:]
     return marked
 
 
-def _pieces_from_marks(text: str, cands: "list[tuple[int, int]]",
-                       verdicts: dict) -> "list[str] | None":
+def _pieces_from_marks(text: str, cands: list[tuple[int, int]],
+                       verdicts: dict) -> list[str] | None:
     if not isinstance(verdicts, dict):
         return None
     accepted = [(s, e) for i, (s, e) in enumerate(cands, 1)
@@ -271,7 +270,7 @@ Example: "gym at 7 and dinner at 9" is word 0:gym 1:at 2:7 3:and 4:dinner 5:at 6
 -> [4]   (the second item, "dinner at 9", begins at word 4)"""
 
 
-def _pieces_from_boundaries(text: str, boundaries) -> "list[str] | None":
+def _pieces_from_boundaries(text: str, boundaries) -> list[str] | None:
     """Slice ORIGINAL characters at word offsets — never a model-retyped
     string — so a piece is always an exact substring of what was said."""
     spans = [(m.start(), m.end()) for m in re.finditer(r"\S+", text)]
@@ -309,7 +308,7 @@ def build(variant: str, text: str, proposal):
     return base
 
 
-def _items_from_pieces(text: str, pieces: "list[str]"):
+def _items_from_pieces(text: str, pieces: list[str]):
     """FastSeg's own phases 2 and 3 over someone else's cut."""
     pieces = [p for p in (q.strip() for q in pieces) if p]
     if not pieces:

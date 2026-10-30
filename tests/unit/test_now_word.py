@@ -90,6 +90,7 @@ def test_vague_now_stays_a_to_do(fastrule):
 
 def test_the_deep_tracks_floor_does_not_roll_now_to_tomorrow():
     from types import SimpleNamespace as NS
+
     from assistant.engine.decompose_validate.object_rules import _rule_passed_clock_means_tomorrow
     fixes = []
     state = NS(add_fix=lambda *a, **k: fixes.append(a))
@@ -120,6 +121,7 @@ def test_a_misheard_add_event_now_is_an_event_at_this_minute(fastrule):
 def test_a_due_clause_now_is_not_a_clock_anywhere():
     """The veto a regex cannot hold, asked by every reader of `NOW_RE`."""
     import importlib
+
     from assistant.intent import time_words
     fastseg = importlib.import_module("assistant.engine.segmentation.fastseg.fastseg")
     said = "renew the passport is due march 5th now, update it"

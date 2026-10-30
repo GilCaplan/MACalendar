@@ -15,9 +15,8 @@ from __future__ import annotations
 
 import datetime
 import json
-from typing import Optional
 
-from PyQt6.QtCore import Qt, QDate, pyqtSignal
+from PyQt6.QtCore import QDate, Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -41,13 +40,13 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from assistant.calendar_ui.dialog_utils import install_enter_confirms
 from assistant.calendar_ui.styles import (
-    GRAY_BORDER,
-    GRAY_TEXT,
     D_GRAY_BORDER,
     D_GRAY_TEXT,
+    GRAY_BORDER,
+    GRAY_TEXT,
 )
-from assistant.calendar_ui.dialog_utils import install_enter_confirms
 from assistant.db import CalendarDB
 
 # ---------------------------------------------------------------------------
@@ -66,6 +65,7 @@ _COURSE_COLORS = [
 
 from assistant.calendar_ui.feature_panel import FeaturePanel
 
+
 def _due_label(due_date: str) -> str:
     if not due_date:
         return ""
@@ -83,7 +83,7 @@ def _due_label(due_date: str) -> str:
     return d.strftime("%b %-d")
 
 
-def _due_color(due_date: str) -> Optional[str]:
+def _due_color(due_date: str) -> str | None:
     """Return warning hex color or None (use default text color)."""
     if not due_date:
         return None
@@ -278,7 +278,7 @@ class _AssignmentPanel(QWidget):
         self._db        = db
         self._dark      = dark
         self._font_size = font_size
-        self._course: Optional[dict] = None
+        self._course: dict | None = None
         self._rows: list[QWidget] = []
         self._hide_completed = False
         self._build()
@@ -380,7 +380,7 @@ class _AssignmentPanel(QWidget):
 
     # ── Public ──
 
-    def load_course(self, course: Optional[dict]) -> None:
+    def load_course(self, course: dict | None) -> None:
         self._course = course
         if course is None:
             self._title_lbl.setText("Select a course")
@@ -403,8 +403,9 @@ class _AssignmentPanel(QWidget):
         if isinstance(partners, str):
             try: partners = json.loads(partners)
             except Exception: partners = []
-        from assistant.calendar_ui import icons as _icons
         import html as _html
+
+        from assistant.calendar_ui import icons as _icons
         self._partners_lbl.setText(_icons.html("users", None, 13) + "&nbsp;&nbsp;"
                                    + _html.escape("   ·   ".join(partners)) if partners else "")
         self._partners_lbl.setVisible(bool(partners))
@@ -546,7 +547,7 @@ class CourseworkView(FeaturePanel):
         self._dark      = dark
         self._font_size = font_size
         self._courses: list[dict] = []
-        self._selected_id: Optional[int] = None
+        self._selected_id: int | None = None
         self._build()
         self.refresh()
 
@@ -729,7 +730,7 @@ class CourseworkView(FeaturePanel):
 
 
 class _CourseDialog(QDialog):
-    def __init__(self, existing: Optional[dict] = None, parent=None):
+    def __init__(self, existing: dict | None = None, parent=None):
         super().__init__(parent)
         self._existing       = existing
         self._selected_color = existing["color"] if existing else _COURSE_COLORS[0]
@@ -858,7 +859,7 @@ class _CourseDialog(QDialog):
 
 
 class _AssignmentDialog(QDialog):
-    def __init__(self, existing: Optional[dict] = None, parent=None):
+    def __init__(self, existing: dict | None = None, parent=None):
         super().__init__(parent)
         self._existing = existing
         self.setWindowTitle("Edit Assignment" if existing else "New Assignment")

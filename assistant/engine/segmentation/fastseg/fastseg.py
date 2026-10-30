@@ -37,7 +37,7 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-from assistant.engine.segmentation.fastseg import invariant as _invariant   # noqa: E402
+from assistant.engine.segmentation.fastseg import invariant as _invariant  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # TIME EXPRESSIONS
@@ -82,7 +82,7 @@ _ENUMEND = (rf"(?:(?:{_RANGEEND})(?:\s*o'?clock)?"
 #: Ordered longest-first: a longer phrase must win over a fragment of itself,
 #: or "every friday" is read as the bare date "friday" and the recurrence is
 #: lost. Each entry is (pattern, kind).
-_TIME_PATTERNS: "list[tuple[str, str]]" = [
+_TIME_PATTERNS: list[tuple[str, str]] = [
     # --- recurrence. Temporal repetition IS the time (Gil's ruling), so it is
     #     captured whole rather than reduced to the weekday inside it.
     (rf"\bevery\s+other\s+(?:{_WEEKDAY}|day|week|month)\b", "recurrence"),
@@ -270,7 +270,7 @@ _TIME_PATTERNS: "list[tuple[str, str]]" = [
     #     made the right-hand side of a conjunct look TIMED, and
     #     "a cut and blow dry on saturday morning" split into two items.
     (rf"\b(?:{_WEEKDAY})\s+(?:morning|afternoon|evening|night)\b", "date"),
-    (rf"\b(?:tomorrow|today|tonight)\s+(?:morning|afternoon|evening|night)\b", "date"),
+    (r"\b(?:tomorrow|today|tonight)\s+(?:morning|afternoon|evening|night)\b", "date"),
 
     # --- A MULTI-DAY SERIES is ONE reference: "every tuesday and thursday" is a
     #     weekly series naming two days (Gil, 2026-09-08), not two references
@@ -294,7 +294,7 @@ class TimeRef:
         return f"TimeRef({self.text!r}@{self.start}:{self.end},{self.kind})"
 
 
-def find_time_refs(text: str) -> "list[TimeRef]":
+def find_time_refs(text: str) -> list[TimeRef]:
     """Every time expression in the command, left to right, non-overlapping.
 
     Longest match wins at a given position, which is what keeps "every friday"
@@ -362,7 +362,7 @@ _LEADING_PREP = re.compile(
     r"\b(at|on|for|by|from|in|to|starting|until|through|around)\s+$", re.I)
 
 
-def _absorb_preposition(text: str, start: int, taken: "list[bool]") -> int:
+def _absorb_preposition(text: str, start: int, taken: list[bool]) -> int:
     """Extend a reference left over the preposition(s) it was spoken with.
 
     "for at the end of the month" stacks two — the generator glues "at" onto
@@ -384,7 +384,7 @@ def _absorb_preposition(text: str, start: int, taken: "list[bool]") -> int:
 # PHASE 1 — CUT
 # ---------------------------------------------------------------------------
 
-def cut(text: str, max_rounds: int = 3) -> "list[str]":
+def cut(text: str, max_rounds: int = 3) -> list[str]:
     """The command split into independent asks, as substrings.
 
     Looped to a FIXED POINT rather than run once. Measured before building:
@@ -401,7 +401,7 @@ def cut(text: str, max_rounds: int = 3) -> "list[str]":
     from assistant.intent.asks import every_part_is_an_ask
     from assistant.intent.coordination import split_clauses
 
-    def once(piece: str) -> "list[str]":
+    def once(piece: str) -> list[str]:
         # Hand over the time spans this module has ALREADY found, position-
         # independently. `clause_boundaries` cannot ask the parse where the
         # time is — the parse is what moves — so the reader that located it
@@ -426,7 +426,7 @@ def cut(text: str, max_rounds: int = 3) -> "list[str]":
     # it cut "schedule X, add Y to my list, and book Z" at ", and book" and
     # the clause tier then no longer split "schedule X, add Y" (5 train rows
     # of the segmentation corpus, 2026-09-25).
-    out: "list[str]" = []
+    out: list[str] = []
     for piece in pieces:
         start = 0
         for m, kind in _verb_led_seams(piece):
@@ -464,17 +464,17 @@ _HARD_SEAM = re.compile(
 #: FastRule's compound gate (`assistant/intent/sequence.py`), so the front door
 #: never commits what this cuts.
 from assistant.intent.sequence import SEQUENCE_SEAM as _SEQUENCE_SEAM  # noqa: E402
+from assistant.intent.sequence import closing_seams as _closing_seams  # noqa: E402
 from assistant.intent.sequence import starts_a_remark as _starts_a_remark  # noqa: E402
 from assistant.intent.sequence import trailing_marker as _trailing_marker  # noqa: E402
 from assistant.intent.sequence import verb_led_seams as _verb_led_seams  # noqa: E402
-from assistant.intent.sequence import closing_seams as _closing_seams  # noqa: E402
 
 #: A comma that a POSTPOSED sequence marker makes into a seam: the part after
 #: it ends "…after that" / "…afterwards" / "…right after the play".
 _COMMA = re.compile(r"\s*,\s*")
 
 
-def _hard_seams(text: str) -> "list[str]":
+def _hard_seams(text: str) -> list[str]:
     """Cut at the seams the speaker marked, before any parse. Each piece is a
     substring of `text` with the seam itself removed, so the verbatim-span
     lookup (`_source_piece`) still finds it. A seam inside a time reference is
@@ -518,7 +518,7 @@ _CUT_JOINER = re.compile(r"\s*,\s*(?:and then|and also|and|then|also|plus)\s+"
                          r"|\s*,\s*")
 
 
-def _split_verbless_conjuncts(piece: str) -> "list[str]":
+def _split_verbless_conjuncts(piece: str) -> list[str]:
     """Split "set up physical therapy at 9:15 and birthday dinner at midnight".
 
     The clause splitter cannot see this boundary: the second conjunct is a bare
@@ -566,7 +566,7 @@ def _split_verbless_conjuncts(piece: str) -> "list[str]":
             rest = rest[:ref.start] + " " + rest[ref.end:]
         return bool(_invariant.content(rest))
 
-    out: "list[str]" = []
+    out: list[str] = []
     start = 0
     for m in _CUT_JOINER.finditer(piece):
         if any(r.start < m.end() and m.start() < r.end for r in refs):
@@ -602,8 +602,8 @@ _LEAD_INTRANSITIVE = re.compile(
     r"^\s*(?:about|for|to|before|beforehand|ahead|prior|in\s+advance)\b", re.I)
 
 
-def _lead_has_no_object(text: str, ref: "TimeRef",
-                        spans: "list[tuple[int, int]]") -> bool:
+def _lead_has_no_object(text: str, ref: TimeRef,
+                        spans: list[tuple[int, int]]) -> bool:
     """A DURATION-before reference ("an hour before") is its own time slot
     only when "before" has no NOUN object of its own within this piece —
     nothing follows it at all, or what follows is a to-infinitive/preposition
@@ -632,7 +632,7 @@ def _lead_has_no_object(text: str, ref: "TimeRef",
     return bool(_LEAD_INTRANSITIVE.match(tail))
 
 
-def assign_times(text: str, pieces: "list[str]") -> "list[tuple[str, str]]":
+def assign_times(text: str, pieces: list[str]) -> list[tuple[str, str]]:
     """(action, time) per piece, from the pieces AND the original together.
 
     The rule, from Gil's five worked cases:
@@ -651,9 +651,9 @@ def assign_times(text: str, pieces: "list[str]") -> "list[tuple[str, str]]":
     refs = [r for r in find_time_refs(text)
             if r.kind != "lead" or _lead_has_no_object(text, r, spans)]
 
-    owned: "list[list[TimeRef]]" = [[] for _ in pieces]
-    lead: "list[TimeRef]" = []
-    trail: "list[TimeRef]" = []
+    owned: list[list[TimeRef]] = [[] for _ in pieces]
+    lead: list[TimeRef] = []
+    trail: list[TimeRef] = []
     last = len(pieces) - 1
     for ref in refs:
         for i, (s, e) in enumerate(spans):
@@ -679,7 +679,7 @@ def assign_times(text: str, pieces: "list[str]") -> "list[tuple[str, str]]":
         else:
             lead.append(ref)
 
-    out: "list[tuple[str, str]]" = []
+    out: list[tuple[str, str]] = []
     for i, piece in enumerate(pieces):
         mine = list(owned[i])
         # The two edges do NOT distribute the same way.
@@ -731,13 +731,13 @@ def assign_times(text: str, pieces: "list[str]") -> "list[tuple[str, str]]":
 _SLOT_ORDER = {"day": 0, "clock": 1}
 
 
-def _slot(ref: "TimeRef") -> str:
+def _slot(ref: TimeRef) -> str:
     """Which slot a reference fills. A day and a clock time are different
     slots, so one does not block the other from being distributed."""
     return "clock" if ref.kind in ("clock", "range", "lead", "enum_clock") else "day"
 
 
-def _locate(text: str, pieces: "list[str]") -> "list[tuple[int, int]]":
+def _locate(text: str, pieces: list[str]) -> list[tuple[int, int]]:
     """Where each piece sits in the original. Pieces are substrings by
     construction (the cut only ever removes joiners), so a forward scan is
     exact; a piece that cannot be found falls back to a zero-width span at the
@@ -791,14 +791,14 @@ def _statement_subject(action: str) -> str:
     return subject or action
 
 
-def _rejoin_back_references(text: str, pieces: "list[str]") -> "list[str]":
+def _rejoin_back_references(text: str, pieces: list[str]) -> list[str]:
     """Join each back-reference piece onto the piece before it, as the
     verbatim stretch of `text` covering both."""
     if len(pieces) < 2:
         return pieces
     spans = _locate(text, pieces)
-    out: "list[str]" = []
-    at: "list[tuple[int, int]]" = []
+    out: list[str] = []
+    at: list[tuple[int, int]] = []
     for piece, (s, e) in zip(pieces, spans):
         if out and _BACK_REFERENCE.match(piece.strip()) and e > s and at[-1][1] > at[-1][0]:
             ps = at[-1][0]
@@ -809,7 +809,7 @@ def _rejoin_back_references(text: str, pieces: "list[str]") -> "list[str]":
     return out
 
 
-def _strip_spans(piece: str, spans: "list[tuple[int, int]]") -> str:
+def _strip_spans(piece: str, spans: list[tuple[int, int]]) -> str:
     """The piece with its own time expressions removed — this is `action`.
 
     Everything else stays, which is the point: the verb, the object, people,
@@ -1165,7 +1165,7 @@ _DUE_DATE_EDIT = re.compile(
     r"^(?:change|flip|shift|bump|move|push\s+back)\s+the\s+due\s+date\b", re.I)
 
 
-def _lexicon_kind(action: str) -> "str | None":
+def _lexicon_kind(action: str) -> str | None:
     """The verb's verdict, read at the HEAD of the action only.
 
     Scanning every word made a NOUN decide: "add the budget review" and "add a
@@ -1226,7 +1226,7 @@ def _lexicon_kind(action: str) -> "str | None":
     return None
 
 
-def tag_path(action: str, time_str: str, nothing_said: bool = False) -> "tuple[str, str]":
+def tag_path(action: str, time_str: str, nothing_said: bool = False) -> tuple[str, str]:
     """`_tag_path`, then DEVQA Q61: a to-do that REPEATS is an event series.
 
     Gil, 2026-09-27: *"repeating task always becomes an event, we have on the
@@ -1281,7 +1281,7 @@ def repeats(time_str: str) -> bool:
     return bool(_recur.detect(time_str))
 
 
-def _tag_path(action: str, time_str: str) -> "tuple[str, str]":
+def _tag_path(action: str, time_str: str) -> tuple[str, str]:
     """`(kind, path)` — the kind (event | task | review | other) and the READER
     that decided it. `path == "default"` means no reader fired at all: `_kind_of`
     fell through to its catch-all `event` and nothing below moved it. That is
@@ -1448,7 +1448,7 @@ def _meets_a_person(action: str) -> bool:
 _ENUM_SPLIT = re.compile(r"\s*,\s*|\s+and\s+", re.I)
 
 
-def _expand_enumerations(pairs: "list[tuple[str, str]]") -> "list[tuple[str, str]]":
+def _expand_enumerations(pairs: list[tuple[str, str]]) -> list[tuple[str, str]]:
     """One activity at SEVERAL times becomes several items (§8.1).
 
     Gil, 2026-09-08: *"the segmentation is supposed to split 'walk the dog at 9
@@ -1464,7 +1464,7 @@ def _expand_enumerations(pairs: "list[tuple[str, str]]") -> "list[tuple[str, str
     The action is COPIED, not divided — that is the whole point, and it is why the
     invariant permits a token in more than one item.
     """
-    out: "list[tuple[str, str]]" = []
+    out: list[tuple[str, str]] = []
     for action, time_str in pairs:
         enum = next((r for r in find_time_refs(time_str)
                      if r.kind in ("enum_clock", "enum_day")), None)
@@ -1492,7 +1492,7 @@ def _expand_enumerations(pairs: "list[tuple[str, str]]") -> "list[tuple[str, str
     return out
 
 
-def fastseg(text: str) -> "list[dict]":
+def fastseg(text: str) -> list[dict]:
     """text -> [{"action", "time", "tag"}, ...]"""
     from assistant.intent.cleanup import strip_spoken_noise
 
@@ -1521,7 +1521,7 @@ def fastseg(text: str) -> "list[dict]":
              "source": _source_piece(a, pieces)} for a, t in pairs]
 
 
-def _source_piece(action: str, pieces: "list[str]") -> str:
+def _source_piece(action: str, pieces: list[str]) -> str:
     """The VERBATIM substring this item was cut from (Gil, 2026-09-10).
 
     A fourth value beside (action, time, tag), and it exists for one reason:

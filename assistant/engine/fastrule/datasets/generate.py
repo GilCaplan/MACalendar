@@ -754,8 +754,8 @@ def _q63_moves(fam: dict, slots: dict, text: str, ev: list) -> list:
     return list(ev)
 
 
-def ruled_family(fam: dict, values: dict, slots: "dict | None" = None,
-                 text: str = "") -> "dict | None":
+def ruled_family(fam: dict, values: dict, slots: dict | None = None,
+                 text: str = "") -> dict | None:
     """The family as the RULINGS read this row, or None when no ruling
     touches it. A copy: action, counts and label sources follow the parts
     that became events; the template, the words and the split do not move."""
@@ -827,7 +827,7 @@ RULED_SPLITS = {
 }
 
 
-def ruled_split(fam: dict, row_fam: dict, values: dict, slots: dict) -> "dict | None":
+def ruled_split(fam: dict, row_fam: dict, values: dict, slots: dict) -> dict | None:
     """The row as Q62 reads it: two to-dos, or None when the family is not one."""
     verb = RULED_SPLITS.get(fam["family"])
     if not verb or "item" not in values or "item2" not in values:
@@ -842,7 +842,7 @@ def ruled_split(fam: dict, row_fam: dict, values: dict, slots: dict) -> "dict | 
     return out
 
 
-def ruled_titles(fam: dict, row_fam: dict, text: str, slots: dict) -> "str | None":
+def ruled_titles(fam: dict, row_fam: dict, text: str, slots: dict) -> str | None:
     """Rewrite gold titles the title rulings decide, in place; the ruling tag
     or None. Q55 keeps the errand verb on a to-do; Q56 keeps "with <person>"
     on an event ('sales call with Skyler', 'meeting with Jamie')."""
@@ -978,7 +978,7 @@ def build_forced_train(tier: str, patterns: list[dict], total: int, fillers: dic
 
 def _build_forced(split_name: str, tier: str, patterns: list[dict], total: int, fillers: dict,
                   global_seen: set, categories_mod, tagging_mod, task_tag_keywords: dict,
-                  tag: "str | None" = None):
+                  tag: str | None = None):
     """The one body both forced pools share. Byte-identical to the original
     `build_forced_test` loop for `split_name == "test"`. `tag` is the
     `force_split` value when it differs from the split (the "train2" pool)."""

@@ -257,6 +257,7 @@ def test_deleting_a_series_takes_its_linked_todos(db):
 def test_this_mornings_links_are_carried_over(tmp_path):
     """Q50's first rows stored the link as source='linked_event'."""
     import sqlite3
+
     from assistant.db import CalendarDB
     path = str(tmp_path / "old.db")
     db = CalendarDB(path)

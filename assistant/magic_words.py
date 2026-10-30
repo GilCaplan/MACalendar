@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 HERE = pathlib.Path(__file__).resolve().parents[1] / "mac" / "MagicWords"
 BINARY = HERE / "build" / "MACalendarMagic"
 
-_proc: "subprocess.Popen | None" = None
+_proc: subprocess.Popen | None = None
 _lock = threading.Lock()
 _building = False
 
@@ -109,7 +109,7 @@ def start() -> None:
             logger.warning("Could not start the magic-words helper: %s", e)
 
 
-def _ask(op: str, wait: bool = False, timeout: float = 0.5, **fields) -> "dict | None":
+def _ask(op: str, wait: bool = False, timeout: float = 0.5, **fields) -> dict | None:
     if _disabled():
         return None
     with _lock:
@@ -179,19 +179,19 @@ def wait_begin() -> str:
     return wid
 
 
-def wait_end(wid: "str | None") -> None:
+def wait_end(wid: str | None) -> None:
     if wid:
         _ask("wait_end", id=wid)
 
 
-def made(labels: "list[str]") -> None:
+def made(labels: list[str]) -> None:
     """What a command just made — its events' categories and to-dos' tags —
     for "Also for what gets made" (the helper decides, as the phone does)."""
     if labels:
         _ask("made", labels=list(labels))
 
 
-def made_rows(rows: "list[dict]") -> None:
+def made_rows(rows: list[dict]) -> None:
     """The reply's `committed` rows ({"kind", "id"}) → their category or tags
     → `made`. On a daemon thread: it reads the database, and the caller is the
     voice pipeline, which must not wait on an Easter egg."""
@@ -223,7 +223,7 @@ def loader_demo() -> None:
     _ask("loader_demo", wait=True)
 
 
-def loader_frames() -> "dict | None":
+def loader_frames() -> dict | None:
     """The loader as a loop of frames the helper wrote for the HUD — which is a
     separate process and cannot talk to the helper — or None (off, never
     written, not a Mac). {"dir", "frames", "fps", "enabled", "caption"}."""

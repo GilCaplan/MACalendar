@@ -107,8 +107,8 @@ def test_tokens_are_batched_not_rendered_one_by_one(qapp):
     Asserted as a RATIO rather than an exact count: the point is that repaints
     are bounded by elapsed time, not by token count.
     """
-    from assistant.jude.ui.transcript import AnswerMessage
     from assistant.jude.ui.theme import Theme
+    from assistant.jude.ui.transcript import AnswerMessage
 
     row = AnswerMessage(Theme(dark=True))
     repaints = 0
@@ -126,8 +126,8 @@ def test_tokens_are_batched_not_rendered_one_by_one(qapp):
 def test_repaint_reports_clean_when_nothing_changed(qapp):
     """The timer fires whether or not tokens arrived; a repaint with no new
     text is wasted layout, which at 14 Hz is most of them between answers."""
-    from assistant.jude.ui.transcript import AnswerMessage
     from assistant.jude.ui.theme import Theme
+    from assistant.jude.ui.transcript import AnswerMessage
 
     row = AnswerMessage(Theme(dark=True))
     row.append("hello")
@@ -163,6 +163,7 @@ def test_the_three_modes_fit_the_sidebar_without_eliding(qapp):
     """They rendered as "QA | Stud | Sourc" at the old width. A truncated
     control is a silently broken one — it still looks deliberate."""
     from PyQt6.QtWidgets import QApplication
+
     from assistant.jude.ui.sidebar import MODES, SIDEBAR_WIDTH, Sidebar
     from assistant.jude.ui.theme import Theme
 

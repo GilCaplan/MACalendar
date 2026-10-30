@@ -28,7 +28,7 @@ def tail(name: str = API_LOG, lines: int = 200) -> list[str]:
     """The last ``lines`` lines, or [] when there is no log yet."""
     lines = max(1, min(int(lines), 2000))
     try:
-        with open(path(name), "r", errors="replace") as f:
+        with open(path(name), errors="replace") as f:
             return [l.rstrip("\n") for l in deque(f, maxlen=lines)]
     except OSError:
         return []

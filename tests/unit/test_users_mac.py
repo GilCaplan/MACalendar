@@ -15,11 +15,11 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-from PyQt6.QtCore import Qt                                    # noqa: E402
-from PyQt6.QtTest import QTest                                 # noqa: E402
-from PyQt6.QtWidgets import QApplication, QPushButton          # noqa: E402
+from PyQt6.QtCore import Qt  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import QApplication, QPushButton  # noqa: E402
 
-from assistant import users                                    # noqa: E402
+from assistant import users  # noqa: E402
 from assistant.users import local_session, registry, sessions  # noqa: E402
 
 DAY = dt.date(2026, 10, 6)

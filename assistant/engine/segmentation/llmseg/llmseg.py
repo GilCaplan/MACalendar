@@ -40,8 +40,8 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-from assistant.engine.segmentation.fastseg import invariant as _invariant    # noqa: E402
-from assistant.engine.segmentation.fastseg.fastseg import fastseg           # noqa: E402
+from assistant.engine.segmentation.fastseg import invariant as _invariant  # noqa: E402
+from assistant.engine.segmentation.fastseg.fastseg import fastseg  # noqa: E402
 
 TAGS = ("event", "task", "review")
 MODEL = "llama3.1:8b"
@@ -199,7 +199,7 @@ _EXAMPLES = """EXAMPLES
   a question about the calendar creates nothing"""
 
 
-def build_prompt(text: str, proposal: "list[dict]") -> str:
+def build_prompt(text: str, proposal: list[dict]) -> str:
     compact = {str(i + 1): [it["action"], it["time"], it["tag"]]
                for i, it in enumerate(proposal)}
     return f"""COMMAND (exactly as spoken):
@@ -226,8 +226,9 @@ def call_model(prompt: str, timeout: int = 180) -> str:
     experiments, so a reader of the console must be able to see it fire rather
     than wonder why the numbers moved.
     """
-    from assistant import llm_bus as _bus
     import time as _t
+
+    from assistant import llm_bus as _bus
     _who, _t0 = _bus.caller_label(), _t.perf_counter()
     try:
         out = _call_model_impl(prompt, timeout)
@@ -272,7 +273,7 @@ def _call_model_impl(prompt: str, timeout: int = 180) -> str:
             return json.loads(r.read())["message"]["content"].strip()
 
 
-def parse_items(raw: str, proposal: "list[dict]") -> "list[dict] | None":
+def parse_items(raw: str, proposal: list[dict]) -> list[dict] | None:
     """The model's reply -> items, with every tag coerced. None if unusable."""
     try:
         blob = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
@@ -303,7 +304,7 @@ def parse_items(raw: str, proposal: "list[dict]") -> "list[dict] | None":
 invariant_violations = _invariant.violations
 
 
-def accept(text: str, proposal: "list[dict]", candidate) -> "tuple[list[dict], str]":
+def accept(text: str, proposal: list[dict], candidate) -> tuple[list[dict], str]:
     """Choose between FastSeg's answer and LLMSeg's. Returns (items, why)."""
     if candidate is None:
         return proposal, "llmseg-unparseable"
@@ -318,7 +319,7 @@ def accept(text: str, proposal: "list[dict]", candidate) -> "tuple[list[dict], s
     return candidate, "corrected"
 
 
-def segment(text: str, use_model: "bool | None" = None) -> "dict":
+def segment(text: str, use_model: bool | None = None) -> dict:
     """The whole component. Returns the items and how they were arrived at.
 
     `use_model=None` means "whatever the flag says", which is OFF. Pass True to

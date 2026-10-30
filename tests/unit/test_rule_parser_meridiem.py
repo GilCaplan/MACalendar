@@ -17,7 +17,7 @@ from assistant.intent.rule_parser import RuleBasedParser
 @pytest.fixture(scope="module")
 def parser():
     import assistant.actions.calendar  # noqa: F401  — registers create_event
-    import assistant.actions.todo      # noqa: F401
+    import assistant.actions.todo  # noqa: F401
     from assistant.actions import registry
     return RuleBasedParser(registry)
 

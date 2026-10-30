@@ -392,12 +392,13 @@ def test_everything_that_is_not_a_text_field_still_refuses_focus(qapp, bus):
 def test_synthetic_runs_are_hidden_unless_asked_for(qapp, bus):
     """A curl while developing, or an audit's 89 corpus commands, are not
     things you asked the assistant — and they swamp the ones that are."""
+    import json as _json
+    import time as _time
+
     from PyQt6.QtCore import Qt
     from PyQt6.QtTest import QTest
 
     from assistant.thinking_hud import ThinkingHUD
-    import json as _json
-    import time as _time
 
     with open(bus, "w", encoding="utf-8") as f:
         for i, src in enumerate(["mac", "ios", "test", "test", "test"]):

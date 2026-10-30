@@ -28,7 +28,7 @@ import tempfile
 #: name -> (env var, default filename inside the scratch dir). Mirrors
 #: tests/conftest.py (CLAUDE.md "Personal data lives outside the repo").
 #: `MODEL_LOCK` and `CHECKPOINTS` are deliberately NOT here — see `scratch_env`.
-STORES: "dict[str, tuple[str, str]]" = {
+STORES: dict[str, tuple[str, str]] = {
     "DB": ("MACALENDAR_DB", "calendar.db"),
     "MEMORY_DB": ("MACALENDAR_MEMORY_DB", "nlu_memory.db"),
     "VOCAB": ("MACALENDAR_VOCAB", "vocab.json"),
@@ -60,11 +60,11 @@ BLAS_THREAD_VARS = (
 )
 
 
-def scratch_env(prefix: str, *, seed: "int | None" = None,
-                observance: "bool | None" = None,
-                keep: "tuple[str, ...]" = (),
-                extra: "dict[str, str] | None" = None,
-                dir: "str | None" = None) -> str:
+def scratch_env(prefix: str, *, seed: int | None = None,
+                observance: bool | None = None,
+                keep: tuple[str, ...] = (),
+                extra: dict[str, str] | None = None,
+                dir: str | None = None) -> str:
     """Point every personal store at a fresh scratch dir; return its path.
 
     Call this BEFORE importing anything from `assistant` — every store path is

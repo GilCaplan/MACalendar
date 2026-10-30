@@ -17,13 +17,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 # This script already pointed the calendar DB at a temp file, but the command
 # memory, vocabulary and categories were still the real ones.
-from tests.isolation import isolate, assert_isolated  # noqa: E402
+from tests.isolation import assert_isolated, isolate  # noqa: E402
+
 isolate("macalendar-todo-parser-")
 assert_isolated()
 
 import assistant.actions.calendar  # noqa: F401
-import assistant.actions.todo      # noqa: F401
-
+import assistant.actions.todo  # noqa: F401
 from assistant.actions import registry
 from assistant.config import load_config
 from assistant.db import CalendarDB
@@ -52,7 +52,7 @@ def clear_todos():
 
 def run_test_direct(intents_list: list, expected_count: int, test_name: str, seed_todos: list = None):
     """Execute a list of (action_name, IntentObject) directly (no LLM)."""
-    print(f"\n==============================================")
+    print("\n==============================================")
     print(f"🎬 Test: {test_name}")
 
     clear_todos()
@@ -89,7 +89,7 @@ def run_test_direct(intents_list: list, expected_count: int, test_name: str, see
 
 def run_test_llm(parser, expected_count: int, test_name: str, transcript: str, seed_todos: list = None):
     """Parse a transcript via LLM → execute → verify."""
-    print(f"\n==============================================")
+    print("\n==============================================")
     print(f"🎬 LLM Test: {test_name}")
     print(f"Transcript: '{transcript}'")
 
@@ -136,8 +136,8 @@ def run_test_llm(parser, expected_count: int, test_name: str, transcript: str, s
 def run_direct_tests():
     from assistant.actions.todo.intent import (
         AddSubtaskIntent,
-        CompleteTodoIntent,
         CompleteSubtaskIntent,
+        CompleteTodoIntent,
         CreateTodoIntent,
         DeleteSubtaskIntent,
         DeleteTodoIntent,
@@ -253,7 +253,7 @@ def run_direct_tests():
     re_synced = db.get_todos_by_source("calendar_sync")
     assert len(re_synced) == 1
     assert re_synced[0]["completed"] == 1, "Re-sync should preserve completed state"
-    print(f"   ✅ Re-sync preserved completed state of synced todo")
+    print("   ✅ Re-sync preserved completed state of synced todo")
 
     # Sync off → clears synced todos, manual todos unaffected
     db.create_todo("manual task", list_name="today")
@@ -261,7 +261,7 @@ def run_direct_tests():
     assert deleted == 1
     remaining = db.get_todos(include_completed=False)
     assert len(remaining) == 1 and remaining[0]["source"] == "manual"
-    print(f"   ✅ Sync-off cleared calendar todos, manual tasks preserved")
+    print("   ✅ Sync-off cleared calendar todos, manual tasks preserved")
     print("🟢 Passed Calendar Sync + Off!")
 
     # SCENARIO 8: Completed tasks don't appear in pending query
@@ -272,9 +272,9 @@ def run_direct_tests():
     all_todos = db.get_todos(include_completed=True)
     pending = [t for t in all_todos if not t["completed"]]
     assert len(pending) == 1 and pending[0]["title"] == "task Y"
-    print(f"\n==============================================")
+    print("\n==============================================")
     print("🎬 Test: Completed Tasks Hidden from Pending")
-    print(f"   ✅ 2 tasks, 1 completed → 1 pending")
+    print("   ✅ 2 tasks, 1 completed → 1 pending")
     print("🟢 Passed Completed Tasks Hidden from Pending!")
 
     # SCENARIO 9: Create with priority + due date

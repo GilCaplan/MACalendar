@@ -110,7 +110,7 @@ def unbind_request_user(_exc=None):
         users._current.set(None)
 
 
-def _me() -> "str | None":
+def _me() -> str | None:
     return users.current()
 
 

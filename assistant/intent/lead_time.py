@@ -79,7 +79,7 @@ _HAS_LEADING_VERB = re.compile(
 
 
 def split(text: str, restore_verb: bool = False,
-          trailing: bool = False) -> "tuple[str, int | None]":
+          trailing: bool = False) -> tuple[str, int | None]:
     """(text without the lead-time clause, minutes) — or (text, None).
 
     Returns the ORIGINAL text unchanged when the clause IS the whole command

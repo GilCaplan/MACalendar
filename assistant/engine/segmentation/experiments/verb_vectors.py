@@ -54,9 +54,8 @@ from assistant.common.scratch_env import scratch_env  # noqa: E402
 scratch_env("vv_", keep=("LOCATION", "MODELS", "LABEL_FEEDBACK", "HEARTBEATS",
                          "HUD_STATE", "DEVICE_SECRET", "DEVICES"))
 
-from assistant.engine.segmentation.fastseg.fastseg import (                    # noqa: E402
-    _CALENDAR_VERBS, _TASK_VERBS)
-from assistant.intent.rule_parser import INTENT_MAP                            # noqa: E402
+from assistant.engine.segmentation.fastseg.fastseg import _CALENDAR_VERBS, _TASK_VERBS  # noqa: E402
+from assistant.intent.rule_parser import INTENT_MAP  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Held-out words — hand-labelled, and asserted absent from every lexicon
@@ -95,7 +94,7 @@ NOT_VERBS = ["milk", "dentist", "budget", "presentation", "garage", "laptop",
              "before", "eight", "groceries", "passport", "kitchen"]
 
 
-def _families() -> "dict[str, set]":
+def _families() -> dict[str, set]:
     fam: dict[str, set] = {}
     for (verb, _q), intent in INTENT_MAP.items():
         fam.setdefault(intent, set()).add(verb)
@@ -125,7 +124,7 @@ def _vec(vocab, word: str):
     return v / n if n else None
 
 
-def _nearest(vocab, word: str, prototypes: "dict[str, set]"):
+def _nearest(vocab, word: str, prototypes: dict[str, set]):
     """(best_label, best_sim, best_proto, margin) over labelled prototype
     sets, nearest-neighbour cosine. None when the word has no vector."""
     v = _vec(vocab, word)

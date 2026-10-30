@@ -14,7 +14,6 @@ import re
 import pytest
 
 import assistant.trace as trace
-
 from tests.unit._ios_sources import ios_source
 
 

@@ -26,7 +26,8 @@ the routes behave exactly as they did.
 from __future__ import annotations
 
 import contextlib
-from typing import Any, Callable, Iterable
+from collections.abc import Callable, Iterable
+from typing import Any
 
 from assistant import users
 from assistant.users import registry
@@ -101,13 +102,13 @@ def _seq(uid: str) -> int:
     return int(registry.load()["users"][uid]["seq"])
 
 
-def encode(row_id: "int | None", owner: str, viewer: str) -> "int | None":
+def encode(row_id: int | None, owner: str, viewer: str) -> int | None:
     if row_id in (None, "") or owner == viewer:
         return row_id
     return (_seq(owner) << SHIFT) | (int(row_id) & _ROW_MASK)
 
 
-def decode(any_id: int) -> "tuple[str | None, int]":
+def decode(any_id: int) -> tuple[str | None, int]:
     """(owner, row id) — owner None for a plain id, which is the viewer's own."""
     any_id = int(any_id)
     if any_id <= _ROW_MASK:
@@ -139,7 +140,7 @@ def decorate(row: dict, owner: str, viewer: str) -> dict:
 
 
 def gather(fetch: Callable[[Any], Iterable[dict]],
-           sort_key: "Callable[[dict], Any] | None" = None) -> list[dict]:
+           sort_key: Callable[[dict], Any] | None = None) -> list[dict]:
     """`fetch(db)` over every calendar the viewer can see, merged."""
     if not active():
         return list(fetch(_get_db()))
@@ -180,7 +181,7 @@ def as_owner(any_id: int, edit: bool = False):
 
 
 @contextlib.contextmanager
-def creating_for(owner_id: "str | None"):
+def creating_for(owner_id: str | None):
     """Create into `owner_id`'s calendar (the event editor's owner picker), or
     the viewer's own when none is named."""
     viewer = users.current()
@@ -205,8 +206,9 @@ def change_token_parts() -> list[str]:
     """What `/changes` should hash: every file the viewer can see, plus the
     registry (a new share changes what is visible)."""
     import os
-    from assistant.users import paths
+
     from assistant.db import DB_PATH
+    from assistant.users import paths
     if not active():
         return []
     parts = []
@@ -231,7 +233,7 @@ def change_token_parts() -> list[str]:
 # on the row id), and `present` turns rows back into the viewer's id space on
 # the way out. The binding is undone by users.routes' teardown.
 
-def _viewer() -> "str | None":
+def _viewer() -> str | None:
     from flask import g
     return getattr(g, "sharing_viewer", None) or users.current()
 

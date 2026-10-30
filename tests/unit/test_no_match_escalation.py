@@ -18,12 +18,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
+import assistant.api.server as server
+import assistant.engine.llm as engine_llm
 from assistant.actions.calendar.intent import CalendarIntent
 from assistant.actions.todo.intent import CompleteTodoIntent
 from assistant.exceptions import TargetNotFound
-import assistant.api.server as server
-import assistant.engine.fastrule.stage as generate
-import assistant.engine.llm as engine_llm
 
 
 @pytest.fixture(autouse=True)

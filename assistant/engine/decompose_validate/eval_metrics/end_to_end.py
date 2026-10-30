@@ -26,8 +26,14 @@ Two malformed-item counts need no gold at all, so they are the cheapest signal i
 the file: an action ending in a dangling joiner, and two clock times inside one
 item (segmentation ARCHITECTURE.md §8.1).
 """
-import os, sys, json, datetime as dt, collections
+import collections
+import datetime as dt
+import json
+import os
+import sys
+
 from assistant.common.scratch_env import scratch_env
+
 D = os.environ.get("MACALENDAR_SCRATCH", "/tmp")
 scratch_env("end_to_end_", dir=D,
            keep=("LOCATION", "MODELS", "LABEL_FEEDBACK", "HEARTBEATS",
@@ -42,9 +48,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
 sys.path.insert(0, ROOT)
 
 from assistant.engine import segmentation as SEG
-from assistant.engine.state import EngineState
-from assistant.engine.decompose_validate import checks as C, resolve as R
+from assistant.engine.decompose_validate import checks as C
+from assistant.engine.decompose_validate import resolve as R
 from assistant.engine.decompose_validate.eval_metrics import score as S
+from assistant.engine.state import EngineState
 
 rows = [json.loads(l) for l in open(os.path.join(
     ROOT, "assistant/engine/decompose_validate/datasets/generated.jsonl"))]

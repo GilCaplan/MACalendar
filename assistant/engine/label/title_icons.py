@@ -276,7 +276,7 @@ def _compiled():
 _LEX = _compiled()
 
 
-def matches(title: str, groups: "set[str] | None" = None) -> list[tuple[int, str, str]]:
+def matches(title: str, groups: set[str] | None = None) -> list[tuple[int, str, str]]:
     """Every (end offset, icon, word) whose sense the title confirms, in the
     order the words appear, one per icon — from the `groups` switched on
     (None: all of them)."""
@@ -303,11 +303,11 @@ def matches(title: str, groups: "set[str] | None" = None) -> list[tuple[int, str
 
 
 @lru_cache(maxsize=4096)
-def _icons(title: str, count: int, groups: "frozenset[str] | None") -> tuple[str, ...]:
+def _icons(title: str, count: int, groups: frozenset[str] | None) -> tuple[str, ...]:
     return tuple(icon for _e, icon, _w in matches(title, None if groups is None else set(groups))[:count])
 
 
-def icons(title: str, count: int, groups: "set[str] | None" = None) -> list[str]:
+def icons(title: str, count: int, groups: set[str] | None = None) -> list[str]:
     """Up to `count` icon names for `title`, in the order their words appear —
     none when `count` is 0 or nothing is clear. Cached: every screen asks
     again for every row on every redraw."""
@@ -316,7 +316,7 @@ def icons(title: str, count: int, groups: "set[str] | None" = None) -> list[str]
     return list(_icons(title, count, None if groups is None else frozenset(groups)))
 
 
-def groups_from(config) -> "set[str]":
+def groups_from(config) -> set[str]:
     """The kinds switched on in `title_emoji` (each a bool, on unless set off)."""
     section = getattr(config, "title_emoji", None)
     return {g for g in GROUPS if bool(getattr(section, g, True))}
@@ -332,7 +332,7 @@ def count_from(config) -> int:
     return n if n in (0, 1, 2) else 0
 
 
-def attach(rows: "list[dict]", config=None) -> "list[dict]":
+def attach(rows: list[dict], config=None) -> list[dict]:
     """Give each event / to-do payload its `icons` — the serialization hook the
     API runs rows through, so the phone draws what the Mac draws without a
     copy of the lexicon. A row keeps its title untouched."""

@@ -6,8 +6,8 @@ or down whether answer was good and it adds up" — "clutters and gets in the
 way"). Reviewing stays one tap away in Settings, with its count. CI has no
 Swift toolchain, so this reads the source.
 """
-from pathlib import Path
 import re
+from pathlib import Path
 
 IOS = Path(__file__).resolve().parents[2] / "MACalendar-iOS" / "MACalendar-iOS"
 CONTENT = (IOS / "Views" / "ContentView.swift").read_text()

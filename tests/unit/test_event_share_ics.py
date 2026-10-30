@@ -8,7 +8,7 @@ pytest.importorskip("PyQt6")
 
 from PyQt6.QtCore import Qt  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
-from PyQt6.QtWidgets import QApplication, QFileDialog, QPushButton  # noqa: E402
+from PyQt6.QtWidgets import QApplication, QFileDialog  # noqa: E402
 
 from assistant.calendar_ui.event_dialog import EventDialog  # noqa: E402
 

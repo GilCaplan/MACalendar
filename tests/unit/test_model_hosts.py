@@ -158,7 +158,8 @@ def test_this_machine_is_the_last_resort_even_when_busy(monkeypatch):
 def test_the_busy_peek_sees_another_holder(tmp_path, monkeypatch):
     monkeypatch.setattr(model_protocol, "LOCK_PATH", tmp_path / "m.lock")
     assert not model_protocol.local_busy()
-    import subprocess, sys
+    import subprocess
+    import sys
     proc = subprocess.Popen([sys.executable, "-c", (
         "import os, time, fcntl\n"
         f"fd = os.open({str(tmp_path / 'm.lock')!r}, os.O_CREAT | os.O_RDWR)\n"
@@ -214,8 +215,9 @@ def test_a_gate_open_to_the_network_must_check_tokens():
 
 def test_the_helper_gate_refuses_a_caller_without_its_token(helper):
     """Through real HTTP on loopback: /api/* needs the token, /gate/info does not."""
-    from assistant.integrations import ollama_gate
     import socket
+
+    from assistant.integrations import ollama_gate
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]

@@ -109,6 +109,7 @@ def test_patch_config_writes_the_OVERRIDE_not_the_real_file(tmp_path, monkeypatc
     correctly and still changing Gil's theme to light.
     """
     import os
+
     import yaml as _yaml
 
     target = tmp_path / "config.yaml"
@@ -117,6 +118,7 @@ def test_patch_config_writes_the_OVERRIDE_not_the_real_file(tmp_path, monkeypatc
 
     # Re-imported so the module constant is rebuilt against the override.
     import importlib
+
     import assistant.api.server as server
     importlib.reload(server)
 

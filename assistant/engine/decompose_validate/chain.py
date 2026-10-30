@@ -40,7 +40,7 @@ _AFTER_NAMED = re.compile(
 _DAY_KINDS = {"date", "range"}
 
 
-from assistant.common.timeutil import to_hhmm as _hhmm      # noqa: E402
+from assistant.common.timeutil import to_hhmm as _hhmm  # noqa: E402
 from assistant.common.timeutil import to_minutes as _minutes  # noqa: E402
 
 
@@ -53,7 +53,7 @@ def _words(text: str) -> set:
     return {w for w in re.findall(r"[a-z]+", (text or "").lower()) if len(w) > 2}
 
 
-def _anchor_by_name(i: int, items: list) -> "tuple[int, str] | None":
+def _anchor_by_name(i: int, items: list) -> tuple[int, str] | None:
     """(index of the earlier item "right after X" names, the phrase), or None."""
     m = _AFTER_NAMED.search(items[i].text or "")
     if not m:
@@ -69,7 +69,7 @@ def _anchor_by_name(i: int, items: list) -> "tuple[int, str] | None":
     return (best, m.group(0)) if best is not None else None
 
 
-def _start_of(d: dict, item) -> "int | None":
+def _start_of(d: dict, item) -> int | None:
     """When an earlier item starts, for chaining — its own clock, else the
     hour `CalendarIntent` would give an untimed EVENT (a meal's, else 09:00).
     An untimed to-do has no start, so nothing chains from it."""

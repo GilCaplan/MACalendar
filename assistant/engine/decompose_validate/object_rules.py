@@ -30,7 +30,6 @@ from assistant.engine.decompose_validate.text_helpers import unsupported_cadence
 #: weeks from now", "now that" …), shared with the tagger and FastRule.
 from assistant.intent.now_word import says_now as _says_now  # noqa: E402
 
-
 _JUNK_TITLES = {"task", "tasks", "todo", "event", "events", "reminder",
                 "list", "item", "items"}
 
@@ -190,8 +189,8 @@ def _states_its_end(spoken: str) -> bool:
     length? (DEVQA Q54: the cap is only for ends the ENGINE made.)"""
     if not spoken:
         return False
-    from assistant.engine.segmentation.fastseg.fastseg import find_time_refs
     from assistant.engine.decompose_validate.resolve import resolve_duration
+    from assistant.engine.segmentation.fastseg.fastseg import find_time_refs
     return (any(r.kind == "range" for r in find_time_refs(spoken))
             or bool(_STATED_END.search(spoken)) or bool(resolve_duration(spoken)))
 
@@ -413,7 +412,7 @@ _MUTATE_VERBS = frozenset({
 })
 
 
-def _verb_pattern(words) -> "re.Pattern":
+def _verb_pattern(words) -> re.Pattern:
     r"""A word-boundary alternation over `words`. A space in a phrase becomes
     ``\s+``, so "check off" still matches "check  off"."""
     parts = [re.escape(w).replace(r"\ ", r"\s+").replace(" ", r"\s+")

@@ -48,7 +48,7 @@ _PATTERNS = [
 ]
 
 
-def junk_reason(words: str) -> "str | None":
+def junk_reason(words: str) -> str | None:
     """Why these words are thrown out, or None when they are a real ask."""
     t = (words or "").strip()
     if not t:

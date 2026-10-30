@@ -33,7 +33,7 @@ _SKIP_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".icns", ".ico", ".pdf", ".zi
                   ".sqlite", ".ttf", ".otf", ".woff", ".woff2", ".mp3", ".wav", ".m4a"}
 
 
-def _tracked() -> "list[pathlib.Path]":
+def _tracked() -> list[pathlib.Path]:
     try:
         out = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT, capture_output=True,
                              check=True).stdout
@@ -42,7 +42,7 @@ def _tracked() -> "list[pathlib.Path]":
     return [ROOT / p for p in out.decode().split("\0") if p]
 
 
-def _real_user_ids() -> "set[str]":
+def _real_user_ids() -> set[str]:
     users = pathlib.Path.home() / ".assistant_tools" / "users"
     return {p.name for p in users.iterdir() if p.is_dir()} if users.is_dir() else set()
 

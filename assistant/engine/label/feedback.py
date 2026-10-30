@@ -89,7 +89,7 @@ def _append(row: dict) -> None:
         logger.warning("Could not save a label correction", exc_info=True)
 
 
-def record_category(title: str, was: "str | None", now: str,
+def record_category(title: str, was: str | None, now: str,
                     origin: str = CORRECTION) -> None:
     """An event's category was set by a person.
 
@@ -106,7 +106,7 @@ def record_category(title: str, was: "str | None", now: str,
              "label": now.strip(), "origin": origin, "ts": time.time()})
 
 
-def record_tags(title: str, was: "list | None", now: list,
+def record_tags(title: str, was: list | None, now: list,
                 origin: str = CORRECTION) -> None:
     """A task's tags were set by a person."""
     if not (title or "").strip():

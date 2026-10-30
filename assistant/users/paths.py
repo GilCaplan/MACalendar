@@ -40,7 +40,7 @@ def user_dir(user_id: str) -> str:
     return os.path.join(root(), "users", user_id)
 
 
-def resolve(path: P, user_id: "str | None" = None) -> P:
+def resolve(path: P, user_id: str | None = None) -> P:
     """`path` for the bound user (or `user_id`), unchanged when there is none."""
     if user_id is None:
         from assistant import users

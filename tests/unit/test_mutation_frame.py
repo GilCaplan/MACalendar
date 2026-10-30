@@ -40,8 +40,7 @@ def test_a_plain_create_is_not_a_frame(said):
 @pytest.fixture
 def actions(isolated_registry):
     from assistant.actions.calendar.action import CreateEventAction, DeleteEventAction
-    from assistant.actions.todo.action import (CompleteTodoAction, CreateTodoAction,
-                                               DeleteTodoAction)
+    from assistant.actions.todo.action import CompleteTodoAction, CreateTodoAction, DeleteTodoAction
     for cls in (CreateEventAction, DeleteEventAction, CreateTodoAction,
                 DeleteTodoAction, CompleteTodoAction):
         isolated_registry._actions[cls.action_name] = cls

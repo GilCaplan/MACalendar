@@ -32,12 +32,12 @@ from __future__ import annotations
 
 import datetime
 
-from assistant.users import sharing
 from flask import Blueprint, current_app, jsonify, request
 
 from assistant.api.server import change_token, create_event_from_body
 from assistant.features.tasks.routes import tag_rules
 from assistant.features.timer.routes import _counter_out, _timer_out
+from assistant.users import sharing
 
 blueprint = Blueprint("calendar", __name__)
 
@@ -327,7 +327,7 @@ def event_delete(event_id: int):
 # extend it. And an option to choose in what interval."
 # ------------------------------------------------------------------
 
-def _series_id_of(event: dict) -> "int | None":
+def _series_id_of(event: dict) -> int | None:
     """The id every instance of this series shares, or None if it is a one-off.
 
     The ROOT instance carries `series_id == id`; `db.create_event` back-fills
@@ -525,7 +525,7 @@ def sync_bootstrap():
     })
 
 
-def _holy_windows(start: datetime.date, end: datetime.date, israel: bool) -> "dict | None":
+def _holy_windows(start: datetime.date, end: datetime.date, israel: bool) -> dict | None:
     """The windows for the bootstrap, or None if observance cannot be computed.
 
     None rather than a 500: a bootstrap is the phone's whole first screen, and

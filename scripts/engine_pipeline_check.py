@@ -35,10 +35,10 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-from assistant.engine import Engine, load_config          # noqa: E402
+from assistant.engine import Engine, load_config  # noqa: E402
 from assistant.engine.state import ITEM_KINDS, EngineState, Item  # noqa: E402
 
-_FAILURES: "list[str]" = []
+_FAILURES: list[str] = []
 
 
 def check(ok: bool, label: str, detail: str = "") -> bool:
@@ -150,7 +150,7 @@ def run_shapes(text: str, verbose: bool) -> None:
     _label.run(state, cfg)
 
 
-def run_end_to_end(cases: "list[tuple[str, dict]]") -> None:
+def run_end_to_end(cases: list[tuple[str, dict]]) -> None:
     """The whole engine, then read the DB back. `expect` names what must land."""
     from assistant.db import get_db
 

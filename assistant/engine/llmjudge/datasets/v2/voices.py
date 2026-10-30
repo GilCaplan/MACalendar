@@ -38,7 +38,7 @@ CLOCK_FORMS = ("colon", "dotted", "dotted_mer", "compact_ap", "compact_bare",
                "plain_mer")
 
 
-def render_clock(clock: dict, form: str) -> "str | None":
+def render_clock(clock: dict, form: str) -> str | None:
     """The clock phrase INCLUDING its preposition, or None if this value
     cannot honestly be said that way.
 
@@ -94,13 +94,13 @@ class Voice:
     #: all eleven spoken forms appear across the set instead of seven.
     clock_forms: tuple = ()
     #: "on monday" -> "in monday" (the ESL calque), applied to date phrases.
-    date_prep: "str | None" = None
+    date_prep: str | None = None
     punctuate: bool = True
     lowercase: bool = False
     drop_articles: bool = False
 
 
-def _finish(voice: "Voice", text: str) -> str:
+def _finish(voice: Voice, text: str) -> str:
     out = " ".join(text.split())
     if voice.lowercase:
         out = out.lower()

@@ -92,6 +92,7 @@ def test_the_mac_dialog_shows_how_it_works_above_the_tips():
     import pytest
     pytest.importorskip("PyQt6.QtWidgets")
     from PyQt6.QtWidgets import QApplication, QLabel
+
     from assistant.calendar_ui.tips_dialog import TipsDialog
     from assistant.tips import STEPS
 

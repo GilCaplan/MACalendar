@@ -75,20 +75,14 @@ def _leak_class(extra: set) -> str:
             return name
     return "other"
 from assistant.engine.fastrule.experiments.gold import (  # noqa: E402  pure gold converters
-    CONTRADICTORY,
-    _AFTERNOON,
-    _AMPM,
-    _CLOCK24,
     _EMPTY_TITLE_RE,
-    _EVENING,
     _EXPLICIT_TIME_RE,
     _HHMM,
     _ISO,
-    _MORNING,
     _NOW_RE,
     _SEVERITY,
+    CONTRADICTORY,
     _phrase_to_date,
-    _phrase_to_hhmm,
     _ruled_hhmm,
     ruled_range,
     time_is_unambiguous,
@@ -113,6 +107,7 @@ def main() -> int:
     mining = a.split == "train"
 
     from freezegun import freeze_time
+
     from assistant.engine.fastrule.fastrule import FastRule
     from assistant.intent.rule_parser import RULE_THRESHOLD
 
@@ -457,28 +452,28 @@ def main() -> int:
     print(f"   correct-on-handled       {pc(A_OK, A_OK + A_WRONG)}")
     print(f"   deferred (missed work)   {pc(A_MISS, A_N)}")
     if D_N:
-        print(f"\nDATE CORRECTNESS (on committed creates)")
+        print("\nDATE CORRECTNESS (on committed creates)")
         print(f"   resolvable date right    {pc(D_OK, D_N)}  (n={D_N}; "
               f"range phrases like 'next week' excluded, no single right answer)")
     if B_N:
-        print(f"\nBOUNDED SERIES (the gold names an end: \"every monday until "
-              f"the end of the month\")")
+        print("\nBOUNDED SERIES (the gold names an end: \"every monday until "
+              "the end of the month\")")
         print(f"   rows                     {B_N}   ({B_HELD} deferred, {B_N - B_HELD} committed)")
         print(f"   carried an end           {pc(B_WITH, B_N - B_HELD)}  (of the committed)")
         print(f"   ...and it was the right day {pc(B_RIGHT, B_RIGHT_N)}  (n={B_RIGHT_N}; "
               f"range phrases excluded, same reason as dates)")
         print(f"   FIRES FOREVER            {B_FOREVER}  <- a series committed with no end")
     if OP_N:
-        print(f"\nUPDATE / DELETE / COMPLETE (committed atomic, right verb family)")
+        print("\nUPDATE / DELETE / COMPLETE (committed atomic, right verb family)")
         print(f"   right kind, event/to-do  {pc(OP_KIND, OP_N)}  (n={OP_N})")
         if OP_TN:
             print(f"   target word F1           {100.0 * OP_TF / OP_TN:.1f}%  (n={OP_TN}; "
                   f"the words that FIND the record — 'tick', 'something' score 0)")
     if CD_N:
-        print(f"\nSERIES CADENCE (committed events whose gold repeats)")
+        print("\nSERIES CADENCE (committed events whose gold repeats)")
         print(f"   cadence right            {pc(CD_OK, CD_N)}  (n={CD_N})")
     if T_SCORED:
-        print(f"\nTITLE CORRECTNESS (committed creates whose gold names a title)")
+        print("\nTITLE CORRECTNESS (committed creates whose gold names a title)")
         print(f"   word F1 (similarity)     {100.0 * T_F / T_SCORED:.1f}%  "
               f"precision {100.0 * T_P / T_SCORED:.1f}% (words leaked in) · "
               f"recall {100.0 * T_R / T_SCORED:.1f}% (words cut)  (n={T_SCORED})")
@@ -490,28 +485,28 @@ def main() -> int:
         print(f"   right or a substring of it {pc(T_CONTAINED, T_SCORED)}  "
               f"— the gap to exact is TRUNCATION, not a wrong name")
     if TITLE_N:
-        print(f"\nTITLE QUALITY (on committed creates)")
+        print("\nTITLE QUALITY (on committed creates)")
         print(f"   titles that name nothing  {pc(TITLE_BAD, TITLE_N)}  "
               f"({TITLE_BAD}/{TITLE_N}) — 'event', 'the appointment', 'a task'")
     if NOW_N:
-        print(f"\n\"NOW\" ROWS (the word is a time; `time correctness` skips them)")
+        print("\n\"NOW\" ROWS (the word is a time; `time correctness` skips them)")
         print(f"   booked at midnight        {pc(NOW_MIDNIGHT, NOW_N)}  "
               f"({NOW_MIDNIGHT}/{NOW_N})")
     if A_WRONG:
-        print(f"\nHARM (severity-weighted cost of wrong commits)")
+        print("\nHARM (severity-weighted cost of wrong commits)")
         print(f"   harm score               {HARM}  over {A_WRONG} wrong commits "
               f"(delete=4 · update/complete=2 · create=1 · query=0)")
         if HARM_BY:
-            print(f"   DESTRUCTIVE errors       "
+            print("   DESTRUCTIVE errors       "
                   + " · ".join(f"{k} {v}" for k, v in HARM_BY.most_common(4)))
         else:
-            print(f"   DESTRUCTIVE errors       none — every wrong commit was "
-                  f"a spurious row, not a loss")
+            print("   DESTRUCTIVE errors       none — every wrong commit was "
+                  "a spurious row, not a loss")
     if L_N:
-        print(f"\nLEAD TIME (committed creates whose gold names one)")
+        print("\nLEAD TIME (committed creates whose gold names one)")
         print(f"   reminder carried         {pc(L_OK, L_N)}  (n={L_N})")
     if T_N or INVENT_N:
-        print(f"\nTIME CORRECTNESS (on committed events)")
+        print("\nTIME CORRECTNESS (on committed events)")
         print(f"   explicit time right      {pc(T_OK, T_N)}  (n={T_N}; by the rulings, "
               f"Q28 + day words — before 2026-09-25 this read every bare hour as AM)")
         print(f"     said with its half     {pc(TU_OK, TU_N)}  (n={TU_N}; am/pm, 24h, noon — "

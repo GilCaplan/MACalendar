@@ -40,12 +40,12 @@ _RULE_PARSER_MISSING = object()   # spaCy absent: checked once, then skipped
 def get_registry():
     """The action registry, with every action module imported (they
     self-register via @register on import)."""
-    import assistant.actions.calendar          # noqa: F401
-    import assistant.actions.todo              # noqa: F401
-    import assistant.actions.clarify           # noqa: F401
-    import assistant.actions.workout_routine   # noqa: F401
+    import assistant.actions.calendar  # noqa: F401
+    import assistant.actions.clarify  # noqa: F401
+    import assistant.actions.occasion  # noqa: F401  (Q73)
     import assistant.actions.schedule_workout  # noqa: F401
-    import assistant.actions.occasion          # noqa: F401  (Q73)
+    import assistant.actions.todo  # noqa: F401
+    import assistant.actions.workout_routine  # noqa: F401
     from assistant.actions import ActionRegistry
     return ActionRegistry()
 
@@ -67,7 +67,8 @@ def get_rule_parser():
         return None
     if _rule_parser is None:
         from assistant.intent.rule_parser import (
-            RuleBasedParser, _RULE_PARSER_AVAILABLE,
+            _RULE_PARSER_AVAILABLE,
+            RuleBasedParser,
         )
         if not _RULE_PARSER_AVAILABLE:
             _rule_parser = _RULE_PARSER_MISSING
@@ -105,7 +106,7 @@ def is_reachable(cfg) -> bool:
         return False
 
 
-def call_json(cfg, system: str, user: str, schema: "dict | None" = None) -> "tuple[dict, int]":
+def call_json(cfg, system: str, user: str, schema: dict | None = None) -> tuple[dict, int]:
     """One structured-output call. Returns (parsed dict, elapsed ms).
 
     With a schema and Ollama, the model is format-constrained (it CANNOT emit

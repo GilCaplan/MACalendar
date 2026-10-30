@@ -24,10 +24,10 @@ import contextlib
 import contextvars
 import datetime as _dt
 import time as _time
-from typing import Iterator
+from collections.abc import Iterator
 
 #: Seconds between the real clock and the said moment; 0 for a live command.
-_behind: "contextvars.ContextVar[float]" = contextvars.ContextVar(
+_behind: contextvars.ContextVar[float] = contextvars.ContextVar(
     "macalendar_said_behind", default=0.0)
 
 #: A command older than this is not trusted to know its own moment — a phone
@@ -49,7 +49,7 @@ def behind() -> float:
 
 
 @contextlib.contextmanager
-def said_at(ts: "float | str | None") -> Iterator[None]:
+def said_at(ts: float | str | None) -> Iterator[None]:
     try:
         lag = _time.time() - float(ts) if ts not in (None, "") else 0.0
     except (TypeError, ValueError):

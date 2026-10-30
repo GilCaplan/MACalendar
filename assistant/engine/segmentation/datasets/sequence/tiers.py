@@ -84,7 +84,7 @@ SEQ_TIER_DIR = G.HERE / "tiers"
 CHAIN_TIER_DIR = G.OUT_CHAIN.parent / "tiers"
 
 
-def paths(tier: str) -> "tuple[Path, Path]":
+def paths(tier: str) -> tuple[Path, Path]:
     if tier == "base":
         return G.OUT_SEQ, G.OUT_CHAIN
     return SEQ_TIER_DIR / f"sequence_{tier}.jsonl", CHAIN_TIER_DIR / f"chain_{tier}.jsonl"
@@ -552,7 +552,7 @@ def tier_families() -> list:
 # Build
 # ---------------------------------------------------------------------------
 
-def draw_all(max_families: "int | None" = None):
+def draw_all(max_families: int | None = None):
     """Base rows + every tier family drawn at the cap, in one fixed order.
     Returns (base_seq, base_chain, [(family, groups)]). `max_families` draws
     only the first N tier families (a quick smoke for the tests; the split is
@@ -608,7 +608,7 @@ def build_tier(tier: str, _cache: dict = {}):
     return seq, chain
 
 
-def write_tier(tier: str) -> "tuple[Path, Path]":
+def write_tier(tier: str) -> tuple[Path, Path]:
     seq, chain = build_tier(tier)
     ps, pc = paths(tier)
     ps.parent.mkdir(parents=True, exist_ok=True)

@@ -39,8 +39,9 @@ import datetime
 import re
 from dataclasses import dataclass
 
-from assistant.intent.now_word import NOW_RE, clock as _now_clock
 from assistant import clock as _clock  # the moment the command was SAID
+from assistant.intent.now_word import NOW_RE
+from assistant.intent.now_word import clock as _now_clock
 
 #: The lead-in a computed or personal word must have (see the docstring).
 _AT = r"\b(?:at|around|about|by)\s+(?:the\s+)?"
@@ -49,7 +50,7 @@ _AT = r"\b(?:at|around|about|by)\s+(?:the\s+)?"
 @dataclass(frozen=True)
 class TimeWord:
     name: str              # what the settings screen shows
-    rx: "re.Pattern"       # how it is said
+    rx: re.Pattern       # how it is said
     value: str             # "HH:MM", "now", or a sun time with an offset ("sunset-20")
     yours: bool = False    # added by the person, not shipped
 
@@ -81,7 +82,7 @@ _VALUE = re.compile(r"^(?:(\d{1,2}):(\d{2})|(now|midnight|noon)"
                     r"|(sunrise|sunset|candle lighting|nightfall)\s*(?:([+-])\s*(\d{1,3}))?)$")
 
 
-def parse_entry(entry: str) -> "tuple[str, str] | None":
+def parse_entry(entry: str) -> tuple[str, str] | None:
     """"lunch break = 13:30" -> ("lunch break", "13:30"); "mincha = sunset-20"
     -> ("mincha", "sunset-20"); "straight away = now" -> ("straight away",
     "now"). None when it is not that shape, or when it would REDEFINE a key
@@ -108,13 +109,13 @@ def parse_entry(entry: str) -> "tuple[str, str] | None":
     return word, base + (f"{sign}{int(n)}" if sign else "")
 
 
-def normalize_entry(entry: str) -> "str | None":
+def normalize_entry(entry: str) -> str | None:
     """The stored form of a personal entry, or None to refuse it."""
     p = parse_entry(entry)
     return f"{p[0]} = {p[1]}" if p else None
 
 
-def _yours() -> "list[TimeWord]":
+def _yours() -> list[TimeWord]:
     try:
         from assistant.intent import lexicon
         entries = lexicon.get_lexicon().added("time_words")
@@ -131,7 +132,7 @@ def _yours() -> "list[TimeWord]":
     return out
 
 
-def words() -> "list[TimeWord]":
+def words() -> list[TimeWord]:
     """Every word that names a time: the person's own first, so "at sunset =
     19:00" they keyed in wins over the computed one."""
     return _yours() + list(BUILT_IN)
@@ -144,7 +145,7 @@ class Found:
     end: int
 
 
-def find_all(text: str) -> "list[Found]":
+def find_all(text: str) -> list[Found]:
     """Every time word in `text`, left to right, longest first at a place."""
     got: list[Found] = []
     from assistant.intent import now_word as _now_word
@@ -161,7 +162,7 @@ def find_all(text: str) -> "list[Found]":
     return out
 
 
-def find(text: str) -> "Found | None":
+def find(text: str) -> Found | None:
     hits = find_all(text)
     return hits[0] if hits else None
 
@@ -170,7 +171,7 @@ def names_a_time(text: str) -> bool:
     return find(text) is not None
 
 
-def _sun(name: str, date: datetime.date) -> "datetime.time | None":
+def _sun(name: str, date: datetime.date) -> datetime.time | None:
     from assistant import observance
     try:
         return {"sunrise": observance.sunrise, "sunset": observance.sunset,
@@ -180,8 +181,8 @@ def _sun(name: str, date: datetime.date) -> "datetime.time | None":
         return None
 
 
-def resolve(w: TimeWord, date: "datetime.date | None" = None,
-            now: "datetime.datetime | None" = None) -> "str | None":
+def resolve(w: TimeWord, date: datetime.date | None = None,
+            now: datetime.datetime | None = None) -> str | None:
     """The clock `w` names on `date` (today if None), "HH:MM"; None when it
     cannot be computed — no location set — and then nothing is invented."""
     v = w.value
@@ -202,8 +203,8 @@ def resolve(w: TimeWord, date: "datetime.date | None" = None,
     return at.strftime("%H:%M")
 
 
-def time_for(text: str, date: "datetime.date | None" = None,
-             now: "datetime.datetime | None" = None) -> "str | None":
+def time_for(text: str, date: datetime.date | None = None,
+             now: datetime.datetime | None = None) -> str | None:
     """THE function: the clock the first time word in `text` names, or None."""
     f = find(text)
     return resolve(f.word, date, now) if f else None

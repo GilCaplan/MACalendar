@@ -11,13 +11,16 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-from PyQt6.QtCore import Qt                                          # noqa: E402
-from PyQt6.QtTest import QTest                                       # noqa: E402
-from PyQt6.QtWidgets import (                                        # noqa: E402
-    QApplication, QLineEdit, QListWidget, QPushButton,
+from PyQt6.QtCore import Qt  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import (  # noqa: E402
+    QApplication,
+    QLineEdit,
+    QListWidget,
+    QPushButton,
 )
 
-from assistant.intent import lexicon as lx                           # noqa: E402
+from assistant.intent import lexicon as lx  # noqa: E402
 
 
 @pytest.fixture(scope="module")

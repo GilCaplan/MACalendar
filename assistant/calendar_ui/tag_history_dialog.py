@@ -24,8 +24,16 @@ import datetime as _dt
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QCheckBox, QDialog, QFrame, QHBoxLayout, QLabel, QMessageBox,
-    QPushButton, QScrollArea, QVBoxLayout, QWidget,
+    QCheckBox,
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
 
 from assistant.calendar_ui import styles as _styles

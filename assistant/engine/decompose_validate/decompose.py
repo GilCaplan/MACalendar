@@ -20,7 +20,6 @@ Deterministic reuse, no LLM here yet:
 
 from __future__ import annotations
 
-
 from assistant.engine.state import EngineState, Item
 
 # THE TIME SPLITTERS ARE GONE (2026-09-26, Gil: "sure can try"). "walk the dog
@@ -33,7 +32,7 @@ from assistant.engine.state import EngineState, Item
 # its only model call here.
 
 
-def _split_tasks(item: Item) -> "list[Item] | None":
+def _split_tasks(item: Item) -> list[Item] | None:
     """The list splitter, with the same discipline segment's clause tier has:
     every piece must be an ASK.
 

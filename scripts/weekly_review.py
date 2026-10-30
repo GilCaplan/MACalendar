@@ -23,7 +23,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from assistant.intent.memory import get_memory  # noqa: E402
-from assistant.stt.vocab import get_vocab       # noqa: E402
+from assistant.stt.vocab import get_vocab  # noqa: E402
 
 
 def pct(v, q):
@@ -106,7 +106,7 @@ def main() -> None:
         reviewed = n - fb.get("none", 0)
         L += [
             f"- **{n} commands** ({', '.join(f'{k} {v}' for k, v in by_src.items())}) · {len(ok)} executed, {n - len(ok)} failed",
-            f"- Parse paths: " + ", ".join(f"{k} {v} ({v / n:.0%})" for k, v in by_path.most_common()),
+            "- Parse paths: " + ", ".join(f"{k} {v} ({v / n:.0%})" for k, v in by_path.most_common()),
             f"- Latency (executed): first result p50 {pct([r['total_ms'] for r in ok], .5) / 1000:.1f} s · p95 {pct([r['total_ms'] for r in ok], .95) / 1000:.1f} s · "
             f"LLM-path only p50 {pct([r['llm_ms'] for r in ok if r['llm_ms']], .5) / 1000:.1f} s",
             f"- **Feedback:** {reviewed}/{n} reviewed — 👍 {fb.get('approved', 0)} · ✏️ corrected {fb.get('corrected', 0)} · 👎 rejected {fb.get('rejected', 0)} · unreviewed {fb.get('none', 0)}",

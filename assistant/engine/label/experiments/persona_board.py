@@ -76,12 +76,13 @@ def _titles():
 
 
 def main() -> int:
+    import argparse
+
     from assistant.actions.calendar import categories as _cat
     from assistant.actions.todo import tagging as _tag
     from assistant.engine.label.model import LabelModel
-
-    import argparse
-    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    from scripts.dataset_tiers import add_argument as _add_tier
+    from scripts.dataset_tiers import resolve as _resolve
     ap = argparse.ArgumentParser()
     _add_tier(ap)
     a = ap.parse_args()

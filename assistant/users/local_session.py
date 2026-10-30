@@ -22,7 +22,7 @@ def path() -> str:
     return os.environ.get("MACALENDAR_SESSION_FILE") or _DEFAULT
 
 
-def read() -> "dict | None":
+def read() -> dict | None:
     try:
         with open(path(), encoding="utf-8") as f:
             data = json.load(f)
@@ -50,7 +50,7 @@ def clear() -> None:
         pass
 
 
-def current_user() -> "str | None":
+def current_user() -> str | None:
     """The Mac's logged-in user if the session is still live, else None."""
     s = read()
     if not s:
@@ -66,7 +66,7 @@ def headers() -> dict:
     return {"X-Session-Token": s["session_token"]} if s else {}
 
 
-def adopt() -> "str | None":
+def adopt() -> str | None:
     """Bind this process to the Mac's logged-in user (HUD, notifier, scripts
     that act for the person at the Mac). Returns who, or None."""
     from assistant import users

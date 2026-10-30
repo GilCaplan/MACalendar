@@ -10,13 +10,12 @@ import datetime
 
 import pytest
 
+from assistant.intent.context import context_memory
 from assistant.intent.rule_parser import (
     RULE_THRESHOLD,
     RuleBasedParser,
     RuleParserSkip,
 )
-from assistant.intent.context import context_memory
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -38,13 +37,22 @@ def parser(isolated_registry):
     it manually from the already-imported action classes.
     """
     from assistant.actions.calendar.action import (
-        CreateEventAction, UpdateEventAction, DeleteEventAction, QueryScheduleAction
-    )
-    from assistant.actions.todo.action import (
-        CreateTodoAction, CompleteTodoAction, DeleteTodoAction, UpdateTodoAction,
-        QueryTodoAction, AddSubtaskAction, CompleteSubtaskAction, DeleteSubtaskAction,
+        CreateEventAction,
+        DeleteEventAction,
+        QueryScheduleAction,
+        UpdateEventAction,
     )
     from assistant.actions.clarify import ClarifyAction
+    from assistant.actions.todo.action import (
+        AddSubtaskAction,
+        CompleteSubtaskAction,
+        CompleteTodoAction,
+        CreateTodoAction,
+        DeleteSubtaskAction,
+        DeleteTodoAction,
+        QueryTodoAction,
+        UpdateTodoAction,
+    )
 
     for cls in [
         CreateEventAction, UpdateEventAction, DeleteEventAction, QueryScheduleAction,
@@ -1223,6 +1231,7 @@ class TestATitleMustNameSomething:
         list"), which a create never produces and this gate never sees."""
         import json
         import pathlib
+
         from assistant.intent.rule_parser import names_something
 
         path = pathlib.Path("assistant/engine/fastrule/datasets/fastrule_7200.jsonl")

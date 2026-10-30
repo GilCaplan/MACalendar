@@ -651,6 +651,7 @@ def test_background_stands_aside_while_live_traffic_is_recent(lock, monkeypatch)
     board re-took the MODEL the instant each call ended. Background now waits
     for the live-quiet window before starting a call."""
     import time as _t
+
     from assistant import model_protocol as mp
     monkeypatch.setattr(mp, "LIVE_QUIET_S", 0.4)
     mp.note_live()
@@ -662,6 +663,7 @@ def test_background_stands_aside_while_live_traffic_is_recent(lock, monkeypatch)
 
 def test_live_never_waits_for_the_quiet_window(lock, monkeypatch):
     import time as _t
+
     from assistant import model_protocol as mp
     monkeypatch.setattr(mp, "LIVE_QUIET_S", 5.0)
     mp.note_live()
@@ -673,6 +675,7 @@ def test_live_never_waits_for_the_quiet_window(lock, monkeypatch):
 
 def test_the_quiet_window_is_bounded_for_a_board(lock, monkeypatch):
     import time as _t
+
     from assistant import model_protocol as mp
     monkeypatch.setattr(mp, "LIVE_QUIET_S", 60.0)
     monkeypatch.setattr(mp, "BACKGROUND_WAIT_S", 0.3)

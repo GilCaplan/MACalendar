@@ -106,7 +106,7 @@ def _words(text: str) -> set:
     return set(re.findall(r"[a-z']+", (text or "").casefold()))
 
 
-def _identity(intent) -> "str | None":
+def _identity(intent) -> str | None:
     """Which field carries this object's identity — `titles`, `match_title` or
     `title`. v1 planted on `title` unconditionally and 92 plants were no-ops on
     target-taking operations, which the board scored as misses."""
@@ -140,13 +140,13 @@ def _set_title(intent, value: str) -> bool:
     return True
 
 
-def _fabrication_for(text: str, rng) -> "str | None":
+def _fabrication_for(text: str, rng) -> str | None:
     have = _words(text)
     pool = [c for c in _FABRICATIONS if not (_words(c) & have)]
     return pool[rng.randrange(len(pool))] if pool else None
 
 
-def _near_miss_for(title: str, text: str, rng) -> "str | None":
+def _near_miss_for(title: str, text: str, rng) -> str | None:
     from assistant.engine.llmjudge.verdict import _TITLE_STOP
     head = [w for w in re.findall(r"[a-z']+", (title or "").lower())
             if len(w) > 2 and w not in _TITLE_STOP]
@@ -274,7 +274,7 @@ def _merge_expect(row: dict, n: int) -> tuple:
 
 
 def make_case(row: dict, items: list, results: list, built: list,
-              name: str, rng) -> "dict | None":
+              name: str, rng) -> dict | None:
     """One case, with its plant resolved to VALUES (never to an rng call at
     board time) and checked to be EFFECTIVE before it is written."""
     from assistant.engine.llmjudge import render
