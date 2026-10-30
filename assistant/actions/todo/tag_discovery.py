@@ -21,7 +21,6 @@ scratch isolation automatically).
 from __future__ import annotations
 
 import datetime
-import json
 import re
 from collections import Counter, defaultdict
 
@@ -35,29 +34,10 @@ _STOP = frozenset(
     "get pick up add put new list today tomorrow week next call text send make "
     "some more please remember don't dont have has was were will would".split())
 
-_STATE_SQL = """CREATE TABLE IF NOT EXISTS tag_suggestion_state (
-    name TEXT PRIMARY KEY,
-    status TEXT NOT NULL,          -- refused | accepted | (or the ask stamp)
-    ts TEXT NOT NULL,
-    hidden INTEGER NOT NULL DEFAULT 0
-)"""
-
-
-def _ensure_hidden(conn) -> None:
-    try:
-        conn.execute("ALTER TABLE tag_suggestion_state ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0")
-    except Exception:
-        pass
-
 
 def _words(title: str) -> "set[str]":
     return {w for w in re.findall(r"[a-z][a-z']{3,}", (title or "").lower())
             if w not in _STOP}
-
-
-def _ensure(conn) -> None:
-    conn.execute(_STATE_SQL)
-    _ensure_hidden(conn)
 
 
 def candidate() -> "dict | None":
@@ -69,28 +49,20 @@ def candidate() -> "dict | None":
     from assistant.db import get_db
 
     db = get_db()
-    with db._conn() as conn:
-        _ensure(conn)
-        row = conn.execute("SELECT ts FROM tag_suggestion_state WHERE name = ?",
-                           (_LAST_ASKED,)).fetchone()
-        if row:
-            last = datetime.datetime.fromisoformat(row["ts"])
-            if datetime.datetime.now() - last < datetime.timedelta(days=COOLDOWN_DAYS):
-                return None
-        decided = {r["name"].lower() for r in conn.execute(
-            "SELECT name FROM tag_suggestion_state WHERE name != ?", (_LAST_ASKED,))}
-        todos = conn.execute("SELECT title, tags FROM todos").fetchall()
+    asked = db.tag_suggestion(_LAST_ASKED)
+    if asked:
+        last = datetime.datetime.fromisoformat(asked["ts"])
+        if datetime.datetime.now() - last < datetime.timedelta(days=COOLDOWN_DAYS):
+            return None
+    decided = {r["name"].lower() for r in db.tag_suggestions(exclude=_LAST_ASKED)}
+    todos = db.todo_titles_and_tags()
 
     palette = [r["name"] for r in db.get_tags()]
     counts: Counter = Counter()
     samples: dict = defaultdict(set)
     for r in todos:
-        try:
-            tags = json.loads(r["tags"] or "[]")
-        except json.JSONDecodeError:
-            tags = []
-        title = r["title"] or ""
-        if tags:
+        title = r["title"]
+        if r["tags"]:
             continue                                # already classified
         if suggest_tags(title, palette):
             continue                                # an existing class covers it
@@ -116,12 +88,8 @@ def record_ask() -> None:
     """Stamp the cooldown — called when a suggestion is HANDED OUT, so even an
     unanswered popup counts as this week's one ask."""
     from assistant.db import get_db
-    with get_db()._conn() as conn:
-        _ensure(conn)
-        conn.execute(
-            "INSERT INTO tag_suggestion_state (name, status, ts) VALUES (?, 'asked', ?) "
-            "ON CONFLICT(name) DO UPDATE SET ts = excluded.ts",
-            (_LAST_ASKED, datetime.datetime.now().isoformat()))
+    get_db().record_tag_suggestion(_LAST_ASKED, "asked", datetime.datetime.now().isoformat(),
+                                   keep_status=True)
 
 
 def answer(name: str, accept: bool) -> "dict | None":
@@ -129,13 +97,8 @@ def answer(name: str, accept: bool) -> "dict | None":
     no → the name is never proposed again."""
     from assistant.db import get_db
     db = get_db()
-    with db._conn() as conn:
-        _ensure(conn)
-        conn.execute(
-            "INSERT INTO tag_suggestion_state (name, status, ts) VALUES (?, ?, ?) "
-            "ON CONFLICT(name) DO UPDATE SET status = excluded.status, ts = excluded.ts",
-            (name.strip().lower(), "accepted" if accept else "refused",
-             datetime.datetime.now().isoformat()))
+    db.record_tag_suggestion(name.strip().lower(), "accepted" if accept else "refused",
+                             datetime.datetime.now().isoformat())
     if accept:
         return db.create_tag(name.strip())
     return None
@@ -148,11 +111,7 @@ def change_answer(name: str, accept: bool) -> "dict | None":
     same behaviour as deleting it by hand)."""
     from assistant.db import get_db
     db = get_db()
-    key = name.strip().lower()
-    with db._conn() as conn:
-        _ensure(conn)
-        row = conn.execute("SELECT status FROM tag_suggestion_state WHERE name = ?",
-                           (key,)).fetchone()
+    row = db.tag_suggestion(name.strip().lower())
     was_accepted = bool(row and row["status"] == "accepted")
     if was_accepted and not accept:
         db.delete_tag(name.strip().capitalize())
@@ -163,10 +122,7 @@ def change_answer(name: str, accept: bool) -> "dict | None":
 def set_hidden(name: str, hidden: bool) -> None:
     """Hide an entry from the visible history — it stays in the record."""
     from assistant.db import get_db
-    with get_db()._conn() as conn:
-        _ensure(conn)
-        conn.execute("UPDATE tag_suggestion_state SET hidden = ? WHERE name = ?",
-                     (1 if hidden else 0, name.strip().lower()))
+    get_db().hide_tag_suggestion(name.strip().lower(), hidden)
 
 
 def history() -> list:
@@ -174,10 +130,6 @@ def history() -> list:
     record behind the app's history view. Hidden entries are included with
     their flag; the client decides how to fold them away."""
     from assistant.db import get_db
-    with get_db()._conn() as conn:
-        _ensure(conn)
-        rows = conn.execute(
-            "SELECT name, status, ts, hidden FROM tag_suggestion_state "
-            "WHERE name != ? ORDER BY ts DESC", (_LAST_ASKED,)).fetchall()
+    rows = get_db().tag_suggestions(exclude=_LAST_ASKED)
     return [{"name": r["name"].capitalize(), "status": r["status"],
              "ts": r["ts"], "hidden": bool(r["hidden"])} for r in rows]

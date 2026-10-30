@@ -437,16 +437,15 @@ def test_the_table_and_column_counts_are_current(all_prose):
     # real calendar.db it found, and those differ — a table made on first use
     # (tag discovery's) exists in one user's file and not another's, so the
     # test passed or failed by which user folder sorted first, and CI (with
-    # no real file) never ran it at all (2026-10-10). A fresh database, plus
-    # every table a feature creates when it is first used.
+    # no real file) never ran it at all (2026-10-10). A fresh database holds
+    # every table: since 2026-10-30 the store creates tag_suggestion_state
+    # itself, which tag discovery used to do on first use.
     import sqlite3
     import tempfile
-    from assistant.actions.todo import tag_discovery
     from assistant.db import CalendarDB
     db = pathlib.Path(tempfile.mkdtemp()) / "schema.db"
     CalendarDB(path=str(db))
     c = sqlite3.connect(str(db))
-    tag_discovery._ensure(c)
     tables = len(list(c.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")))
     events = len(list(c.execute("PRAGMA table_info(events)")))

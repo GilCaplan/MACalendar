@@ -85,10 +85,7 @@ def mac_items(resp: dict) -> list[dict]:
                 # a series is compared by its FIRST date, which is what the
                 # phone's reading names
                 try:
-                    with db._conn() as conn:
-                        first = conn.execute("SELECT MIN(date) FROM events WHERE series_id=?",
-                                             (row["series_id"],)).fetchone()[0]
-                    date = first or date
+                    date = db.series_first_date(row["series_id"]) or date
                 except Exception:                       # noqa: BLE001
                     pass
             out.append({"kind": "event", "title": row.get("title", ""), "date": date,

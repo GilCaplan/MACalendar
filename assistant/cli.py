@@ -157,14 +157,12 @@ def check_llm() -> Check:
 
 def check_storage() -> Check:
     """Layer 2 — the DB files and the trace log."""
-    import sqlite3
     c = Check("storage — databases and the trace log")
     from assistant.db import get_db
     from assistant import trace_bus
     try:
         db = get_db()
-        with sqlite3.connect(f"file:{db.path}?mode=ro", uri=True) as conn:
-            tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        tables = db.table_names()
         c.add("events" in tables and "todos" in tables,
               f"calendar db open ({db.path}) — {len(tables)} tables")
     except Exception as e:

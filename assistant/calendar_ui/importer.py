@@ -19,12 +19,15 @@ import_events(db, events) -> tuple[int, int]
 from __future__ import annotations
 
 import datetime
+import logging
 import os
 import re
 import sqlite3
 from typing import List, Optional, Tuple
 
 from assistant.calendar_ui.styles import BLUE
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -303,13 +306,9 @@ def import_events(db, events: List[dict]) -> Tuple[int, int]:
     # Build in-memory set of existing keys
     existing: set = set()
     try:
-        import sqlite3 as _sqlite3
-        conn = _sqlite3.connect(db.path)
-        rows = conn.execute("SELECT title, date, start_time FROM events").fetchall()
-        conn.close()
-        existing = {(r[0], r[1], r[2]) for r in rows}
+        existing = db.event_keys()
     except Exception:
-        pass
+        logger.debug("Could not read existing events before import", exc_info=True)
 
     inserted = 0
     skipped = 0
