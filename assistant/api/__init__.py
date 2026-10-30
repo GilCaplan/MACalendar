@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 # Kept under its old name: the helper lives with the rest of "where can this
 # server be reached" now (assistant/pairing/addresses.py).
-from assistant.pairing.addresses import _TAILSCALE_CANDIDATES  # noqa: E402
+from assistant.pairing.addresses import _TAILSCALE_CANDIDATES as _TAILSCALE_CANDIDATES  # noqa: E402
 from assistant.pairing.addresses import tailscale_ip as _tailscale_ip
 
 

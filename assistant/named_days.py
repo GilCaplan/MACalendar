@@ -436,7 +436,7 @@ def find(text: str, today: datetime.date, *, whole: bool = False,
     # time-residue check and the command was not read at all.
     lead = re.search(r"\bon\s+(?:the\s+)?$", t[:got.phrase_span[0]], re.I)
     if lead:
-        (a, b), rest = got.spans[0], got.spans[1:]
+        (_, b), rest = got.spans[0], got.spans[1:]
         got = dataclasses.replace(got, spans=((lead.start(), b),) + rest)
     return got
 

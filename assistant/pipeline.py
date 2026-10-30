@@ -349,20 +349,23 @@ class Pipeline:
             self._busy.clear()
             # If a session was queued while we were busy, kick it off now
             # (but not if the session was cancelled via double-tap)
+            # No `return` in here: inside `finally` it would swallow whatever
+            # the pipeline raised, so a crash during a cancelled command left
+            # no trace (ruff B012, 2026-10-30).
             with self._trigger_lock:
                 if self._recording_cancelled.is_set():
                     self._recording_cancelled.clear()
                     self._queued = None
-                    return
-                next_mode = self._queued
-                if next_mode is not None:
-                    self._queued = None
-                    self._busy.set()
-                    threading.Thread(
-                        target=self._run,
-                        kwargs={"combine": next_mode == "combine"},
-                        daemon=True,
-                    ).start()
+                else:
+                    next_mode = self._queued
+                    if next_mode is not None:
+                        self._queued = None
+                        self._busy.set()
+                        threading.Thread(
+                            target=self._run,
+                            kwargs={"combine": next_mode == "combine"},
+                            daemon=True,
+                        ).start()
 
     def _run_pipeline(self, combine: bool = False) -> None:
         t_start = time.perf_counter()

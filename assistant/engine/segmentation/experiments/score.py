@@ -430,7 +430,7 @@ def load_rows(paths=None, split: str = None, family: str = None,
             # A named file that is missing is an error; a CANDIDATE that is
             # missing is just the next guess.
             if explicit:
-                raise SystemExit(f"cannot read {cand}")
+                raise SystemExit(f"cannot read {cand}") from None
             continue
         opened += 1
         for n, line in enumerate(raw.splitlines(), start=1):
@@ -440,7 +440,7 @@ def load_rows(paths=None, split: str = None, family: str = None,
             try:
                 row = json.loads(line)
             except ValueError as exc:
-                raise SystemExit(f"{cand}:{n}: not JSON — {exc}")
+                raise SystemExit(f"{cand}:{n}: not JSON — {exc}") from None
             row["_file"] = cand.rsplit("/", 1)[-1]
             if split and row.get("split") != split:
                 continue

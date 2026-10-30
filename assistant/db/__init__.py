@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import os
 import threading
-from typing import Optional
 
 # Repeating events skip Shabbat and yom tov. The rest of this project is
 # already observance-aware — the training planner will not put a run on

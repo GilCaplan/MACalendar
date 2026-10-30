@@ -39,7 +39,6 @@ def main():
 
     date = args.date or (datetime.date.today() + datetime.timedelta(days=1)).isoformat()
     start_time = args.time
-    start_dt = datetime.datetime.strptime(f"{date}T{start_time}", "%Y-%mT%H:%M")
     end_time = (datetime.datetime.strptime(start_time, "%H:%M") + datetime.timedelta(hours=1)).strftime("%H:%M")
 
     intent = CalendarIntent(
@@ -57,7 +56,7 @@ def main():
 
     auth = MSALAuth(config.microsoft)
     try:
-        token = auth.get_token()
+        auth.get_token()
     except AuthExpiredError:
         print("[Error] Token expired or missing. Run: python scripts/setup_auth.py")
         sys.exit(1)

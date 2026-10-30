@@ -890,7 +890,6 @@ def run_newtag(kind, emb, use_emb, results):
                        the held-out class
       proto | rules    either of the two fires
     """
-    multilabel = kind == "task"
     tr_x, tr_y, tr_s, te_x, te_y, te_s = load_gen(kind)
     if kind == "event":
         classes = sorted(set(tr_y) - {DEFAULT_EVENT})
@@ -932,7 +931,7 @@ def run_newtag(kind, emb, use_emb, results):
         n_pos = int(gold.sum())
         rp = {}
 
-        def rp_of(pred):
+        def rp_of(pred, gold=gold, n_pos=n_pos):    # bound now: defined per iteration
             pred = np.asarray(pred, bool)
             tp = int((pred & gold).sum())
             return (tp / n_pos if n_pos else 0.0, tp / pred.sum() if pred.sum() else 0.0,

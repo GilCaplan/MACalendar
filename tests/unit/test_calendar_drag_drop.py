@@ -46,7 +46,8 @@ def qapp():
     return QApplication.instance() or QApplication([])
 
 
-def _drop_event(payload: bytes, pos=QPointF(10, 10)) -> QDropEvent:
+def _drop_event(payload: bytes, pos: QPointF | None = None) -> QDropEvent:
+    pos = pos if pos is not None else QPointF(10, 10)
     mime = QMimeData()
     mime.setData("application/x-event-id", QByteArray(payload))
     ev = QDropEvent(

@@ -140,7 +140,6 @@ def main() -> int:
 
     from freezegun import freeze_time
 
-    import assistant.engine as engine
     from assistant.engine import llm as _llm
     from assistant.engine.decompose_validate import stage as _dv
     from assistant.engine.fastrule.build import Built, build_all
@@ -153,7 +152,6 @@ def main() -> int:
     from assistant.engine.llmjudge.datasets.generate import CLOCK as _CLOCK
     from assistant.engine.state import EngineState, Item
 
-    cfg = engine.load_config()
     # Warm the rule parser OUTSIDE the frozen clock: building spaCy's pipeline
     # under freezegun raises, and the whole run would then read "converts
     # nothing" when the truth is "never got a parser".

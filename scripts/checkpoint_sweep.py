@@ -550,7 +550,6 @@ def _score_personas(db_path: pathlib.Path, rows: list) -> dict:
     import sqlite3 as _sq
     expect = {r["text"]: r for r in rows}
     with _sq.connect(f"file:{db_path}?mode=ro", uri=True) as c:
-        cols = {r[1] for r in c.execute("PRAGMA table_info(examples)")}
         key = "COALESCE(NULLIF(raw_transcript, ''), transcript)"
         db_rows = c.execute(
             f"SELECT {key}, actions_json, parse_path, total_ms FROM examples"

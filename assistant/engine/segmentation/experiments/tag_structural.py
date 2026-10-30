@@ -205,20 +205,6 @@ def _rows():
     return [r for r in RB.assign_splits(rows) if r.get("split") != "test"]
 
 
-def _fitting_texts() -> set:
-    out = set()
-    path = os.path.join(_ROOT, "assistant", "engine", "fastrule", "datasets",
-                        "fastrule_7200.jsonl")
-    try:
-        for line in open(path):
-            r = json.loads(line)
-            if r.get("split") == "train":
-                out.add(r["text"].strip().lower())
-    except OSError:
-        pass
-    return out
-
-
 def _items(rows):
     """Every (action, time, tag) gold triple, flattened."""
     out = []
@@ -269,7 +255,6 @@ def score(items, preds):
 
 def main() -> None:
     rows = _rows()
-    fitted = _fitting_texts()
     all_items = _items(rows)
     slices = {
         f"ALL train items ({len(all_items)})": all_items,

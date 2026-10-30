@@ -225,8 +225,8 @@ class FlashcardStore:
         with self._conn() as c:
             try:
                 n = c.execute("UPDATE subjects SET name=? WHERE id=?", (name, subject_id)).rowcount
-            except sqlite3.IntegrityError:
-                raise FlashcardError(f"There is already a subject called {name!r}.")
+            except sqlite3.IntegrityError as err:
+                raise FlashcardError(f"There is already a subject called {name!r}.") from err
         if not n:
             raise FlashcardError(f"No subject {subject_id}.")
 
@@ -376,8 +376,8 @@ class FlashcardStore:
                 c.execute("UPDATE cards SET type=?, body=?, key=?, updated_at=? WHERE id=?",
                           (clean["type"], json.dumps(clean, ensure_ascii=False),
                            cardformat.key(clean), now, card_id))
-            except sqlite3.IntegrityError:
-                raise FlashcardError("That set already has this exact card.")
+            except sqlite3.IntegrityError as err:
+                raise FlashcardError("That set already has this exact card.") from err
             # Progress on items that no longer exist (a blank removed, a label
             # dropped) is meaningless; the rest is kept.
             gone = set(cardformat.items(old)) - set(cardformat.items(clean))
@@ -530,8 +530,8 @@ class FlashcardStore:
         if low.endswith(".zip"):
             try:
                 zf = zipfile.ZipFile(io.BytesIO(data))
-            except zipfile.BadZipFile:
-                raise FlashcardError(f"{filename} is not a readable .zip.")
+            except zipfile.BadZipFile as err:
+                raise FlashcardError(f"{filename} is not a readable .zip.") from err
             names = [n for n in zf.namelist() if not n.endswith("/") and "__MACOSX" not in n]
             docs = [n for n in names if n.lower().endswith((".yaml", ".yml", ".json"))]
             if not docs:
@@ -693,4 +693,4 @@ def _load(name: str, data: bytes) -> dict:
         import yaml
         return yaml.safe_load(text)
     except Exception as e:          # noqa: BLE001
-        raise FlashcardError(f"{os.path.basename(name)} could not be read: {e}")
+        raise FlashcardError(f"{os.path.basename(name)} could not be read: {e}") from e

@@ -125,7 +125,7 @@ class Integration(ABC):
         """
         return None
 
-    def before_request(self) -> None:
+    def before_request(self) -> None:  # noqa: B027 — an optional hook; doing nothing is the default
         """Re-establish anything this integration needs, before proxying to it.
 
         Called on EVERY proxied request, and must be idempotent and cheap.

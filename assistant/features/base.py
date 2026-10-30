@@ -39,7 +39,7 @@ from __future__ import annotations
 from abc import ABC
 
 
-class Feature(ABC):
+class Feature(ABC):  # noqa: B024 — ABC marks it not-for-direct-use; every field has a default
     """One surface. Subclass, set the class attributes, done."""
 
     #: Machine name. The identity everywhere: the config key, the URL segment,

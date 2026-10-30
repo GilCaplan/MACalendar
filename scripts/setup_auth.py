@@ -43,7 +43,7 @@ def main():
     print("Starting device-code authentication flow...")
     print("─" * 60)
     try:
-        token = auth.device_code_flow()
+        auth.device_code_flow()
         print("─" * 60)
         print("\n✅ Authentication successful!")
         cache_path = os.path.expanduser(config.microsoft.token_cache_path)

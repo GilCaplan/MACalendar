@@ -208,34 +208,6 @@ def test_multi_item_subtasks_become_one_subtask_each(db, sample_config):
 # The rule parser, on the phrasings that reported the bug
 # ---------------------------------------------------------------------------
 
-@pytest.fixture
-def parser(isolated_registry):
-    from assistant.actions.calendar.action import (
-        CreateEventAction,
-        DeleteEventAction,
-        QueryScheduleAction,
-        UpdateEventAction,
-    )
-    from assistant.actions.todo.action import (
-        AddSubtaskAction,
-        CompleteSubtaskAction,
-        CompleteTodoAction,
-        CreateTodoAction,
-        DeleteSubtaskAction,
-        DeleteTodoAction,
-        QueryTodoAction,
-        UpdateTodoAction,
-    )
-    from assistant.intent.rule_parser import RuleBasedParser
-
-    for cls in [CreateEventAction, UpdateEventAction, DeleteEventAction,
-                QueryScheduleAction, CreateTodoAction, CompleteTodoAction,
-                DeleteTodoAction, UpdateTodoAction, QueryTodoAction,
-                AddSubtaskAction, CompleteSubtaskAction, DeleteSubtaskAction]:
-        isolated_registry._actions[cls.action_name] = cls
-    return RuleBasedParser(isolated_registry)
-
-
 def _titles(parser, text):
     from assistant.intent.rule_parser import RULE_THRESHOLD
     result = parser.analyze(text, current_view="todo")

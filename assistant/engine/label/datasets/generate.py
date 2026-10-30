@@ -869,7 +869,7 @@ def build_tier(kind: str, tier: str = "base", seed: int = 5) -> list:
         share = math.ceil(target / len(classes))
         seg = []
 
-        def take(cls, n):
+        def take(cls, n, name=name, seg=seg):    # bound now: defined per iteration
             got = pools[cls][cursor[cls]:cursor[cls] + n]
             cursor[cls] += len(got)
             for r in got:

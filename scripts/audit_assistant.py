@@ -130,7 +130,6 @@ def build_corpus(seed: int = 7) -> list[dict]:
     people = ["Ravid", "Tal", "Rei", "Ezra", "Danny", "Yotam", "Ofir", "Adin", "Tamar", "Eitan"]
     places = ["Kems", "the French Bakery", "Golda", "Feldman", "Technion", "Tel Mond", "Jerusalem", "Herzliya"]
     topics = ["the robotics project", "Bagrut prep", "Haxaga", "the NLP seminar", "Netivim", "project funds"]
-    religious = ["Mincha", "Maariv", "Shacharit", "Mincha Maariv at shul", "Kiddush", "Limud Torah"]
     C: list[dict] = []
 
     def ev(text, expect, shape, area="events"):

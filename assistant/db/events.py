@@ -630,8 +630,8 @@ class EventsMixin:
         if recurrence and recur_until:
             try:
                 until_d = datetime.date.fromisoformat(recur_until)
-            except ValueError:
-                raise ValueError(f"recurrence_end must be an ISO date, not {recur_until!r}")
+            except ValueError as err:
+                raise ValueError(f"recurrence_end must be an ISO date, not {recur_until!r}") from err
             if until_d.isoformat() < instance["date"]:
                 raise ValueError(
                     f"recurrence_end {recur_until} is before this event ({instance['date']})")

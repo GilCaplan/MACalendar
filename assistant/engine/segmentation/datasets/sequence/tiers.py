@@ -586,12 +586,15 @@ def quota(n_base: int, drawn, target: int) -> int:
     raise ValueError(f"the tier families cannot reach {target} rows (cap {CAP})")
 
 
-def build_tier(tier: str, _cache: dict = {}):
+_DRAWN: dict = {}     # draw_all() runs once per process, not once per tier
+
+
+def build_tier(tier: str):
     if tier not in TIERS:
         raise SystemExit(f"unknown tier {tier!r}; choose from {list(TIERS)}")
-    if "drawn" not in _cache:
-        _cache["drawn"] = draw_all()
-    base_seq, base_chain, drawn = _cache["drawn"]
+    if "drawn" not in _DRAWN:
+        _DRAWN["drawn"] = draw_all()
+    base_seq, base_chain, drawn = _DRAWN["drawn"]
     if tier == "base":
         return base_seq, base_chain
     q = quota(len(base_seq), drawn, TIERS[tier])

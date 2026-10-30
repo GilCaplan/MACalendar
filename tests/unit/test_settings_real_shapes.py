@@ -430,7 +430,6 @@ def test_a_config_missing_a_brand_new_field_still_saves(app, real_config, monkey
     cfg.notifications = _Strict()                 # no `agenda_card`, on purpose
     window = _Window(cfg)
     failures: list = []
-    seen: dict = {}
 
     def interact(dlg):
         save = dlg.save_button

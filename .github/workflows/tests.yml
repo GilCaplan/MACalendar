@@ -58,6 +58,10 @@ jobs:
         # config.yaml is gitignored; the suite needs one to exist.
         run: cp config.example.yaml config.yaml
 
+      - name: Lint
+        # ruff.toml holds the rules and why each ignore is there.
+        run: ruff check .
+
       - name: Run test suite
         env:
           QT_QPA_PLATFORM: offscreen

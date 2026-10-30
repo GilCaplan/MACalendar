@@ -60,7 +60,6 @@ def test_missing_file_raises():
 
 
 def test_invalid_modifier_raises(tmp_path):
-    content = VALID_YAML + "  # extra\n"
     # Override modifier
     data = yaml.safe_load(textwrap.dedent(VALID_YAML))
     data["hotkey"]["modifiers"] = ["superkey"]
@@ -205,3 +204,4 @@ def test_a_device_only_setting_is_refused(tmp_path, monkeypatch):
     assert "serverURL" not in target.read_text(), \
         "an unknown key was written into the shared config"
     assert "1.2.3.4" not in target.read_text()
+    assert target.read_text() == before, "a refused key still rewrote the file"

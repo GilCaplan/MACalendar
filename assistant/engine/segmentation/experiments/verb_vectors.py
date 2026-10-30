@@ -109,7 +109,7 @@ def _load_vectors():
                                   "lemmatizer", "ner"])
     except OSError:
         raise SystemExit("en_core_web_md is not installed — "
-                         "`python -m spacy download en_core_web_md` first.")
+                         "`python -m spacy download en_core_web_md` first.") from None
     if nlp.vocab.vectors.shape[0] == 0:
         raise SystemExit("en_core_web_md loaded but carries no vectors.")
     return nlp.vocab

@@ -21,7 +21,7 @@ def qapp():
     return QApplication.instance() or QApplication([])
 
 
-def _info(n=[0]):
+def _info(n=[0]):  # noqa: B006 -- a call counter on purpose: each call gets a fresh code
     n[0] += 1
     return {"code": f"ABCDEFG{n[0] % 10}", "pretty": "ABCD-EFGH", "expires_in": 600,
             "urls": ["http://100.64.0.9:8080", "http://192.168.1.5:8080"],

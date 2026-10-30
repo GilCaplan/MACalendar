@@ -1689,8 +1689,6 @@ def create_app() -> Flask:
     def config_patch():
         data = request.get_json(silent=True) or {}
         path = os.path.normpath(_CONFIG_PATH)
-        with open(path) as f:
-            current = yaml.safe_load(f) or {}
 
         # Edited as TEXT, one line at a time. `yaml.dump` here rewrote the
         # whole document and destroyed every comment in it — the notes saying
@@ -1701,6 +1699,8 @@ def create_app() -> Flask:
         from assistant.features import yaml_text
         with open(path) as f:
             text = f.read()
+        # A file that no longer parses is not edited line by line on top.
+        yaml.safe_load(text)
 
         # The two event defaults are NUMBERS the engine computes with, so this
         # request shape is checked before a byte is written: "90" or 0 stored
