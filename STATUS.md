@@ -211,28 +211,41 @@ in the checkout), which can reach the apps; a cloud session cannot.
 2. **Flashcards English — DONE 2026-10-14.** All 2,295 cards in 14 sets have
    `en`; every set re-imported with 0 added / 0 removed, so progress is kept,
    and a fresh `export` reports 0 cards left.
+**Gil wants items 3 and 4 run from the next Mac session** (2026-10-30: "add
+branch and scrubbing to prompt for when mac Claude session runs"). Both
+delete or rewrite things on GitHub, so the session raises them with Gil at
+the start, gets one yes, and then runs them through, 3 before 4.
+
 3. **Old branches:** 57 are fully merged (re-checked 2026-10-29 against the
-   full history; PRs #53 and #45 merged that day, so their branches go too).
-   The cloud session's git proxy refuses deletes (still true 2026-10-29), and
-   the Mac session's auto mode refused them too — Gil runs it. `git fetch --prune origin && git branch -r --merged
+   full history, `tips-on-ios` included; PRs #53 and #45 merged that day, so
+   their branches go too). The cloud session's git proxy refuses deletes.
+   Delete what is merged, then list what is left (an unmerged branch stays and
+   is reported): `git fetch --prune origin && git branch -r --merged
    origin/main | grep -v -E 'origin/(main|HEAD)' | sed 's#origin/##' | xargs
-   git push origin --delete`. `tips-on-ios` is fully merged now
-   (0 commits not on main), so it goes too.
+   git push origin --delete`, then `git fetch --prune origin && git branch -r
+   --no-merged origin/main`.
 4. **Ranker: your real export into the app, out of GitHub's history** (Gil,
    2026-10-12: "my real data … shouldn't be uploaded to GitHub, but you can
    upload it to the phone app"). The repo's test file is invented numbers
    now (`tests/fixtures/ranker/kingdoms_synthetic.html`); the real export
    (`tests/fixtures/ranker/migration_3scrolls.html`) is gone from `main` but
-   still in old commits. In order:
-   1. Keep a copy and give it to Ranker: `git show 94c120f3:tests/fixtures/ranker/migration_3scrolls.html
-      > ~/Desktop/kingdoms.html`, drop it on the Mac's Ranker tab; the phone
-      gets it by sync (and keeps it in History).
-   2. Rewrite history without it — this changes every commit id, so close
-      other sessions and worktrees first:
+   still in old commits (re-checked 2026-10-29: `fe4caee6`, `df70a869` on
+   main's history). In order, stopping at the first step that fails:
+   1. Keep a copy FIRST and give it to Ranker: `git show 94c120f3:tests/fixtures/ranker/migration_3scrolls.html
+      > ~/Desktop/kingdoms.html`, check it is not empty, drop it on the Mac's
+      Ranker tab; the phone gets it by sync (and keeps it in History).
+   2. Nothing else may be writing: no other session mid-push, and no open PR
+      still being worked on (merge or close it first).
+   3. Rewrite history without it — this changes every commit id:
       `brew install git-filter-repo && git clone --mirror https://github.com/GilCaplan/MACalendar.git /tmp/scrub && cd /tmp/scrub && git filter-repo --invert-paths --path tests/fixtures/ranker/migration_3scrolls.html && git remote add origin https://github.com/GilCaplan/MACalendar.git && git push --force --all origin && git push --force --tags origin`
-   3. Re-clone the working checkouts (old ones still hold the file).
-   4. GitHub keeps pull-request refs it will not let anyone overwrite (PRs
-      #27, #29, #33 touched the file): ask GitHub Support to purge cached
+   4. Verify on a fresh clone: `git log --all --oneline --
+      tests/fixtures/ranker/migration_3scrolls.html` prints nothing.
+   5. Every other checkout still holds the old history and would push it
+      back: re-clone the Mac's checkouts (this one and `../MACalendar-app`),
+      and on the PC hub stop the API, `git fetch origin && git reset --hard
+      origin/main`, start it again. Cloud sessions clone fresh anyway.
+   6. Gil's step: GitHub keeps pull-request refs nobody can overwrite (PRs
+      #27, #29, #33 touched the file); ask GitHub Support to purge cached
       views and PR refs for the repo, or the file stays reachable from them.
 5. **Open question:** TestFlight — parked by Gil (2026-10-12).
 
