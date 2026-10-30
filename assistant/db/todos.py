@@ -373,6 +373,11 @@ class TodosMixin:
         with self._conn() as conn:
             return [r[0] for r in conn.execute("SELECT title FROM todos") if r[0]]
 
+    def has_todos(self) -> bool:
+        """Is there any to-do at all? A cheap existence check, not a match."""
+        with self._conn() as conn:
+            return conn.execute("SELECT 1 FROM todos LIMIT 1").fetchone() is not None
+
     def todo_titles_and_tags(self) -> List[dict]:
         """Every to-do's title and its tags (decoded), for tag discovery."""
         with self._conn() as conn:

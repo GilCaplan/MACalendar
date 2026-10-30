@@ -10,7 +10,7 @@ import sqlite3
 from contextlib import contextmanager
 from typing import Generator, Optional
 
-from assistant.db.common import DB_PATH, _note_own_write
+from assistant.db.common import _note_own_write
 from assistant.db.schema import (
     _CALENDAR_SOURCE_MIGRATIONS,
     _COUNTER_PRESS_MIGRATIONS,
@@ -52,6 +52,15 @@ from assistant.db.schema import (
 
 logger = logging.getLogger(__name__)
 
+
+def _default_path() -> str:
+    """`assistant.db.DB_PATH`, read at call time as the single-file module
+    read its own global, so code that sets it (tests, scripts) still steers
+    `CalendarDB()` and the real-file guard."""
+    import assistant.db as pkg
+    return pkg.DB_PATH
+
+
 class StoreBase:
     """Opening the file: the test guard, the connection, the schema and its migrations,
 and the client-token lookups every area's creates share."""
@@ -68,11 +77,12 @@ and the client-token lookups every area's creates share."""
         if not (os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("PYTEST_VERSION")):
             return
         real = os.path.realpath(path)
-        real_root = os.path.realpath(os.path.dirname(DB_PATH))
-        if real == os.path.realpath(DB_PATH) or real.startswith(
+        default = _default_path()
+        real_root = os.path.realpath(os.path.dirname(default))
+        if real == os.path.realpath(default) or real.startswith(
                 os.path.join(real_root, "users") + os.sep):
             raise RuntimeError(
-                f"Refusing to open the real calendar database ({DB_PATH}) from a test. "
+                f"Refusing to open the real calendar database ({default}) from a test. "
                 "Set MACALENDAR_DB, or call tests.isolation.isolate() before importing "
                 "anything from `assistant`."
             )
@@ -86,7 +96,7 @@ and the client-token lookups every area's creates share."""
             # get_db() would leave it opening a fresh, empty file at the old
             # location once the data had moved under users/<uid>/.
             from assistant.users import paths as _paths
-            path = _paths.resolve(path or DB_PATH)
+            path = _paths.resolve(path or _default_path())
         self.path = path
         self.owner_id: "str | None" = None
         self._guard_real_db(self.path)
@@ -142,6 +152,12 @@ and the client-token lookups every area's creates share."""
                 except sqlite3.OperationalError:
                     pass                    # another process added it first
 
+    def table_names(self) -> "set[str]":
+        """Every table in the file, for health checks (`assistant doctor`)."""
+        with self._conn() as conn:
+            return {r[0] for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'")}
+
     def _stamp_version(self, conn: sqlite3.Connection) -> None:
         """Record the schema in the file (see `schema.SCHEMA_VERSION`)."""
         found = conn.execute("PRAGMA user_version").fetchone()[0]
@@ -193,14 +209,7 @@ and the client-token lookups every area's creates share."""
 
     def _migrate(self, conn: sqlite3.Connection) -> None:
         """Apply any missing schema migrations safely."""
-        existing = {r[1] for r in conn.execute("PRAGMA table_info(events)")}
-        for stmt in _MIGRATIONS:
-            col = stmt.split("ADD COLUMN")[1].strip().split()[0]
-            if col not in existing:
-                try:
-                    conn.execute(stmt)
-                except sqlite3.OperationalError:
-                    pass  # already exists
+        self._add_columns(conn, "events", _MIGRATIONS)
         # DATA, not schema: `Running` and `Gym` fold into the one `Fitness`
         # category (Gil, 2026-09-10). The planner stopped writing them that
         # day; 38 rows written before it still carried the old names on
@@ -213,14 +222,7 @@ and the client-token lookups every area's creates share."""
 
     def _migrate_todos(self, conn: sqlite3.Connection) -> None:
         """Apply any missing todos schema migrations safely."""
-        existing = {r[1] for r in conn.execute("PRAGMA table_info(todos)")}
-        for stmt in _TODO_MIGRATIONS:
-            col = stmt.split("ADD COLUMN")[1].strip().split()[0]
-            if col not in existing:
-                try:
-                    conn.execute(stmt)
-                except sqlite3.OperationalError:
-                    pass  # already exists
+        self._add_columns(conn, "todos", _TODO_MIGRATIONS)
 
     def _migrate_links(self, conn: sqlite3.Connection) -> None:
         """The link's invariants, enforced by the database rather than by every
@@ -305,14 +307,7 @@ and the client-token lookups every area's creates share."""
 
     def _migrate_timers(self, conn: sqlite3.Connection) -> None:
         """Apply any missing timers schema migrations safely."""
-        existing = {r[1] for r in conn.execute("PRAGMA table_info(timers)")}
-        for stmt in _TIMER_MIGRATIONS:
-            col = stmt.split("ADD COLUMN")[1].strip().split()[0]
-            if col not in existing:
-                try:
-                    conn.execute(stmt)
-                except sqlite3.OperationalError:
-                    pass  # already exists
+        self._add_columns(conn, "timers", _TIMER_MIGRATIONS)
 
     @contextmanager
     def _conn(self) -> Generator[sqlite3.Connection, None, None]:

@@ -32,14 +32,12 @@ def test_series_first_date(db):
 
 
 def test_titles_keys_and_existence(db):
-    assert not db.has_rows("events") and not db.has_rows("todos")
+    assert not db.has_events() and not db.has_todos()
     db.create_event_from_dict({"title": "Dentist", "date": "2026-11-02", "start_time": "10:00", "end_time": "11:00"})
     db.create_todo("Buy milk")
-    assert db.has_rows("events") and db.has_rows("todos")
+    assert db.has_events() and db.has_todos()
     assert db.event_titles() == ["Dentist"] and db.todo_titles() == ["Buy milk"]
     assert ("Dentist", "2026-11-02", "10:00") in db.event_keys()
-    with pytest.raises(ValueError):
-        db.has_rows("events; DROP TABLE todos")
 
 
 def test_tag_suggestion_record(db):
@@ -57,3 +55,23 @@ def test_tag_suggestion_record(db):
     todo = db.create_todo("Weed the beds", tags=["garden"])
     assert {"title": "Weed the beds", "tags": ["garden"]} in db.todo_titles_and_tags()
     del todo
+
+
+def test_setting_db_path_still_steers_the_default_file(tmp_path, monkeypatch):
+    """The single-file module read its own DB_PATH global at call time, and
+    scripts and tests set `assistant.db.DB_PATH` to redirect `CalendarDB()`.
+    After the split the default is read through the package for the same
+    reason (2026-10-30 review: base.py had copied it at import)."""
+    import assistant.db as dbmod
+    from assistant import users
+    if users.current():
+        pytest.skip("a bound user re-roots the default path")
+    monkeypatch.delenv("MACALENDAR_DB", raising=False)
+    target = tmp_path / "elsewhere.db"
+    monkeypatch.setattr(dbmod, "DB_PATH", str(target))
+    from assistant.db.base import _default_path
+    assert _default_path() == str(target)
+    # And the real-file guard follows it too: under pytest the default file
+    # is treated as the real one and refused, exactly as before the split.
+    with pytest.raises(RuntimeError, match="elsewhere.db"):
+        dbmod.CalendarDB()

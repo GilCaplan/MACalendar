@@ -17,8 +17,9 @@ cleaner and better"). Each area's code lives in its own module and
     series.py / observance.py / colours.py / common.py   shared helpers
     verify.py      `python -m assistant.db.verify`: check a real file, on a copy
 
-Only this package opens calendar.db (test_db_is_the_only_door); anything
-else that needs a query asks for a CalendarDB method in its area.
+Only this package opens calendar.db: anything else that needs a query asks
+for a CalendarDB method in its area. test_db_is_the_only_door holds that,
+listing the few modules that open a database of their own and why.
 
 The file on disk is unchanged by the split: same tables, same columns.
 `tests/unit/test_db_legacy_file.py` opens a file written by the single-file

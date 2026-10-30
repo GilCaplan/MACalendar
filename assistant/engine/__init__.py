@@ -1260,7 +1260,8 @@ def _has_candidates(item) -> bool:
     ~40 s recheck call was pure cost on 25 of 30 slow fast-path rows.
     """
     from assistant.db import get_db
-    return get_db().has_rows("events" if "event" in (item.action or "") else "todos")
+    db = get_db()
+    return db.has_events() if "event" in (item.action or "") else db.has_todos()
 
 
 _ANAPHOR_TARGETS = frozenset(

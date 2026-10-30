@@ -110,3 +110,22 @@ def test_the_checker_names_what_was_lost():
     after = {"events": [{"id": 1, "title": "Dentist!"}]}
     assert compare(before, after) == ["events row 1: title changed",
                                       "todos: table missing after opening"]
+
+
+def test_the_checker_does_not_cry_wolf_at_the_stores_own_rewrites():
+    """Opening a file folds Running/Gym into Fitness, moves legacy linked
+    to-dos onto linked_event_id, and seeds the built-in tags into an empty
+    palette. Each happens on purpose on every open; reporting one as a loss
+    would block a healthy rollout (2026-10-30 review)."""
+    from assistant.db.verify import compare
+    before = {"events": [{"id": 1, "category": "Gym", "title": "Lift"}],
+              "todos": [{"id": 1, "source": "linked_event", "source_event_id": 4,
+                         "linked_event_id": None}],
+              "todo_tags": []}
+    after = {"events": [{"id": 1, "category": "Fitness", "title": "Lift"}],
+             "todos": [{"id": 1, "source": "manual", "source_event_id": None,
+                        "linked_event_id": 4}],
+             "todo_tags": [{"name": "work"}, {"name": "home"}]}
+    assert compare(before, after) == []
+    after["events"][0]["title"] = "Lift!"                 # a real change still shows
+    assert compare(before, after) == ["events row 1: title changed"]

@@ -51,6 +51,8 @@ htmlcov/
 # Project Specific
 config.yaml
 *.db
+# Synthetic, written by tests/fixtures/db/build_legacy_db.py: no personal data.
+!tests/fixtures/db/legacy_calendar.db
 *.sqlite
 *.sql
 MACalendar.app/

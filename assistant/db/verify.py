@@ -18,10 +18,13 @@ import os
 import sqlite3
 import sys
 import tempfile
+from contextlib import closing
+
+from assistant.db.schema import _LEGACY_LINK_SOURCE
 
 
 def _rows(path: str) -> "dict[str, list[dict]]":
-    with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as conn:
+    with closing(sqlite3.connect(f"file:{path}?mode=ro", uri=True)) as conn:
         conn.row_factory = sqlite3.Row
         tables = [r[0] for r in conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
@@ -29,18 +32,34 @@ def _rows(path: str) -> "dict[str, list[dict]]":
                 for t in tables}
 
 
+def _expected(table: str, old: dict, column: str, new) -> bool:
+    """A change the store makes on purpose every time it opens a file
+    (`base.StoreBase`), so finding it is not a loss."""
+    if table == "events" and column == "category":
+        return old.get("category") in ("Running", "Gym") and new == "Fitness"   # _migrate
+    if table == "todos" and column in ("source", "source_event_id", "linked_event_id"):
+        return old.get("source") == _LEGACY_LINK_SOURCE                        # _migrate_links
+    return False
+
+
 def compare(before: dict, after: dict) -> "list[str]":
-    """What the migrated copy lost or changed, one line each."""
+    """What the migrated copy lost or changed, one line each. New tables, new
+    columns, the built-in tags seeded into an empty palette, and the store's
+    own open-time rewrites are expected and not reported."""
     problems = []
     for table, rows in before.items():
         if table not in after:
             problems.append(f"{table}: table missing after opening")
             continue
-        if len(after[table]) != len(rows):
-            problems.append(f"{table}: {len(rows)} rows became {len(after[table])}")
+        now = after[table]
+        if table == "todo_tags" and not rows:
+            continue                                     # _seed_default_tags
+        if len(now) != len(rows):
+            problems.append(f"{table}: {len(rows)} rows became {len(now)}")
             continue
-        for old, new in zip(rows, after[table]):
-            changed = sorted(k for k, v in old.items() if new.get(k) != v)
+        for old, new in zip(rows, now):
+            changed = sorted(k for k, v in old.items()
+                             if new.get(k) != v and not _expected(table, old, k, new.get(k)))
             if changed:
                 problems.append(f"{table} row {old.get('id', '?')}: {', '.join(changed)} changed")
     return problems
@@ -51,8 +70,8 @@ def verify(path: str) -> int:
 
     with tempfile.TemporaryDirectory() as tmp:
         copy = os.path.join(tmp, "calendar.db")
-        with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as src, \
-                sqlite3.connect(copy) as dst:
+        with closing(sqlite3.connect(f"file:{path}?mode=ro", uri=True)) as src, \
+                closing(sqlite3.connect(copy)) as dst:
             src.backup(dst)
         before = _rows(copy)
         CalendarDB(copy)                          # migrations, as a restart would run them

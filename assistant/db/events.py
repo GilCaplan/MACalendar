@@ -435,13 +435,10 @@ class EventsMixin:
         with self._conn() as conn:
             return {tuple(r) for r in conn.execute("SELECT title, date, start_time FROM events")}
 
-    def has_rows(self, table: str) -> bool:
-        """Does `events` or `todos` hold any row at all? A cheap existence
-        check, not a match."""
-        if table not in ("events", "todos"):
-            raise ValueError(f"has_rows: not a store table: {table!r}")
+    def has_events(self) -> bool:
+        """Is there any event at all? A cheap existence check, not a match."""
         with self._conn() as conn:
-            return conn.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone() is not None
+            return conn.execute("SELECT 1 FROM events LIMIT 1").fetchone() is not None
 
     def get_series_events(self, series_id: int) -> List[dict]:
         """Return all events belonging to a recurring series."""
