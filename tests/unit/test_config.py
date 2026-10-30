@@ -5,7 +5,7 @@ import textwrap
 import pytest
 import yaml
 
-from assistant.config import AppConfig, load_config
+from assistant.config import load_config
 from assistant.exceptions import ConfigError
 
 
@@ -60,7 +60,6 @@ def test_missing_file_raises():
 
 
 def test_invalid_modifier_raises(tmp_path):
-    content = VALID_YAML + "  # extra\n"
     # Override modifier
     data = yaml.safe_load(textwrap.dedent(VALID_YAML))
     data["hotkey"]["modifiers"] = ["superkey"]
@@ -113,6 +112,7 @@ def test_the_agenda_card_switch_is_part_of_the_shared_config():
 def test_the_agenda_card_switch_survives_a_yaml_round_trip():
     """The Mac writes it and the API reads it back — through YAML, not memory."""
     import yaml
+
     from assistant.config import NotificationsConfig
 
     for value in (True, False):
@@ -133,6 +133,7 @@ def test_the_example_config_documents_it():
     """config.yaml is gitignored, so config.example.yaml is the only place a new
     checkout can learn the setting exists."""
     import pathlib
+
     import yaml
     root = pathlib.Path(__file__).resolve().parents[2]
     example = yaml.safe_load((root / "config.example.yaml").read_text())
@@ -151,8 +152,8 @@ def test_the_example_config_documents_it():
 
 def _client(tmp_path, monkeypatch):
     import importlib
-    import shutil
     import pathlib as _pl
+    import shutil
     root = _pl.Path(__file__).resolve().parents[2]
     target = tmp_path / "config.yaml"
     shutil.copyfile(root / "config.example.yaml", target)
@@ -203,3 +204,4 @@ def test_a_device_only_setting_is_refused(tmp_path, monkeypatch):
     assert "serverURL" not in target.read_text(), \
         "an unknown key was written into the shared config"
     assert "1.2.3.4" not in target.read_text()
+    assert target.read_text() == before, "a refused key still rewrote the file"

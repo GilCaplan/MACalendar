@@ -195,8 +195,8 @@ def test_a_voice_command_runs_as_the_speaker_even_on_the_streams_worker_thread(a
     """/voice/text runs on the request thread; /voice/stream runs the engine on
     a worker thread, which starts with no bound user unless users.thread
     carried it across."""
-    from assistant import users
     import assistant.engine as eng
+    from assistant import users
     seen = []
 
     def fake(transcript, trace=None, **kw):

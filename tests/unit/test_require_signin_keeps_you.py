@@ -10,7 +10,7 @@ whole app."""
 import pytest
 
 from assistant import users
-from assistant.users import local_session, registry, sessions
+from assistant.users import local_session, registry
 
 
 @pytest.fixture
@@ -33,6 +33,7 @@ def admin(tmp_path, monkeypatch):
 def test_turning_it_on_signs_in_the_admin_who_did_it(app, admin):
     from PyQt6.QtCore import Qt
     from PyQt6.QtTest import QTest
+
     from assistant.calendar_ui.account_panel import AccountPanel
     assert users.current() == admin and local_session.current_user() is None
     panel = AccountPanel(None)
@@ -45,6 +46,7 @@ def test_turning_it_on_signs_in_the_admin_who_did_it(app, admin):
 
 def test_account_and_sharing_with_nobody_signed_in_offers_sign_in(app, admin):
     from PyQt6.QtWidgets import QPushButton
+
     from assistant.calendar_ui.users_dialogs import AccountDialog
     registry.set_policy(require_login=True)          # now nobody is implicit
     assert users.current() is None

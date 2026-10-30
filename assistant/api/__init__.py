@@ -19,6 +19,7 @@ logging.basicConfig(
 # Colour the log by event kind when a human is watching a terminal (no-op into
 # a file or under NO_COLOR). See DOCUMENTATION/LOGGING.md for the legend.
 from assistant.api.log_color import install as _install_log_colour  # noqa: E402
+
 _install_log_colour()
 
 logger = logging.getLogger(__name__)
@@ -26,8 +27,8 @@ logger = logging.getLogger(__name__)
 
 # Kept under its old name: the helper lives with the rest of "where can this
 # server be reached" now (assistant/pairing/addresses.py).
-from assistant.pairing.addresses import (  # noqa: E402
-    _TAILSCALE_CANDIDATES, tailscale_ip as _tailscale_ip)
+from assistant.pairing.addresses import _TAILSCALE_CANDIDATES as _TAILSCALE_CANDIDATES  # noqa: E402
+from assistant.pairing.addresses import tailscale_ip as _tailscale_ip
 
 
 def _already_running(port: int) -> "str | None":

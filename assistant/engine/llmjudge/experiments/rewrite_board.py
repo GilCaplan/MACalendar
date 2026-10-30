@@ -99,11 +99,12 @@ def main() -> int:
     a = ap.parse_args()
 
     from freezegun import freeze_time
+
     import assistant.engine as engine
     from assistant.engine import llm as _llm
     from assistant.engine.llmjudge import rewrite as _rw
-    from assistant.engine.state import EngineState
     from assistant.engine.llmjudge.datasets.generate import CLOCK
+    from assistant.engine.state import EngineState
 
     cfg = engine.load_config()
     try:

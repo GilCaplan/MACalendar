@@ -92,6 +92,7 @@ def test_a_list_of_things_to_buy_makes_exactly_its_items(client):
 def test_every_record_from_one_sentence_is_written(client, tmp_path):
     """There is no half-executed command."""
     import datetime
+
     from assistant.db import get_db
     db = get_db()
     # "on tuesday" is up to a week away — counted over the fortnight ahead,

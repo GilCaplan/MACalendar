@@ -93,9 +93,9 @@ def test_a_voice_created_event_gets_its_category_colour(tmp_path, monkeypatch):
     became configurable. `auto_category_and_color` read it as a deliberate
     choice, `pick_color` never ran, and 11 of 54 real events came out the same
     amber across four different categories."""
+    from assistant.actions.calendar import categories as _cat
     from assistant.actions.calendar.intent import CalendarIntent
     from assistant.db import CalendarDB
-    from assistant.actions.calendar import categories as _cat
 
     db = CalendarDB(str(tmp_path / "c.db"))
     gym = db.create_event(CalendarIntent(title="gym session", date="2026-09-14",

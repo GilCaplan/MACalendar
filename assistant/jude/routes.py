@@ -133,7 +133,7 @@ def _json_of(r):
         return None, status
 
 
-def _adopt(store, chat_id: str, summary: "dict | None" = None) -> None:
+def _adopt(store, chat_id: str, summary: dict | None = None) -> None:
     """Copy a chat only Jude kept into our store before it gains a turn here —
     or History would show only what was said after this store existed.
     `summary` is the chat's row from Jude's list, when known: its title,
@@ -192,7 +192,7 @@ def _followup(store, chat_id: str, prompt: str, sources: list, lang: str, source
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
-def _recording(resp, store, prompt: str, mode: str, chat_id: "str | None"):
+def _recording(resp, store, prompt: str, mode: str, chat_id: str | None):
     """Pass the stream through untouched, and keep the turn when it ends.
 
     Records whatever arrived: the answer's tokens, the sources from `meta` and

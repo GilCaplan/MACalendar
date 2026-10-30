@@ -1,15 +1,13 @@
 """FastSeg: a clock said with a number word (2026-09-24)."""
-import pytest
-
-
 # ---------------------------------------------------------------------------
 # A clock said with a NUMBER WORD (2026-09-24). "ten past nine in the morning"
 # read as 09:00 (the longer "nine in the morning" won), and "at seven pm",
 # "at eleven.", "at four on saturday" found no clock at all — a real command,
 # "tomorrow at one …", was saved with "nothing in the words said it".
 # ---------------------------------------------------------------------------
-
 import importlib as _il
+
+import pytest
 
 _FS = _il.import_module("assistant.engine.segmentation.fastseg.fastseg")
 

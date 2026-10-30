@@ -139,8 +139,9 @@ def build_resolve() -> list:
 
 
 def build_fastrule() -> list:
-    from assistant.engine.fastrule import fastrule as fr
     from freezegun import freeze_time
+
+    from assistant.engine.fastrule import fastrule as fr
     out = []
     from assistant.intent.rule_parser import RULE_THRESHOLD
     with freeze_time(CLOCK):
@@ -170,7 +171,9 @@ def build_kind() -> list:
     with no clock said lands at 09:00, DEVQA Q47). Model-free: the router's
     model is sklearn on disk, not ollama."""
     import importlib
+
     from freezegun import freeze_time
+
     from assistant.engine.decompose_validate import kind_router as KR
     from assistant.engine.fastrule import fastrule as fr
     from assistant.intent.rule_parser import RULE_THRESHOLD
@@ -202,7 +205,9 @@ def build_kind() -> list:
 def build_chain() -> list:
     """WITH the model: the deep rows need the rescue. Shape-checked only."""
     import re
+
     from freezegun import freeze_time
+
     import assistant.engine as engine
     from assistant.engine import llm as _llm
     _llm.get_rule_parser().analyze("book gym tomorrow at 7am", current_view="month")

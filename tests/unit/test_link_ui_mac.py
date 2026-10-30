@@ -12,14 +12,14 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-from PyQt6.QtCore import QPoint, Qt, QTimer                           # noqa: E402
-from PyQt6.QtGui import QContextMenuEvent                             # noqa: E402
-from PyQt6.QtTest import QTest                                        # noqa: E402
-from PyQt6.QtWidgets import QApplication, QLabel, QPushButton        # noqa: E402
+from PyQt6.QtCore import QPoint, Qt, QTimer  # noqa: E402
+from PyQt6.QtGui import QContextMenuEvent  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import QApplication, QLabel, QPushButton  # noqa: E402
 
-from assistant.actions.calendar.intent import CalendarIntent          # noqa: E402
-from assistant.calendar_ui.event_dialog import EventDialog            # noqa: E402
-from assistant.db import CalendarDB                                   # noqa: E402
+from assistant.actions.calendar.intent import CalendarIntent  # noqa: E402
+from assistant.calendar_ui.event_dialog import EventDialog  # noqa: E402
+from assistant.db import CalendarDB  # noqa: E402
 
 DAY = (dt.date.today() + dt.timedelta(days=2)).isoformat()
 

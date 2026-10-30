@@ -14,7 +14,7 @@ import pathlib
 import pytest
 
 from assistant import users
-from assistant.users import paths, registry, sharing
+from assistant.users import registry, sharing
 
 DAY = "2026-10-06"
 

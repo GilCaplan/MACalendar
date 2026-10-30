@@ -5,7 +5,6 @@ from __future__ import annotations
 import datetime
 import json
 import sqlite3
-from typing import List, Optional
 
 from assistant.db.common import _memory_feedback, _utcnow_iso
 
@@ -39,14 +38,14 @@ class TodosMixin:
                     tags = [tags]
             except ValueError:
                 tags = [t for t in tags.split(",")]
-        seen: List[str] = []
+        seen: list[str] = []
         for t in tags or []:
             t = str(t).strip()
             if t and t not in seen:
                 seen.append(t)
         return json.dumps(seen)
 
-    def search_todos(self, q: str, limit: int = 50) -> List[dict]:
+    def search_todos(self, q: str, limit: int = 50) -> list[dict]:
         """Substring match over title/notes; open tasks first, then done."""
         like = f"%{q}%"
         with self._conn() as conn:
@@ -60,7 +59,7 @@ class TodosMixin:
     # Todos: Create
     # ------------------------------------------------------------------
 
-    def _infer_tags(self, title: str) -> List[str]:
+    def _infer_tags(self, title: str) -> list[str]:
         """Tags for a task nobody chose tags for.
 
         Events have had this since the beginning: `create_event_from_dict` runs
@@ -98,8 +97,8 @@ class TodosMixin:
         due_date: str = "",
         notes: str = "",
         source: str = "manual",
-        source_event_id: Optional[int] = None,
-        tags: Optional[List[str]] = None,
+        source_event_id: int | None = None,
+        tags: list[str] | None = None,
         quantity: int = 1,
         client_token: str = "",
     ) -> int:
@@ -118,7 +117,7 @@ class TodosMixin:
         if tags is None:
             tags = self._infer_tags(title)
         tags_json = self._encode_tags(tags or [])
-        new_id: Optional[int] = None
+        new_id: int | None = None
         with self._conn() as conn:
             max_pos = conn.execute(
                 "SELECT COALESCE(MAX(position), -1) FROM todos WHERE list = ?",
@@ -168,7 +167,7 @@ class TodosMixin:
         return int(existing["id"])
 
     def find_recent_open_todo(self, title: str, list_name: str,
-                              within_seconds: int) -> Optional[dict]:
+                              within_seconds: int) -> dict | None:
         """An OPEN todo in `list_name` spelled the same as `title` and created
         less than `within_seconds` ago, or None.
 
@@ -203,7 +202,7 @@ class TodosMixin:
                 return dict(row)
         return None
 
-    def get_todo_by_client_token(self, client_token: str) -> Optional[dict]:
+    def get_todo_by_client_token(self, client_token: str) -> dict | None:
         """The todo a client already created under this idempotency key, if any."""
         token = (client_token or "").strip()
         if not token:
@@ -220,18 +219,18 @@ class TodosMixin:
 
     def get_todos(
         self,
-        list_name: Optional[str] = None,
+        list_name: str | None = None,
         include_completed: bool = False,
-        tag: Optional[str] = None,
-    ) -> List[dict]:
+        tag: str | None = None,
+    ) -> list[dict]:
         """Return todos, optionally filtered by list, completion state and/or tag.
 
         `tag` matches todos whose JSON tag list contains that name (case-insensitive).
         Pass tag="" / None for no tag filter; tag="__untagged__" for todos with no tags.
         """
         query = "SELECT * FROM todos"
-        conditions: List[str] = []
-        params: List = []
+        conditions: list[str] = []
+        params: list = []
         if list_name is not None:
             conditions.append("list = ?")
             params.append(list_name)
@@ -251,14 +250,14 @@ class TodosMixin:
                 todos = [t for t in todos if any(x.lower() == want for x in t["tags"])]
         return todos
 
-    def get_todo(self, todo_id: int) -> Optional[dict]:
+    def get_todo(self, todo_id: int) -> dict | None:
         with self._conn() as conn:
             row = conn.execute("SELECT * FROM todos WHERE id = ?", (todo_id,)).fetchone()
         return self._decode_tags(dict(row)) if row else None
 
     def get_todos_by_source(
-        self, source: str, source_event_id: Optional[int] = None
-    ) -> List[dict]:
+        self, source: str, source_event_id: int | None = None
+    ) -> list[dict]:
         if source_event_id is not None:
             with self._conn() as conn:
                 rows = conn.execute(
@@ -348,7 +347,7 @@ class TodosMixin:
             cur = conn.execute("DELETE FROM todos WHERE source = ?", (source,))
             return cur.rowcount
 
-    def delete_completed_todos(self, list_name: Optional[str] = None) -> int:
+    def delete_completed_todos(self, list_name: str | None = None) -> int:
         """Delete all completed todos, optionally filtered by list. Returns count deleted."""
         with self._conn() as conn:
             if list_name:
@@ -359,7 +358,7 @@ class TodosMixin:
                 cur = conn.execute("DELETE FROM todos WHERE completed = 1")
             return cur.rowcount
 
-    def reorder_todos(self, list_name: str, ids: List[int]) -> None:
+    def reorder_todos(self, list_name: str, ids: list[int]) -> None:
         """Update position of todos in list_name to match the given id order."""
         with self._conn() as conn:
             for pos, todo_id in enumerate(ids):
@@ -368,7 +367,7 @@ class TodosMixin:
                     (pos, todo_id, list_name),
                 )
 
-    def todo_titles(self) -> List[str]:
+    def todo_titles(self) -> list[str]:
         """Every to-do's title (non-empty), for mining the user's own words."""
         with self._conn() as conn:
             return [r[0] for r in conn.execute("SELECT title FROM todos") if r[0]]
@@ -378,7 +377,7 @@ class TodosMixin:
         with self._conn() as conn:
             return conn.execute("SELECT 1 FROM todos LIMIT 1").fetchone() is not None
 
-    def todo_titles_and_tags(self) -> List[dict]:
+    def todo_titles_and_tags(self) -> list[dict]:
         """Every to-do's title and its tags (decoded), for tag discovery."""
         with self._conn() as conn:
             rows = conn.execute("SELECT title, tags FROM todos").fetchall()
@@ -396,7 +395,7 @@ class TodosMixin:
     # (rules in actions/todo/tag_discovery.py; this is only the record)
     # ------------------------------------------------------------------
 
-    def tag_suggestion(self, name: str) -> Optional[dict]:
+    def tag_suggestion(self, name: str) -> dict | None:
         """The record for one name: {name, status, ts, hidden}, or None."""
         with self._conn() as conn:
             row = conn.execute("SELECT * FROM tag_suggestion_state WHERE name = ?",
@@ -419,7 +418,7 @@ class TodosMixin:
             conn.execute("UPDATE tag_suggestion_state SET hidden = ? WHERE name = ?",
                          (1 if hidden else 0, name))
 
-    def tag_suggestions(self, exclude: str = "") -> List[dict]:
+    def tag_suggestions(self, exclude: str = "") -> list[dict]:
         """Every record except `exclude`, newest first."""
         with self._conn() as conn:
             rows = conn.execute(
@@ -431,7 +430,7 @@ class TodosMixin:
     # Todo tags: CRUD
     # ------------------------------------------------------------------
 
-    def get_tags(self) -> List[dict]:
+    def get_tags(self) -> list[dict]:
         """All known tags (built-in first, then user-created, alphabetical)."""
         with self._conn() as conn:
             rows = conn.execute(
@@ -439,7 +438,7 @@ class TodosMixin:
             ).fetchall()
         return [dict(r) for r in rows]
 
-    def create_tag(self, name: str, color: str = "") -> Optional[dict]:
+    def create_tag(self, name: str, color: str = "") -> dict | None:
         """Add a user tag. Returns the row (existing one if the name is taken)."""
         name = (name or "").strip()
         if not name:
@@ -467,7 +466,7 @@ class TodosMixin:
                 if len(kept) != len(tags):
                     conn.execute("UPDATE todos SET tags = ? WHERE id = ?", (json.dumps(kept), r["id"]))
 
-    def set_todo_tags(self, todo_id: int, tags: List[str]) -> None:
+    def set_todo_tags(self, todo_id: int, tags: list[str]) -> None:
         self._note_label_change("todo", todo_id, {"tags": tags})
         self.update_todo(todo_id, tags=tags)
 
@@ -475,7 +474,7 @@ class TodosMixin:
     # Subtasks: CRUD
     # ------------------------------------------------------------------
 
-    def get_subtasks(self, todo_id: int) -> List[dict]:
+    def get_subtasks(self, todo_id: int) -> list[dict]:
         """Return all subtasks for a todo, ordered by position then created_at."""
         with self._conn() as conn:
             rows = conn.execute(
@@ -516,7 +515,7 @@ class TodosMixin:
         with self._conn() as conn:
             conn.execute("DELETE FROM subtasks WHERE todo_id = ?", (todo_id,))
 
-    def reorder_subtasks(self, todo_id: int, ids: List[int]) -> None:
+    def reorder_subtasks(self, todo_id: int, ids: list[int]) -> None:
         """Update position of subtasks to match the given id order."""
         with self._conn() as conn:
             for pos, subtask_id in enumerate(ids):

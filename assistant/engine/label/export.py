@@ -125,7 +125,7 @@ def _artefact_path(kind: str):
     return None
 
 
-def export(kind: str, cfg) -> "dict | None":
+def export(kind: str, cfg) -> dict | None:
     """The payload for `kind`, or None when there is no model to serve.
 
     Cached on the artefact's path and mtime, so a retrain (a new personal file)

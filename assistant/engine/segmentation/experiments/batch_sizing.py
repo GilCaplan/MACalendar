@@ -42,13 +42,13 @@ scratch_env("seg_batch_sizing_", keep=("LOCATION", "MODELS", "LABEL_FEEDBACK",
                                        "HEARTBEATS", "HUD_STATE",
                                        "DEVICE_SECRET", "DEVICES"))
 
-from assistant.engine.segmentation.llmseg import llmseg                       # noqa: E402
-from assistant.engine.segmentation.fastseg.fastseg import fastseg              # noqa: E402
+from assistant.engine.segmentation.fastseg.fastseg import fastseg  # noqa: E402
+from assistant.engine.segmentation.llmseg import llmseg  # noqa: E402
 
 _CACHE = os.path.join(_HERE, "experiments", "runs", "llmseg_cache.jsonl")
 
 
-def load_baseline() -> "list[tuple[str, list]]":
+def load_baseline() -> list[tuple[str, list]]:
     """(text, items) for every command already answered UNBATCHED."""
     out = []
     seen = set()
@@ -79,7 +79,7 @@ def load_baseline() -> "list[tuple[str, list]]":
 # to lose a brace level; "<command>.<item>" is one object deep and each key
 # says exactly where it belongs, so a partial answer is still parseable.
 
-def build_batch_prompt(batch: "list[tuple[str, list]]") -> str:
+def build_batch_prompt(batch: list[tuple[str, list]]) -> str:
     lines = []
     for n, (text, proposal) in enumerate(batch, 1):
         compact = {str(i + 1): [it["action"], it["time"], it["tag"]]
@@ -103,12 +103,12 @@ Example shape for 2 commands where the first has two items:
 {{"1.1": ["gym", "tomorrow at 7", "event"], "1.2": ["meeting", "tomorrow at 11", "event"], "2.1": ["buy milk", "today", "task"]}}"""
 
 
-def parse_batch(raw: str, batch) -> "list[list[dict]] | None":
+def parse_batch(raw: str, batch) -> list[list[dict]] | None:
     try:
         blob = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
     except Exception:
         return None
-    out: "list[list[dict]]" = [[] for _ in batch]
+    out: list[list[dict]] = [[] for _ in batch]
     for key, value in blob.items():
         try:
             cmd_i = int(str(key).split(".")[0]) - 1
@@ -126,7 +126,7 @@ def parse_batch(raw: str, batch) -> "list[list[dict]] | None":
     return out
 
 
-def same(a: "list[dict]", b: "list[dict]") -> bool:
+def same(a: list[dict], b: list[dict]) -> bool:
     def key(items):
         return [(i["action"].strip().lower(), i["time"].strip().lower(), i["tag"])
                 for i in items]

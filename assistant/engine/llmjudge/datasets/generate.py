@@ -119,7 +119,7 @@ def _words(text: str) -> set:
     return set(re.findall(r"[a-z']+", (text or "").casefold()))
 
 
-def _fabrication_for(text: str, rng: "random.Random | None" = None) -> "str | None":
+def _fabrication_for(text: str, rng: random.Random | None = None) -> str | None:
     """A title whose every word is absent from this row's text.
 
     Shuffled per row rather than scanned in order: taking the first fit made one
@@ -134,7 +134,7 @@ def _fabrication_for(text: str, rng: "random.Random | None" = None) -> "str | No
     return None
 
 
-def _near_miss_for(title: str, text: str, rng: "random.Random") -> "str | None":
+def _near_miss_for(title: str, text: str, rng: random.Random) -> str | None:
     """The row's own leading word, plus a subject noun nobody said.
 
     "buy milk" -> "buy groceries". The verb is real and the subject is not,
@@ -159,7 +159,7 @@ def _near_miss_for(title: str, text: str, rng: "random.Random") -> "str | None":
     return None
 
 
-def _applicable(row: dict, resolved: set, rng: random.Random) -> "list[tuple[str, str | None]]":
+def _applicable(row: dict, resolved: set, rng: random.Random) -> list[tuple[str, str | None]]:
     """Which mutations this row can carry.
 
     A mutation that cannot be planted honestly is skipped rather than
@@ -209,6 +209,7 @@ def _resolve(rows: list) -> dict:
                                    "DEVICES"))
 
     from freezegun import freeze_time
+
     from assistant.engine import llm as _llm
     from assistant.engine.decompose_validate import stage as _dv
     from assistant.engine.state import EngineState, Item
@@ -436,7 +437,9 @@ def write_tier(tier: str, seed: int = 17, progress: bool = True) -> pathlib.Path
     """
     import os
     import time
-    from scripts.dataset_tiers import GROWN, TARGET, write_tier as _write
+
+    from scripts.dataset_tiers import GROWN, TARGET
+    from scripts.dataset_tiers import write_tier as _write
     base_cases = [json.loads(l) for l in OUT.open() if l.strip()]
     need = {t: TARGET[t] - len(base_cases) for t in GROWN}
     sources = _tier_sources(base_cases, need[tier])

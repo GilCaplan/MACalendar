@@ -21,7 +21,6 @@ def test_rule_built_objects_are_saved_before_the_model_and_only_once(registry_wi
             "followed at, I need to go for a bike ride at 10am")
     out = engine.run_transcript(said, source="ios")
     steps = out.get("trace") or []
-    at = {s.get("stage"): s.get("at_ms") for s in reversed(steps)}   # first of each stage
     executes = [s for s in steps if s.get("stage") == "execute" and s.get("ok", True)]
     assert executes, out.get("message")
     cross = [s for s in steps if s.get("stage") == "verify"]

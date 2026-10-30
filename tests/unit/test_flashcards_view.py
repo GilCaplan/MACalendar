@@ -21,10 +21,10 @@ from PyQt6.QtCore import QPoint, Qt  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
 from PyQt6.QtWidgets import QApplication, QCheckBox, QLabel, QMenu, QToolButton  # noqa: E402
 
-from assistant.calendar_ui.flashcards_view import (  # noqa: E402
-    FlashcardsView, SetEditorDialog, Tile, missing_words)
+from assistant.calendar_ui.flashcards_view import FlashcardsView, SetEditorDialog, Tile, missing_words  # noqa: E402
 from assistant.features.flashcards import fsrs  # noqa: E402
 from assistant.features.flashcards.store import FlashcardStore  # noqa: E402
+
 
 def _make_png() -> bytes:
     """A real 40x20 PNG — the picture tests check it DECODES, not just that
@@ -86,7 +86,7 @@ def _click(w):
     QApplication.processEvents()
 
 
-def _labels(widget) -> "list[str]":
+def _labels(widget) -> list[str]:
     return [l.text() for l in widget.findChildren(QLabel) if l.isVisibleTo(widget)]
 
 
@@ -129,8 +129,9 @@ def test_library_shows_imported_sets_with_counts(store, qapp):
 
 def test_reload_picks_up_the_inbox_and_says_so(store, qapp, tmp_path):
     view = _view(store, qapp)
-    import yaml
     import os
+
+    import yaml
     os.makedirs(store.inbox_dir, exist_ok=True)
     with open(os.path.join(store.inbox_dir, "x.yaml"), "w", encoding="utf-8") as f:
         yaml.safe_dump(_doc(BASIC, set_="Dropped"), f)

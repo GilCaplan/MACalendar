@@ -63,7 +63,9 @@ def test_a_passed_clock_stays_today_when_the_day_was_named(registry_with_real_ac
     too: "this morning" names today even though the recogniser does not read
     it as a date (2026-09-25)."""
     import datetime as dt
+
     from freezegun import freeze_time
+
     from assistant.engine.fastrule.fastrule import FastRule
     from assistant.intent.rule_parser import RULE_THRESHOLD
     fr = FastRule(RULE_THRESHOLD)
@@ -81,7 +83,9 @@ def test_a_range_is_read_by_the_one_time_reader(registry_with_real_actions):
     6:30' booked 18:30-19:30, 'between 2 and 4 this afternoon' 16:00-17:00,
     and 'yoga class from 6 to 8' kept its clock in its name (2026-09-25)."""
     import datetime as dt
+
     from freezegun import freeze_time
+
     from assistant.engine.fastrule.fastrule import FastRule
     from assistant.intent.rule_parser import RULE_THRESHOLD
     fr = FastRule(RULE_THRESHOLD)
@@ -102,7 +106,9 @@ def test_the_end_of_the_month_is_its_last_day(registry_with_real_actions):
     day) on the fast path too: the recogniser's second-half-of-the-month
     range was taken at its first day, the 16th, on 108 train rows."""
     import datetime as dt
+
     from freezegun import freeze_time
+
     from assistant.engine.fastrule.fastrule import FastRule
     from assistant.intent.rule_parser import RULE_THRESHOLD
     fr = FastRule(RULE_THRESHOLD)
@@ -119,7 +125,9 @@ def test_n_weeks_from_now_names_a_day_not_the_clock_of_the_moment(registry_with_
     clock of the moment became the start; "in three weeks" took the ordinary
     default (2026-09-25). A clock said with it still stands."""
     import datetime as dt
+
     from freezegun import freeze_time
+
     from assistant.engine.fastrule.fastrule import FastRule
     from assistant.intent.rule_parser import RULE_THRESHOLD
     fr = FastRule(RULE_THRESHOLD)
@@ -138,6 +146,7 @@ def test_a_series_bound_is_never_in_the_past():
     as both October 2025 and October 2026; the first was taken, and "gym every
     monday until the end of october" ended a year before it began."""
     import datetime as dt
+
     from assistant.intent.rule_parser import _extract_temporal
     t = "gym every monday at 7am until the end of october"
     assert _extract_temporal(t, dt.date(2026, 9, 26))["recur_until"] == "2026-10-31"

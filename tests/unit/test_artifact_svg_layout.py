@@ -44,7 +44,7 @@ _TRANSLATE = re.compile(r"translate\(\s*(-?[\d.]+)[\s,]+(-?[\d.]+)?\s*\)")
 _ROTATE = re.compile(r"\brotate\(")
 
 
-def _offset(svg: str, at: int) -> "tuple[float, float] | None":
+def _offset(svg: str, at: int) -> tuple[float, float] | None:
     """The accumulated translate() of every group enclosing this position.
 
     WITHOUT THIS THE CHECK IS BLIND BOTH WAYS, which is why it was added
@@ -458,7 +458,7 @@ def test_no_svg_text_falls_back_to_black(path):
         f"{offenders[:6]}")
 
 
-def _inherited_fill(svg: str, at: int) -> "str | None":
+def _inherited_fill(svg: str, at: int) -> str | None:
     """The nearest enclosing group's fill, if any."""
     depth = 0
     for m in reversed(list(re.finditer(r"<g\b([^>]*)>|</g>", svg[:at]))):

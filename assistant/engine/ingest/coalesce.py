@@ -31,11 +31,11 @@ transcript contains that literal — a wrong row then gets marked done.
 from __future__ import annotations
 
 
-def coalesce_groups(texts: "list[str]", max_tokens: int = 300) -> "list[list[str]]":
+def coalesce_groups(texts: list[str], max_tokens: int = 300) -> list[list[str]]:
     """The batches, still as lists — so a caller can tie each one back to its
     rows without parsing the rendered string."""
-    groups: "list[list[str]]" = []
-    current: "list[str]" = []
+    groups: list[list[str]] = []
+    current: list[str] = []
     used = 0
     for text in texts:
         t = (text or "").strip()
@@ -52,7 +52,7 @@ def coalesce_groups(texts: "list[str]", max_tokens: int = 300) -> "list[list[str
     return groups
 
 
-def coalesce(texts: "list[str]", max_tokens: int = 300) -> "list[str]":
+def coalesce(texts: list[str], max_tokens: int = 300) -> list[str]:
     """Queued inputs combined into ("…")and("…") batches up to a token budget
     (≈4 chars/token), so several short queued commands cost one parse instead
     of several; overflow runs in later batches. The wrapper is deterministic
@@ -81,7 +81,7 @@ def coalesce(texts: "list[str]", max_tokens: int = 300) -> "list[str]":
     return out
 
 
-def wrap(parts: "list[str]") -> str:
+def wrap(parts: list[str]) -> str:
     if len(parts) == 1:
         return parts[0]
     return "and".join(f'("{p}")' for p in parts)

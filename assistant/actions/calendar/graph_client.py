@@ -1,6 +1,5 @@
 """Microsoft Graph API client for calendar operations."""
 
-from typing import List
 
 import requests
 
@@ -61,7 +60,7 @@ class GraphClient:
             return
         self._raise_for_status(resp)
 
-    def list_events(self, start: str, end: str, max_pages: int = 20) -> List[dict]:
+    def list_events(self, start: str, end: str, max_pages: int = 20) -> list[dict]:
         """
         GET /me/calendarView — list events in a time range, following
         @odata.nextLink so a busy calendar's events past the first page
@@ -73,7 +72,7 @@ class GraphClient:
             max_pages: safety cap (each page holds up to 100 events) so a
                 pathological/huge calendar can't loop indefinitely.
         """
-        events: List[dict] = []
+        events: list[dict] = []
         resp = self._session.get(
             f"{BASE_URL}/me/calendarView",
             headers=self._headers(),

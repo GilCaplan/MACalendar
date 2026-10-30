@@ -29,8 +29,8 @@ import json
 
 import pytest
 
-from assistant.engine.llmjudge.datasets.v2 import (
-    banks, damage, generate_v2 as gen, voices)
+from assistant.engine.llmjudge.datasets.v2 import banks, damage, voices
+from assistant.engine.llmjudge.datasets.v2 import generate_v2 as gen
 
 
 @pytest.fixture(scope="module")
@@ -293,8 +293,8 @@ def test_the_written_commands_match_the_generator(rows):
 
 
 def test_every_case_names_a_command_and_a_known_mutation():
-    from assistant.engine.llmjudge.datasets.v2 import mutations
     from assistant.engine.llmjudge import findings
+    from assistant.engine.llmjudge.datasets.v2 import mutations
 
     cases = _jsonl(gen.CASES)
     known = {r["id"] for r in _jsonl(gen.COMMANDS)}
@@ -343,6 +343,7 @@ def test_a_list_merge_is_three_or_more_gold_event_subjects():
     events, three or more; a row that cannot supply that is a PLAIN merge
     (expect None), never a wrong expectation."""
     import re
+
     from assistant.engine.llmjudge import findings
     commands = {r["id"]: r for r in _jsonl(gen.COMMANDS)}
     # A frame LEADS a member ("block off the car service"); anchored at the

@@ -38,7 +38,7 @@ def beat(name: str, **extra) -> None:
         pass
 
 
-def last_seen(name: str) -> "dict | None":
+def last_seen(name: str) -> dict | None:
     """The most recent beat for `name` with its `age` in seconds, or None if it
     has never beaten."""
     try:

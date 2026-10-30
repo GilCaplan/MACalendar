@@ -233,7 +233,7 @@ class EngineState:
     #: the stages below are LLM calls, and this is the context that makes
     #: them better-informed. Shape: {"reason", "reason_class", "confidence",
     #: "actions"} — never the intent objects, which the deep track rebuilds.
-    fastrule_verdict: "dict | None" = None
+    fastrule_verdict: dict | None = None
     #: texts FastRule has already judged this command (Q12): it is
     #: deterministic, so re-asking the same words wastes a retry that
     #: cannot change its mind.

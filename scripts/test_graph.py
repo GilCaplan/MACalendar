@@ -20,11 +20,11 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from assistant.config import load_config
 from assistant.actions.calendar.auth import MSALAuth
+from assistant.actions.calendar.event_builder import build_event_payload
 from assistant.actions.calendar.graph_client import GraphClient
 from assistant.actions.calendar.intent import CalendarIntent
-from assistant.actions.calendar.event_builder import build_event_payload
+from assistant.config import load_config
 from assistant.exceptions import AuthExpiredError
 
 
@@ -39,7 +39,6 @@ def main():
 
     date = args.date or (datetime.date.today() + datetime.timedelta(days=1)).isoformat()
     start_time = args.time
-    start_dt = datetime.datetime.strptime(f"{date}T{start_time}", "%Y-%mT%H:%M")
     end_time = (datetime.datetime.strptime(start_time, "%H:%M") + datetime.timedelta(hours=1)).strftime("%H:%M")
 
     intent = CalendarIntent(
@@ -49,7 +48,7 @@ def main():
         end_time=end_time,
     )
 
-    print(f"Creating test event:")
+    print("Creating test event:")
     print(f"  Title: {intent.title}")
     print(f"  Date:  {intent.date}")
     print(f"  Time:  {intent.start_time} – {intent.end_time}")
@@ -57,7 +56,7 @@ def main():
 
     auth = MSALAuth(config.microsoft)
     try:
-        token = auth.get_token()
+        auth.get_token()
     except AuthExpiredError:
         print("[Error] Token expired or missing. Run: python scripts/setup_auth.py")
         sys.exit(1)
@@ -73,7 +72,7 @@ def main():
         print(f"[Error] Graph API call failed: {e}")
         sys.exit(1)
 
-    print(f"✅ Event created!")
+    print("✅ Event created!")
     print(f"   ID:      {event.get('id', 'N/A')[:40]}...")
     print(f"   Subject: {event.get('subject')}")
     print(f"   Link:    {event.get('webLink', 'N/A')}")

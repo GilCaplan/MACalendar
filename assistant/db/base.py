@@ -7,8 +7,8 @@ import datetime
 import logging
 import os
 import sqlite3
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator, Optional
 
 from assistant.db.common import _note_own_write
 from assistant.db.schema import (
@@ -23,9 +23,9 @@ from assistant.db.schema import (
     _CREATE_INDEXES,
     _CREATE_REMINDER_LOG_TABLE,
     _CREATE_SUBTASKS_TABLE,
-    _CREATE_TAG_SUGGESTION_STATE_TABLE,
     _CREATE_SYNC_DELETES_TABLE,
     _CREATE_TABLE,
+    _CREATE_TAG_SUGGESTION_STATE_TABLE,
     _CREATE_TAGS_TABLE,
     _CREATE_TIMER_SESSIONS_TABLE,
     _CREATE_TIMERS_TABLE,
@@ -40,15 +40,14 @@ from assistant.db.schema import (
     _CREATE_WORKOUT_TEMPLATES_TABLE,
     _IDEMPOTENT_TABLES,
     _LEGACY_LINK_SOURCE,
-    _TAG_SUGGESTION_MIGRATIONS,
-    SCHEMA_VERSION,
     _MIGRATIONS,
+    _TAG_SUGGESTION_MIGRATIONS,
     _TIMER_MIGRATIONS,
     _TODO_MIGRATIONS,
     _WORKOUT_MIGRATIONS,
     DEFAULT_TODO_TAGS,
+    SCHEMA_VERSION,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +97,7 @@ and the client-token lookups every area's creates share."""
             from assistant.users import paths as _paths
             path = _paths.resolve(path or _default_path())
         self.path = path
-        self.owner_id: "str | None" = None
+        self.owner_id: str | None = None
         self._guard_real_db(self.path)
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
         with self._conn() as conn:
@@ -152,7 +151,7 @@ and the client-token lookups every area's creates share."""
                 except sqlite3.OperationalError:
                     pass                    # another process added it first
 
-    def table_names(self) -> "set[str]":
+    def table_names(self) -> set[str]:
         """Every table in the file, for health checks (`assistant doctor`)."""
         with self._conn() as conn:
             return {r[0] for r in conn.execute(
@@ -167,7 +166,7 @@ and the client-token lookups every area's creates share."""
         elif found < SCHEMA_VERSION:
             conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
-    def row_by_client_token(self, table: str, client_token: str) -> "Optional[dict]":
+    def row_by_client_token(self, table: str, client_token: str) -> dict | None:
         """The row a client already created with this token, or None.
 
         Table-agnostic on purpose: six tables need exactly this and a method

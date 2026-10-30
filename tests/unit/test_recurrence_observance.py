@@ -118,6 +118,7 @@ def test_nothing_is_skipped_when_observance_cannot_be_computed(monkeypatch):
 def db(tmp_path, monkeypatch):
     monkeypatch.setenv("MACALENDAR_DB", str(tmp_path / "c.db"))
     import importlib
+
     import assistant.db as dbmod
     importlib.reload(dbmod)
     return dbmod.CalendarDB(str(tmp_path / "c.db"))

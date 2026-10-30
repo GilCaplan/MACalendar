@@ -44,10 +44,11 @@ def main() -> int:
     globals()["DATA"] = _sizes.ensure(a.size)
 
     import datetime as dt
+
     import assistant.engine as engine
     import assistant.engine.llm as L
-    from assistant.db import get_db
     from assistant.actions.calendar.intent import CalendarIntent
+    from assistant.db import get_db
     L.is_reachable = lambda cfg=None: True          # the deep track runs; the model door refuses
     engine.run_transcript("walk the dog", source="test")
     db = get_db()

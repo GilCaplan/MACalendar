@@ -6,8 +6,8 @@ it just keeps showing"). The timeline is still recorded; the "Thinking…"
 capsule above the mic opens it, and a Settings switch brings the old
 behaviour back. CI has no Swift toolchain, so this reads the source.
 """
-from pathlib import Path
 import re
+from pathlib import Path
 
 IOS = Path(__file__).resolve().parents[2] / "MACalendar-iOS" / "MACalendar-iOS"
 VOICE = (IOS / "Views" / "VoiceButton.swift").read_text()

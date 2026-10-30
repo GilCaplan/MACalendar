@@ -46,21 +46,29 @@ from assistant.common.scratch_env import scratch_env  # noqa: E402
 scratch_env("ts_", keep=("LOCATION", "MODELS", "LABEL_FEEDBACK", "HEARTBEATS",
                          "HUD_STATE", "DEVICE_SECRET", "DEVICES"))
 
-from assistant.engine.segmentation.experiments import run_board as RB          # noqa: E402
+from assistant.engine.segmentation.experiments import run_board as RB  # noqa: E402
+
 # NAMED imports, not `import ... as FS` — `fastseg/__init__.py` re-exports the
 # `fastseg()` FUNCTION under the package's own name, which shadows the
 # submodule on attribute access; importing names directly sidesteps that.
-from assistant.engine.segmentation.fastseg.fastseg import (                    # noqa: E402
-    _PREAMBLE, _CALENDAR_VERBS, _TASK_VERBS, _STATED_CLOCK, _VAGUE_TIME_HEDGE,
-    _TIME_BLOCKING, _DUE_DATE_EDIT, _NUDGE_IDIOM, _ANCHORED_TO_EVENT,
-    find_time_refs, tag as shipped_tag)
-from assistant.intent import coordination as CO                                # noqa: E402
-from assistant.intent.coordination import _REMINDER_LEAD_RE                    # noqa: E402
-from assistant.intent.classifier import Featurizer, LogisticModel              # noqa: E402
-from assistant.intent.rule_parser import _CALENDAR_SIGNALS, _TODO_SIGNALS      # noqa: E402
-from assistant.engine.segmentation.fastseg.kind import (                      # noqa: E402
-    _enforce_pinned_kinds, _kind_of)
-
+from assistant.engine.segmentation.fastseg.fastseg import (  # noqa: E402
+    _ANCHORED_TO_EVENT,
+    _CALENDAR_VERBS,
+    _DUE_DATE_EDIT,
+    _NUDGE_IDIOM,
+    _PREAMBLE,
+    _STATED_CLOCK,
+    _TASK_VERBS,
+    _TIME_BLOCKING,
+    _VAGUE_TIME_HEDGE,
+    find_time_refs,
+)
+from assistant.engine.segmentation.fastseg.fastseg import tag as shipped_tag
+from assistant.engine.segmentation.fastseg.kind import _enforce_pinned_kinds, _kind_of  # noqa: E402
+from assistant.intent import coordination as CO  # noqa: E402
+from assistant.intent.classifier import Featurizer, LogisticModel  # noqa: E402
+from assistant.intent.coordination import _REMINDER_LEAD_RE  # noqa: E402
+from assistant.intent.rule_parser import _CALENDAR_SIGNALS, _TODO_SIGNALS  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Structural features — dependency-parse-derived, not keyword presence
@@ -107,7 +115,7 @@ def _has_propn_argument(doc, root) -> float:
     return 0.0
 
 
-def _before_transitivity(action: str) -> "tuple[float, float]":
+def _before_transitivity(action: str) -> tuple[float, float]:
     """(is_intransitive_lead, is_transitive_anchor) — reuses the exact
     idiom-recognition `_lead_has_no_object`/`_ANCHORED_TO_EVENT` already
     validated in fastseg.py (16-fix session, §0b), read here as TWO features
@@ -142,7 +150,7 @@ class KindStructuralFeatures(Featurizer):
              "own-infrastructure", "todo-destination", "calendar-destination",
              "vague-hedge", "recurrence", "long"]
 
-    def extract(self, action_time) -> "list[float]":
+    def extract(self, action_time) -> list[float]:
         action, time_str = action_time
         doc = CO.parsed(action) if " " in action else None
         root = _root(doc) if doc is not None else None
@@ -197,20 +205,6 @@ def _rows():
     return [r for r in RB.assign_splits(rows) if r.get("split") != "test"]
 
 
-def _fitting_texts() -> set:
-    out = set()
-    path = os.path.join(_ROOT, "assistant", "engine", "fastrule", "datasets",
-                        "fastrule_7200.jsonl")
-    try:
-        for line in open(path):
-            r = json.loads(line)
-            if r.get("split") == "train":
-                out.add(r["text"].strip().lower())
-    except OSError:
-        pass
-    return out
-
-
 def _items(rows):
     """Every (action, time, tag) gold triple, flattened."""
     out = []
@@ -261,7 +255,6 @@ def score(items, preds):
 
 def main() -> None:
     rows = _rows()
-    fitted = _fitting_texts()
     all_items = _items(rows)
     slices = {
         f"ALL train items ({len(all_items)})": all_items,

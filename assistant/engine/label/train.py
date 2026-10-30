@@ -108,6 +108,7 @@ def _head_fit(kind, texts, labels, weights, E, classes):
     one-vs-rest wrapper does not route sample weights)."""
     import numpy as np
     from sklearn.linear_model import LogisticRegression
+
     from assistant.engine.label.model import EmbedHead
     if kind == "event":
         idx = {c: i for i, c in enumerate(classes)}
@@ -202,7 +203,7 @@ def _fit_embed(kind: str, rows, weights, classes, verbose: bool = False,
     return head, info
 
 
-def _score_head(head, kind, test_rows) -> "dict | None":
+def _score_head(head, kind, test_rows) -> dict | None:
     """The head alone on the generic TEST half, never abstaining — the number
     that sits beside the n-gram pipeline's in the meta."""
     import numpy as np
@@ -278,9 +279,9 @@ def _score_event(pipe, test_rows) -> dict:
 
 
 def _score_task(pipe, test_rows, classes) -> dict:
+    import numpy as np
     from sklearn.metrics import f1_score
     from sklearn.preprocessing import MultiLabelBinarizer
-    import numpy as np
     mlb = MultiLabelBinarizer(classes=classes)
     Y = mlb.fit_transform([l for _, l in test_rows])
     pred = pipe.predict([t for t, _ in test_rows])
@@ -337,7 +338,7 @@ def _evaluate(pipe, kind, generic_te, personal_te, classes) -> dict:
 
 
 def train(kind: str, force: bool = False, verbose: bool = True,
-          data_tier: str = "base") -> "dict | None":
+          data_tier: str = "base") -> dict | None:
     from assistant.engine.label import feedback
     from assistant.engine.label.model import LabelModel
 
@@ -424,7 +425,7 @@ def train(kind: str, force: bool = False, verbose: bool = True,
 
 
 def train_base(kind: str, verbose: bool = True, embed: bool = True,
-               data_tier: str = "base") -> "dict | None":
+               data_tier: str = "base") -> dict | None:
     """Fit the USER-AGNOSTIC model from the committed datasets alone.
 
     Identical on every machine: no personal gold is read, the datasets are in
@@ -436,8 +437,8 @@ def train_base(kind: str, verbose: bool = True, embed: bool = True,
     brand-new user a working classifier on day one instead of after twenty-five
     corrections.
     """
-    from assistant.engine.label.model import LabelModel
     import assistant.engine.label.model as _m
+    from assistant.engine.label.model import LabelModel
 
     base_tr, generic_te = _load(kind) if data_tier == "base" else _load(kind, data_tier)
     weights = [1.0] * len(base_tr)

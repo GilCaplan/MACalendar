@@ -25,7 +25,6 @@ def bus(tmp_path, monkeypatch):
 def _enter_event():
     from PyQt6.QtCore import QPointF
     from PyQt6.QtGui import QEnterEvent
-    from PyQt6.QtCore import Qt
     return QEnterEvent(QPointF(1, 1), QPointF(1, 1), QPointF(1, 1))
 
 
@@ -114,6 +113,7 @@ def hud(bus, tmp_path, monkeypatch):
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
     monkeypatch.setenv("MACALENDAR_HUD_STATE", str(tmp_path / "pos.json"))
     from PyQt6.QtWidgets import QApplication
+
     import assistant.thinking_hud as hud_mod
     monkeypatch.setattr(hud_mod, "STATE_PATH", str(tmp_path / "pos.json"))
     app = QApplication.instance() or QApplication([])
@@ -453,6 +453,7 @@ def test_the_info_dot_shows_the_in_depth_copy_on_a_real_click(hud):
     # explorer-depth copy and not raise when tapped (offscreen shows nothing).
     from PyQt6.QtCore import Qt
     from PyQt6.QtTest import QTest
+
     from assistant.calendar_ui.thinking_panel import _InfoDot, _Theme
     dot = _InfoDot("Fix words", "corrected against your personal vocabulary", _Theme(True))
     assert "Fix words" in dot.toolTip()
@@ -1035,6 +1036,7 @@ def test_zero_keeps_it_until_closed(hud, bus):
 
 def test_the_setting_is_mirrored_in_the_example_config():
     from pathlib import Path
+
     from assistant.config import UIConfig
     assert UIConfig().thinking_hide_after_sec == 6
     example = (Path(__file__).resolve().parents[2] / "config.example.yaml").read_text()

@@ -45,7 +45,7 @@ def escape(text: str) -> str:
 def _inline(text: str, theme) -> str:
     codes: list[str] = []
 
-    def stash(match: "re.Match") -> str:
+    def stash(match: re.Match) -> str:
         codes.append(match.group(1))
         return _CODE_SLOT.format(len(codes) - 1)
 
@@ -74,8 +74,8 @@ def render(text: str, theme) -> str:
     lines = str(text or "").split("\n")
     out: list[str] = []
     paragraph: list[str] = []
-    list_tag: "str | None" = None
-    fence: "list[str] | None" = None
+    list_tag: str | None = None
+    fence: list[str] | None = None
 
     def close_paragraph() -> None:
         if paragraph:

@@ -35,7 +35,6 @@ import threading
 import time
 import uuid
 
-
 DEFAULT_PATH = os.path.expanduser("~/.assistant_tools/ranker.json")
 _lock = threading.Lock()
 
@@ -85,13 +84,13 @@ def save(data: dict) -> None:
         os.replace(tmp, path)
 
 
-def _same_table(a: "dict | None", b: "dict | None") -> bool:
+def _same_table(a: dict | None, b: dict | None) -> bool:
     if not a or not b:
         return a == b
     return (a.get("filename"), a.get("columns"), a.get("rows")) == (b.get("filename"), b.get("columns"), b.get("rows"))
 
 
-def snapshot(data: dict) -> "dict | None":
+def snapshot(data: dict) -> dict | None:
     """File the search on screen in `data["history"]` (in place) and return its
     entry; None when there is no table. A search reopened from history updates
     its own entry instead of filing a copy."""
@@ -148,11 +147,11 @@ def summary(entry: dict) -> dict:
         "rows": len(t.get("rows") or []), "columns": len(t.get("columns") or [])}
 
 
-def history_get(data: dict, hid: str) -> "dict | None":
+def history_get(data: dict, hid: str) -> dict | None:
     return next((e for e in data.get("history", []) if e["id"] == hid), None)
 
 
-def history_put(entry: dict) -> "tuple[dict, bool]":
+def history_put(entry: dict) -> tuple[dict, bool]:
     """Add or replace an entry sent whole (the phone's). Returns (data, kept);
     an id deleted here is not brought back."""
     data = load()
@@ -166,7 +165,7 @@ def history_put(entry: dict) -> "tuple[dict, bool]":
     return data, True
 
 
-def history_set(hid: str, **fields) -> "dict | None":
+def history_set(hid: str, **fields) -> dict | None:
     """Archive / unarchive / rename one entry. None when there is no such entry."""
     data = load()
     e = history_get(data, hid)
@@ -190,7 +189,7 @@ def history_delete(hid: str) -> dict:
     return data
 
 
-def history_open(hid: str) -> "dict | None":
+def history_open(hid: str) -> dict | None:
     """Make an entry the search on screen; the one there goes to history first."""
     data = load()
     e = history_get(data, hid)

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import os
 import datetime
 import json
 import logging
+import os
 import re
 import time
 from typing import TYPE_CHECKING
@@ -15,10 +15,10 @@ import requests
 if TYPE_CHECKING:
     from assistant.intent.rule_parser import RuleParseResult
 
+from assistant import clock as _clock  # the moment the command was SAID
 from assistant.actions import ActionRegistry
 from assistant.actions.base import BaseIntent
 from assistant.config import AppConfig
-from assistant import clock as _clock  # the moment the command was SAID
 from assistant.exceptions import (
     AssistantError,
     LLMTimeoutError,
@@ -225,7 +225,7 @@ class IntentParser:
     def parse_with_context(
         self,
         transcript: str,
-        partial: "RuleParseResult",
+        partial: RuleParseResult,
     ) -> list[tuple[str, BaseIntent]]:
         """Called when RuleBasedParser has partial results (low confidence or missing slots).
 
@@ -238,7 +238,7 @@ class IntentParser:
         return self.parse(augmented)
 
     @staticmethod
-    def _build_partial_context(partial: "RuleParseResult") -> str:
+    def _build_partial_context(partial: RuleParseResult) -> str:
         lines = [
             "[RULE PARSER PRE-ANALYSIS — use this to fill gaps; do not contradict filled slots]",
             f"Normalized transcript: {partial.transcript!r}",
@@ -275,8 +275,8 @@ class IntentParser:
     def verify_fast_path_async(
         self,
         transcript: str,
-        rule_result: "RuleParseResult",
-    ) -> "dict | None":
+        rule_result: RuleParseResult,
+    ) -> dict | None:
         """Send the rule-parser's interpretation to the LLM for background severity judgment.
 
         Returns a correction dict or None (confirmed correct).
@@ -315,7 +315,7 @@ class IntentParser:
         t = re.sub(r"\s+(?:on|at|in|for|from|to|until|till|with|and)$", "", t, flags=re.I)
         return t.strip()
 
-    def fix_title_async(self, transcript: str, keyword: str) -> "str | None":
+    def fix_title_async(self, transcript: str, keyword: str) -> str | None:
         """Ask the LLM for a proper event title when fast-path used a keyword placeholder.
 
         Returns an improved title string, or None if the LLM couldn't improve on the keyword.
@@ -406,8 +406,8 @@ class IntentParser:
     def _run_verification(
         self,
         transcript: str,
-        rule_result: "RuleParseResult",
-    ) -> "dict | None":
+        rule_result: RuleParseResult,
+    ) -> dict | None:
         """Build a severity-tiered verification prompt and call the active LLM backend.
 
         Judged against the *validated intents*, which is what actually reached
@@ -438,8 +438,8 @@ class IntentParser:
     def verify_actions_async(
         self,
         transcript: str,
-        executed: "list[tuple[str, object]]",
-    ) -> "dict | None":
+        executed: list[tuple[str, object]],
+    ) -> dict | None:
         """Post-execution self-check for ANY parse path (rule, hybrid, llm).
 
         Re-reasons over the transcript, what was actually executed, and this
@@ -463,7 +463,7 @@ class IntentParser:
             logger.debug("Post-execution verification skipped: %s", e)
             return None
 
-    def _verify_block(self, transcript: str, actions_block: str, who: str) -> "dict | None":
+    def _verify_block(self, transcript: str, actions_block: str, who: str) -> dict | None:
         history = self._few_shot_for(transcript)
 
         verify_sys = (
@@ -595,9 +595,10 @@ class IntentParser:
         # fix_title_async — record no llm_ms at all, which is how a 40-second
         # call stayed invisible in every latency board. Logged here so the
         # console sees it even though no counter does.
+        import time as _t
+
         from assistant import llm_bus as _bus
         from assistant import model_protocol
-        import time as _t
         _who, _t0 = _bus.caller_label(), _t.perf_counter()
         try:
             resp = model_protocol.route_post("/api/chat", payload, 60,
@@ -654,8 +655,9 @@ class IntentParser:
         # Every call is logged to the LLM console's stream — recorded at the
         # TRANSPORT, not at the call sites, because there are a dozen callers
         # and a new one must not be able to bypass the log by forgetting to.
-        from assistant import llm_bus as _bus
         import time as _t
+
+        from assistant import llm_bus as _bus
         _who, _t0 = _bus.caller_label(), _t.perf_counter()
         # THE GATE, and the timeout is started AFTER it (2026-09-10).
         #
@@ -695,7 +697,7 @@ class IntentParser:
         conf = self.config.openai
         if not conf.api_key:
             raise ParseError("OpenAI API key missing in config.yaml")
-        
+
         headers = {"Authorization": f"Bearer {conf.api_key}"}
         payload = {
             "model": conf.model,
@@ -716,7 +718,7 @@ class IntentParser:
         conf = self.config.gemini
         if not conf.api_key:
             raise ParseError("Gemini API key missing in config.yaml")
-        
+
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{conf.model}:generateContent?key={conf.api_key}"
         payload = {
             "contents": [{"parts": [{"text": f"System Instruction: {sys}\nUser Prompt: {user}\nRespond in JSON matching the requested schema."}]}],
@@ -735,7 +737,7 @@ class IntentParser:
         conf = self.config.claude
         if not conf.api_key:
             raise ParseError("Claude API key (Anthropic) missing in config.yaml")
-        
+
         headers = {
             "x-api-key": conf.api_key,
             "anthropic-version": "2023-06-01"

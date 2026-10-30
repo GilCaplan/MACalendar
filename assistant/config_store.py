@@ -89,7 +89,7 @@ def _literal(value) -> str:
     return f'"{value}"'
 
 
-def _replace_key(lines: "list[str]", i: int, end: int, header: str, value) -> int:
+def _replace_key(lines: list[str], i: int, end: int, header: str, value) -> int:
     """Overwrite `lines[i]` (a matched `key:` line) with the new value,
     consuming any YAML block-list lines that were the OLD value's
     continuation. Returns how many lines the span shrank by.
@@ -112,7 +112,7 @@ def _replace_key(lines: "list[str]", i: int, end: int, header: str, value) -> in
     return (j - i) - 1
 
 
-def _section_span(lines: "list[str]", section: str) -> "tuple[int, int] | None":
+def _section_span(lines: list[str], section: str) -> tuple[int, int] | None:
     """(start, end) of the section's body: after `section:` up to the next
     top-level key. None if the section doesn't exist."""
     start = None
@@ -130,7 +130,7 @@ def _section_span(lines: "list[str]", section: str) -> "tuple[int, int] | None":
     return start, end
 
 
-def set_values(updates: "dict[str, dict]", path: str = CONFIG_PATH) -> bool:
+def set_values(updates: dict[str, dict], path: str = CONFIG_PATH) -> bool:
     """Apply {section: {key: value}} to the yaml file in place.
 
     Returns False (and writes nothing) if the file doesn't exist — a missing
@@ -138,7 +138,7 @@ def set_values(updates: "dict[str, dict]", path: str = CONFIG_PATH) -> bool:
     creating a comment-less file."""
     if not os.path.exists(path):
         return False
-    with open(path, "r") as f:
+    with open(path) as f:
         lines = f.read().splitlines()
 
     for section, kv in updates.items():

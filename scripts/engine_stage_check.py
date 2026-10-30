@@ -133,6 +133,7 @@ def _cases_decompose(cfg):
 def _cases_validate(cfg):
     import datetime as dt
     from types import SimpleNamespace
+
     from assistant.engine.decompose_validate import stage as validate
 
     def ev(**kw):
@@ -223,6 +224,7 @@ def _cases_crosscheck(cfg):
     capability was deliberately deleted, not lost.
     """
     from types import SimpleNamespace
+
     from assistant.engine.llmjudge import llmjudge as crosscheck
 
     def _ev(id, title, text=""):

@@ -47,13 +47,22 @@ def _register_real_actions(isolated_registry) -> None:
     test after conftest's autouse isolated_registry fixture has cleared state.
     """
     from assistant.actions.calendar.action import (
-        CreateEventAction, UpdateEventAction, DeleteEventAction, QueryScheduleAction
-    )
-    from assistant.actions.todo.action import (
-        CreateTodoAction, CompleteTodoAction, DeleteTodoAction, UpdateTodoAction,
-        QueryTodoAction, AddSubtaskAction, CompleteSubtaskAction, DeleteSubtaskAction,
+        CreateEventAction,
+        DeleteEventAction,
+        QueryScheduleAction,
+        UpdateEventAction,
     )
     from assistant.actions.clarify import ClarifyAction
+    from assistant.actions.todo.action import (
+        AddSubtaskAction,
+        CompleteSubtaskAction,
+        CompleteTodoAction,
+        CreateTodoAction,
+        DeleteSubtaskAction,
+        DeleteTodoAction,
+        QueryTodoAction,
+        UpdateTodoAction,
+    )
 
     for cls in [
         CreateEventAction, UpdateEventAction, DeleteEventAction, QueryScheduleAction,
@@ -414,8 +423,8 @@ def test_calendar_sync_stays_idempotent_across_runs(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_api_key_enforced_when_configured(tmp_path, monkeypatch, sample_config):
-    from assistant.config import ApiConfig
     import assistant.db as db_module
+    from assistant.config import ApiConfig
 
     guarded_config = sample_config.model_copy(update={"api": ApiConfig(key="secret123")})
     db = CalendarDB(path=str(tmp_path / "test_calendar_auth.db"))

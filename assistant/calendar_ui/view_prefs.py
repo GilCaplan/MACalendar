@@ -55,7 +55,7 @@ def apply_titles(config) -> None:
     _icon_groups = frozenset(title_icons.groups_from(config))
 
 
-def title_icons(title: str) -> "list[str]":
+def title_icons(title: str) -> list[str]:
     """The icons drawn before `title` on every view — none unless switched on."""
     if not _icon_count:
         return []

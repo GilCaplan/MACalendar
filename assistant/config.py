@@ -1,7 +1,7 @@
 """Configuration loading and validation."""
 
 import os
-from typing import Union, List, Literal, Optional
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, field_validator
@@ -10,12 +10,12 @@ from assistant.exceptions import ConfigError
 
 
 class HotkeyConfig(BaseModel):
-    modifiers: List[str]
+    modifiers: list[str]
     key: str
 
     @field_validator("modifiers")
     @classmethod
-    def validate_modifiers(cls, v: List[str]) -> List[str]:
+    def validate_modifiers(cls, v: list[str]) -> list[str]:
         allowed = {"cmd", "shift", "ctrl", "alt"}
         for m in v:
             if m not in allowed:
@@ -27,18 +27,18 @@ class WhisperConfig(BaseModel):
     model_size: str = "base"
     compute_type: str = "int8"
     device: str = "cpu"
-    language: Optional[str] = "en"
+    language: str | None = "en"
     beam_size: int = 1  # 1 = greedy decode; faster for short voice commands
 
 
 class MlxWhisperConfig(BaseModel):
     """Whisper on the Apple GPU via MLX (stt_engine: "mlx")."""
     model: str = "mlx-community/whisper-base-mlx"   # …/whisper-small-mlx, …/whisper-large-v3-turbo
-    language: Optional[str] = "en"
+    language: str | None = "en"
 
 
 class GoogleSTTConfig(BaseModel):
-    api_key: Optional[str] = None
+    api_key: str | None = None
 
 
 class OllamaConfig(BaseModel):
@@ -49,11 +49,11 @@ class OllamaConfig(BaseModel):
     # Keep the model resident in memory between commands ("30m", "-1" = forever).
     # Ollama's default (5 min) means the first command after a pause pays a
     # multi-second reload — that's most of the perceived latency.
-    keep_alive: Union[int, str] = -1   # int seconds (-1 = forever) or "30m"
+    keep_alive: int | str = -1   # int seconds (-1 = forever) or "30m"
     # Two-tier models: `model` answers the user (latency matters); `verify_model`
     # does the background self-check / re-reasoning where a slower, stronger
     # model is fine. None = same as `model`.
-    verify_model: Optional[str] = None
+    verify_model: str | None = None
     # Context window. Ollama's default (4096) is SMALLER than our system prompt
     # (~4k tokens): the window overflows on every call, the prefix cache is
     # lost and the date table gets truncated. 8192 fits prompt + few-shot + output.
@@ -63,19 +63,19 @@ class OllamaConfig(BaseModel):
 
 
 class OpenAIConfig(BaseModel):
-    api_key: Optional[str] = None
+    api_key: str | None = None
     model: str = "gpt-4o"
     temperature: float = 0.1
 
 
 class GeminiConfig(BaseModel):
-    api_key: Optional[str] = None
+    api_key: str | None = None
     model: str = "gemini-1.5-pro"
     temperature: float = 0.1
 
 
 class ClaudeConfig(BaseModel):
-    api_key: Optional[str] = None
+    api_key: str | None = None
     model: str = "claude-3-5-sonnet-20240620"
     temperature: float = 0.1
 
@@ -93,7 +93,7 @@ class AudioConfig(BaseModel):
     max_recording_sec: int = 120         # hard cap
     # Comma-separated words/phrases that trigger early recording stop.
     # Merged with the built-in defaults (execute, done, stop, …).
-    stop_phrases: List[str] = []
+    stop_phrases: list[str] = []
     # Optional spoken separator between multiple events in one recording.
     # When non-empty, the transcript is split on this phrase and each
     # segment is parsed independently (faster — avoids LLM for multi-event).
@@ -189,7 +189,7 @@ class UIConfig(BaseModel):
 
 
 class ApiConfig(BaseModel):
-    key: Optional[str] = None   # X-API-Key header value; null = no auth required
+    key: str | None = None   # X-API-Key header value; null = no auth required
     # Where the phone API listens. The launcher passes --port; this is what
     # other local processes (the thinking HUD) use to reach it.
     port: int = 8080
@@ -332,7 +332,7 @@ class NLUConfig(BaseModel):
     # When a voice command's extracted title matches one of these, the event is
     # created immediately with the keyword as a placeholder title, then the LLM
     # silently patches it with a proper title derived from the full transcript.
-    event_keywords: List[str] = ["meeting", "appointment", "activity"]
+    event_keywords: list[str] = ["meeting", "appointment", "activity"]
     # Few-shot personalisation: inject the k most similar past commands
     # (with user corrections) into the LLM prompt. 0 = off — run 7 measured
     # no effect at k=4 (98% vs 97%, and 100% on the only path that reads
@@ -602,7 +602,7 @@ class AppConfig(BaseModel):
     openai: OpenAIConfig = OpenAIConfig()
     gemini: GeminiConfig = GeminiConfig()
     claude: ClaudeConfig = ClaudeConfig()
-    microsoft: Optional[MicrosoftConfig] = None
+    microsoft: MicrosoftConfig | None = None
     calendar_sync: CalendarSyncConfig = CalendarSyncConfig()
     sync: SyncConfig = SyncConfig()
     google_calendar: GoogleCalendarConfig = GoogleCalendarConfig()

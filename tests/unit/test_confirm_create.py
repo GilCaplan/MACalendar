@@ -20,10 +20,10 @@ from __future__ import annotations
 import pytest
 
 from assistant.engine import _confirm_proposal, _create_spec
-from assistant.engine.decompose_validate.object_rules import is_interrogative_create
-from assistant.engine.state import EngineState, Item
 from assistant.engine.decompose_validate import stage as _validate
+from assistant.engine.decompose_validate.object_rules import is_interrogative_create
 from assistant.engine.fastrule import fast_track
+from assistant.engine.state import EngineState, Item
 
 
 @pytest.fixture(autouse=True)
@@ -214,7 +214,6 @@ def confirming_engine(monkeypatch):
     """Stub steps 2-5 so the gate is exercised without a model: the words are
     a question about creating something, and the parse is a create."""
     from assistant.actions.calendar.intent import CalendarIntent
-    from assistant.engine.fastrule import stage as _generate
 
     def fake_deep(state, cfg):
         state.items = [Item(id="item_1", kind="event", text=state.text,
@@ -346,7 +345,7 @@ def test_a_missing_token_is_a_400(client):
 # deep track.
 # ---------------------------------------------------------------------------
 
-from assistant.config import load_config                     # noqa: E402
+from assistant.config import load_config  # noqa: E402
 
 
 def _fast(text: str, supports_confirm: bool = True):

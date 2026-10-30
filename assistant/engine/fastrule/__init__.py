@@ -6,4 +6,4 @@
 
 See ARCHITECTURE.md for the tiered decision and what a DEFER verdict obliges.
 """
-from assistant.engine.fastrule import fastrule      # noqa: F401
+from assistant.engine.fastrule import fastrule  # noqa: F401

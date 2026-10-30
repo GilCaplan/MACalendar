@@ -103,10 +103,10 @@ def _cfg(sample_config, n, **kinds):
 def test_the_title_is_stored_as_words(db, sample_config):
     """The old component wrote "buy milk 🥛" into the row — which then went to
     Google, to the duplicate check and to every classifier. Now nothing does."""
-    from assistant.actions.todo.action import CreateTodoAction
-    from assistant.actions.todo.intent import CreateTodoIntent
     from assistant.actions.calendar.action import CreateEventAction
     from assistant.actions.calendar.intent import CalendarIntent
+    from assistant.actions.todo.action import CreateTodoAction
+    from assistant.actions.todo.intent import CreateTodoIntent
     CreateTodoAction().execute(CreateTodoIntent(titles=["buy milk"]), _cfg(sample_config, 2))
     row = db.get_todos()[0]
     assert row["title"] == "buy milk" and row["tags"] == ["Groceries"]
@@ -129,6 +129,7 @@ def test_the_api_serves_each_rows_icons(db, sample_config, monkeypatch):
 
 def test_the_setting_is_validated_on_patch(tmp_path, monkeypatch):
     import importlib
+
     import yaml
     target = tmp_path / "config.yaml"
     target.write_text("theme: dark\n")
@@ -161,6 +162,7 @@ def test_every_word_belongs_to_a_kind_that_can_be_switched():
 
 def test_the_kinds_are_one_list_in_config_the_engine_and_the_phone():
     import re
+
     from assistant.config import TitleEmojiConfig
     from assistant.engine.label.title_icons import GROUPS
     assert set(TitleEmojiConfig.model_fields) - {"count"} == set(GROUPS)
@@ -171,6 +173,7 @@ def test_the_kinds_are_one_list_in_config_the_engine_and_the_phone():
 
 def test_patch_takes_a_kind_switch_and_refuses_anything_else(tmp_path, monkeypatch):
     import importlib
+
     import yaml
     target = tmp_path / "config.yaml"
     target.write_text("theme: dark\n")

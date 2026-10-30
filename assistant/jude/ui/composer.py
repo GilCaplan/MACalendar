@@ -10,8 +10,15 @@ from __future__ import annotations
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
-    QCheckBox, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QSlider, QTextEdit,
-    QVBoxLayout, QWidget,
+    QCheckBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSizePolicy,
+    QSlider,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
 
 TOP_K_MIN, TOP_K_MAX, TOP_K_DEFAULT = 5, 30, 25

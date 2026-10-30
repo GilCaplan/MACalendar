@@ -17,17 +17,17 @@ DEFAULT_LENGTH_MINUTES = 60
 DEFAULT_GAP_MINUTES = 0
 
 
-def length_minutes(category: "str | None" = None) -> int:
+def length_minutes(category: str | None = None) -> int:
     """Minutes an event lasts when its end was not said."""
     return _read("default_minutes", "event_length_minutes", DEFAULT_LENGTH_MINUTES, category)
 
 
-def gap_minutes(category: "str | None" = None) -> int:
+def gap_minutes(category: str | None = None) -> int:
     """Minutes between the end of one chained event and the start of the next."""
     return _read("chain_gap_minutes", "chain_gap_minutes", DEFAULT_GAP_MINUTES, category)
 
 
-def category_of(title: str) -> "str | None":
+def category_of(title: str) -> str | None:
     """The category the label stage's rules would give this title, or None."""
     try:
         from assistant.actions.calendar import categories
@@ -36,7 +36,7 @@ def category_of(title: str) -> "str | None":
         return None
 
 
-def _read(cat_key: str, cfg_key: str, default: int, category: "str | None") -> int:
+def _read(cat_key: str, cfg_key: str, default: int, category: str | None) -> int:
     if category:
         try:
             from assistant.actions.calendar import categories
@@ -71,7 +71,7 @@ def config_path() -> str:
     return os.path.normpath(os.path.join(here, "..", "config.yaml"))
 
 
-def _config_value(key: str) -> "int | None":
+def _config_value(key: str) -> int | None:
     """`events.<key>` from config.yaml, re-read only when the file changes.
 
     Only the `events:` section is parsed (through `EventsConfig`, so the
@@ -91,6 +91,7 @@ def _config_value(key: str) -> "int | None":
         events = None
         try:
             import yaml
+
             from assistant.config import EventsConfig
             with open(path) as f:
                 data = yaml.safe_load(f) or {}
@@ -124,7 +125,7 @@ SERIES_END = {
 }
 
 
-def series_count(cadence: str) -> "int | None":
+def series_count(cadence: str) -> int | None:
     """How many times a series of this cadence runs when no end was said."""
     spec = SERIES_END.get((cadence or "").lower())
     if not spec:
@@ -133,7 +134,7 @@ def series_count(cadence: str) -> "int | None":
     return max(1, value) if value else spec[1]
 
 
-def series_default_until(cadence: str, start: str) -> "str | None":
+def series_default_until(cadence: str, start: str) -> str | None:
     """The LAST date a series starting on `start` (ISO) may land on when the
     speaker named no end — the day before the span runs out, so "weekly, 8"
     is eight Mondays, not nine. None for a cadence without a default."""

@@ -10,8 +10,6 @@ from __future__ import annotations
 
 import datetime
 
-import pytest
-
 from assistant import notify
 from assistant.config import NotificationsConfig
 

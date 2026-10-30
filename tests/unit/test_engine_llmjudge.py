@@ -61,8 +61,8 @@ def test_personalisation_is_lookup_not_training(fastrule):
     lookup against the user's own stores must (a) resolve what generic
     English cannot, and (b) never let a wrong parse through just because
     something was found."""
-    from assistant.db import get_db
     from assistant.actions.calendar.intent import CalendarIntent
+    from assistant.db import get_db
 
     # nothing in the stores: the rename cannot be resolved, so it defers
     r = fastrule.run("rename flu shot to sales call")
@@ -93,8 +93,8 @@ def test_the_ported_code_lives_here_now(fastrule):
     reintroduced that shape; this asserts it is a move.
     """
     from assistant.engine.fastrule import fastrule as fr
-    from assistant.engine.llmjudge import llm_fallback as fo
     from assistant.engine.llmjudge import gatekeeper as gk
+    from assistant.engine.llmjudge import llm_fallback as fo
     from assistant.engine.llmjudge import llm_fallback as lf
 
     assert fr.Gatekeeper is gk.Gatekeeper
@@ -121,7 +121,8 @@ def test_the_ported_code_lives_here_now(fastrule):
 
 def _fast_items(text, intents):
     """What `fast_propose` builds, without needing a rule parse to produce it."""
-    from assistant.engine.fastrule.fast_track import _fast_item_words, kind_for as _kind_for
+    from assistant.engine.fastrule.fast_track import _fast_item_words
+    from assistant.engine.fastrule.fast_track import kind_for as _kind_for
     from assistant.engine.state import EngineState, Item
 
     st = EngineState(raw_text=text, text=text)
@@ -189,13 +190,13 @@ def test_an_intent_that_names_nothing_keeps_the_whole_command():
 # faked here the way test_engine_crosscheck.py fakes it.
 # ---------------------------------------------------------------------------
 
-from types import SimpleNamespace                                    # noqa: E402
+from types import SimpleNamespace  # noqa: E402
 
-from assistant.actions.calendar.intent import CalendarIntent         # noqa: E402
-from assistant.actions.todo.intent import CreateTodoIntent           # noqa: E402
-from assistant.engine.llmjudge import findings as F                  # noqa: E402
-from assistant.engine.llmjudge import render, rewrite, verdict       # noqa: E402
-from assistant.engine.state import CheckFinding, EngineState, Item   # noqa: E402
+from assistant.actions.calendar.intent import CalendarIntent  # noqa: E402
+from assistant.actions.todo.intent import CreateTodoIntent  # noqa: E402
+from assistant.engine.llmjudge import findings as F  # noqa: E402
+from assistant.engine.llmjudge import render, rewrite, verdict  # noqa: E402
+from assistant.engine.state import CheckFinding, EngineState, Item  # noqa: E402
 
 
 @pytest.fixture
@@ -707,9 +708,10 @@ def test_a_list_becomes_three_events_end_to_end(registry_with_real_actions, cfg,
     the coordinated subject, the rewrite re-enters segmentation with one
     clause per thing, and three events land on the Friday the speaker named.
     A second ask beside the list is frozen and kept."""
+    from freezegun import freeze_time
+
     import assistant.engine as engine
     from assistant.intent import rule_parser as RP
-    from freezegun import freeze_time
 
     monkeypatch.setenv("MACALENDAR_LLM_DISABLED", "1")
     RP._ensure_nlp(); RP._ensure_dt()          # spaCy before the frozen clock
@@ -855,9 +857,10 @@ def test_an_under_split_is_repaired_end_to_end_by_the_model_round(registry_with_
     raises the unsplit subject, the deterministic round has nothing new, the
     model writes two lines, the envelope re-enters segmentation, and two clean
     objects come out."""
+    from freezegun import freeze_time
+
     import assistant.engine as engine
     from assistant.intent import rule_parser as RP
-    from freezegun import freeze_time
 
     # A bare "and then" with no verb on its right: FastSeg leaves it to the
     # clause tier, which cannot cut it (". Also," is a hard seam now, so the
@@ -869,8 +872,8 @@ def test_an_under_split_is_repaired_end_to_end_by_the_model_round(registry_with_
     # DEVQA Q51 — `test_segmentation_now_cuts_the_row_the_loop_used_to_repair`).
     # The loop is what this test is about, so the seam is switched off to
     # recreate the under-split it exists to repair.
-    import re as _re
     import importlib
+    import re as _re
     _fs = importlib.import_module("assistant.engine.segmentation.fastseg.fastseg")
     monkeypatch.setattr(_fs, "_SEQUENCE_SEAM", _re.compile(r"(?!x)x"))
     RP._ensure_nlp(); RP._ensure_dt()
@@ -889,7 +892,6 @@ def test_an_under_split_is_repaired_end_to_end_by_the_model_round(registry_with_
 def test_segmentation_now_cuts_the_row_the_loop_used_to_repair(registry_with_real_actions, cfg):
     """The same real row, with the sequence seam live: two items straight out of
     segmentation, the second marked as following the first (DEVQA Q51)."""
-    import assistant.engine as engine
     from freezegun import freeze_time
     T = "For the next three Sundays remind me I have yoga class at noon and then yashas bithday with vinay"
     with freeze_time("2026-09-09 10:00:00"):
@@ -936,9 +938,10 @@ def test_a_subject_that_names_nothing_is_held_back_not_written(registry_with_rea
     hole at the other end: it raised the finding every round, no rewrite could
     invent a subject nobody said, and it committed the object anyway — four
     dev-100 rows, one of them twice (2026-09-20)."""
+    from freezegun import freeze_time
+
     import assistant.engine as engine
     from assistant.intent import rule_parser as RP
-    from freezegun import freeze_time
 
     monkeypatch.setenv("MACALENDAR_LLM_DISABLED", "1")
     # The SAME path on CI and on a Mac (2026-09-24): with no ollama the deep
@@ -992,9 +995,10 @@ def test_a_held_back_object_is_not_recorded_as_done(registry_with_real_actions, 
     something it told the speaker it had not — found 2026-09-20, the first
     run where anything was held back: the reply read "I didn't book 'this on
     my calender'" and the record carried a create_event for it."""
+    from freezegun import freeze_time
+
     import assistant.engine as engine
     from assistant.intent import rule_parser as RP
-    from freezegun import freeze_time
 
     monkeypatch.setenv("MACALENDAR_LLM_DISABLED", "1")
     RP._ensure_nlp(); RP._ensure_dt()
@@ -1080,8 +1084,8 @@ def test_a_determiner_and_one_names_nothing_on_both_gates():
     that names nothing is refused EVERYWHERE, so both gates carry the shape.
     Measured before writing: 16 of 4,629 FastRule train gold titles match,
     all of them rows the corpus marks `generic_target`."""
-    from assistant.intent.rule_parser import names_something
     from assistant.engine.llmjudge.gatekeeper import _GENERIC_TARGET_RE
+    from assistant.intent.rule_parser import names_something
     for t in ("that one", "this one", "the one", "the last one", "the first one",
               "those ones", "the other one", "my last one", "one"):
         assert not names_something(t), t

@@ -46,8 +46,9 @@ run. The slot check still runs; it never needed a model.
 
 from __future__ import annotations
 
-from assistant.engine.llmjudge import findings as F, verdict
-from assistant.engine.llmjudge.findings import ROUTE            # noqa: F401
+from assistant.engine.llmjudge import findings as F
+from assistant.engine.llmjudge import verdict
+from assistant.engine.llmjudge.findings import ROUTE  # noqa: F401
 from assistant.engine.llmjudge.rewrite import rewrite_for_retry  # noqa: F401
 
 MAX_REENTRIES = 3   # total per command, all stages combined
@@ -55,8 +56,8 @@ MAX_REENTRIES = 3   # total per command, all stages combined
 
 def run(state, cfg):
     """X4 + the raw text -> findings. Nothing is committed and nothing loops."""
-    from assistant.trace import VERIFY
     from assistant.engine.llmjudge import rescue as _rescue
+    from assistant.trace import VERIFY
 
     _rescue.take_deferrals(state, cfg)
 
@@ -126,7 +127,7 @@ def _flag_panel_items(state, found) -> None:
                              judge_result="not_asked", item_id=it.id)
 
 
-def notices(state) -> "list[str]":
+def notices(state) -> list[str]:
     """What to TELL the speaker about objects that committed with an assumption.
 
     Called once by the orchestrator after the loop settles, never from `run`:

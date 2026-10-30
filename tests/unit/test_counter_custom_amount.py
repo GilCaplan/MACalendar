@@ -15,8 +15,8 @@ from PyQt6.QtCore import Qt
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtTest import QTest                      # noqa: E402
-from PyQt6.QtWidgets import QApplication            # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import QApplication  # noqa: E402
 
 from assistant.calendar_ui import timer_view as tv  # noqa: E402
 from assistant.db import CalendarDB, counter_press_amount  # noqa: E402

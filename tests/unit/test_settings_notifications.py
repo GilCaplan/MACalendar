@@ -31,17 +31,24 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-import yaml                                                          # noqa: E402
-from PyQt6.QtCore import QPoint, Qt, QTimer                          # noqa: E402
-from PyQt6.QtTest import QTest                                       # noqa: E402
-from PyQt6.QtWidgets import (                                        # noqa: E402
-    QApplication, QCheckBox, QComboBox, QPushButton, QWidget,
+import yaml  # noqa: E402
+from PyQt6.QtCore import QPoint, Qt  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import (  # noqa: E402
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QWidget,
 )
 
-from assistant import config_store                                   # noqa: E402
-from assistant.calendar_ui.settings_dialog import open_settings      # noqa: E402
-from assistant.config import (                                       # noqa: E402
-    AudioConfig, HebrewCalendarConfig, NLUConfig, NotificationsConfig, UIConfig,
+from assistant import config_store  # noqa: E402
+from assistant.calendar_ui.settings_dialog import open_settings  # noqa: E402
+from assistant.config import (  # noqa: E402
+    AudioConfig,
+    HebrewCalendarConfig,
+    NLUConfig,
+    NotificationsConfig,
+    UIConfig,
 )
 from tests.unit._settings_driver import drive_settings  # noqa: E402
 

@@ -188,7 +188,7 @@ def untraceable(item: dict, text: str, today: str) -> list:
         if not m:
             out.append(f"{field} {wren!r} is not a time")
             continue
-        h, mins = int(m.group(1)), m.group(2)
+        h = int(m.group(1))
         h12 = h % 12 or 12
         # NOT \b — "7am" has no word boundary after the 7, so \b7\b misses it
         # and a CORRECT answer got reported as an invention. Digit-boundary

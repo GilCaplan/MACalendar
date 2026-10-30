@@ -335,7 +335,7 @@ class Installer:
             if quiet:
                 return
             print("\n? Where should the app icons go?\n"
-                  f"   1. Applications ▸ MACalendar APPs (recommended)\n"
+                  "   1. Applications ▸ MACalendar APPs (recommended)\n"
                   "   2. Your Desktop\n"
                   "   3. Another folder")
             got = _input("  1, 2 or 3 [1]: ").strip()
@@ -674,7 +674,7 @@ print(json.dumps(res))
 """
 
 
-def stop_running_server(root: "Path | str" = "", name: str = INSTANCE) -> bool:
+def stop_running_server(root: Path | str = "", name: str = INSTANCE) -> bool:
     """Ask a running MACalendar Server to quit (its tray listens on a local
     socket, assistant/host/tray.py). True when one answered. Best effort.
 

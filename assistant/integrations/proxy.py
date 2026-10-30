@@ -28,7 +28,7 @@ import urllib.request
 logger = logging.getLogger(__name__)
 
 
-def call(integration, path: str, method: str = "GET", payload: "dict | None" = None,
+def call(integration, path: str, method: str = "GET", payload: dict | None = None,
          timeout: int = 30):
     """One plain proxied call, as a Flask response. Never raises.
 
@@ -99,7 +99,7 @@ def stream(integration, path: str, payload: dict, timeout: int = 900):
         # notice silence: a blocking read cannot say "nothing yet" after
         # fifteen seconds, and "nothing yet" is exactly what the phone needs
         # to hear (see KEEPALIVE_S).
-        q: "queue.Queue" = queue.Queue()
+        q: queue.Queue = queue.Queue()
 
         def pump():
             try:

@@ -46,7 +46,6 @@ def _next_week(anchor: dt.date, name: str) -> dt.date:
     return anchor + dt.timedelta(days=(7 - anchor.weekday()) + _WEEKDAY[name])
 
 
-from assistant.common.wordlists import MONTH_INDEX as _MONTH  # noqa: E402
 
 
 def _days_in(year: int, month: int) -> int:

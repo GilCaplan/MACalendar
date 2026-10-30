@@ -15,13 +15,23 @@ import os
 import threading
 import urllib.error
 import urllib.request
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from PyQt6.QtCore import Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices, QGuiApplication
 from PyQt6.QtWidgets import (
-    QCheckBox, QDialog, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
-    QPushButton, QScrollArea, QTabWidget, QVBoxLayout, QWidget,
+    QCheckBox,
+    QDialog,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
 )
 
 PROVIDERS = (("google", "Google Calendar"), ("outlook", "Outlook Calendar"))
@@ -37,14 +47,14 @@ class BrainClient:
         self.base = f"http://127.0.0.1:{getattr(api, 'port', 8080)}"
         self.key = getattr(api, "key", None)
 
-    def call(self, method: str, path: str, body: Optional[dict] = None,
+    def call(self, method: str, path: str, body: dict | None = None,
              timeout: float = 15) -> tuple[int, dict]:
         data = json.dumps(body).encode() if body is not None else None
         req = urllib.request.Request(self.base + path, data=data, method=method,
                                      headers={"Content-Type": "application/json"})
         if self.key:
             req.add_header("X-API-Key", self.key)
-        from assistant.users import local_session as _ls    # the Mac's user's sign-ins
+        from assistant.users import local_session as _ls  # the Mac's user's sign-ins
         for _k, _v in _ls.headers().items():
             req.add_header(_k, _v)
         try:
@@ -75,11 +85,11 @@ class ConnectedCalendarsSection(QWidget):
 
     _delivered = pyqtSignal(object, object)          # (callback, (status, body))
 
-    def __init__(self, parent=None, config=None, client: Optional[BrainClient] = None,
-                 open_url: Optional[Callable[[str], None]] = None,
-                 on_links: Optional[Callable[[], None]] = None,
-                 toast: Optional[Callable[[str], None]] = None,
-                 on_synced: Optional[Callable[[], None]] = None) -> None:
+    def __init__(self, parent=None, config=None, client: BrainClient | None = None,
+                 open_url: Callable[[str], None] | None = None,
+                 on_links: Callable[[], None] | None = None,
+                 toast: Callable[[str], None] | None = None,
+                 on_synced: Callable[[], None] | None = None) -> None:
         super().__init__(parent)
         self._client = client or BrainClient(config)
         self._open_url = open_url or (lambda u: QDesktopServices.openUrl(QUrl(u)))
@@ -87,7 +97,7 @@ class ConnectedCalendarsSection(QWidget):
         self._on_synced = on_synced or (lambda: None)
         self._status: dict = {}
         self._polls: dict[str, QTimer] = {}
-        self._code_dialog: Optional[QDialog] = None
+        self._code_dialog: QDialog | None = None
         # A bound method, so the worker thread's emit is QUEUED onto this
         # widget's (the GUI) thread — widgets are only touched there.
         self._delivered.connect(self._deliver)
@@ -155,7 +165,7 @@ class ConnectedCalendarsSection(QWidget):
     def _deliver(self, then, res) -> None:
         then(res)
 
-    def _async(self, method: str, path: str, body: Optional[dict], then) -> None:
+    def _async(self, method: str, path: str, body: dict | None, then) -> None:
         def work() -> None:
             self._delivered.emit(then, self._client.call(method, path, body))
         threading.Thread(target=work, daemon=True, name="calsync-ui").start()
@@ -284,7 +294,7 @@ class ConnectedCalendarsSection(QWidget):
         self.refresh()
 
     # ── disconnect / two-way / sync ───────────────────────────────
-    def disconnect_provider(self, key: str, keep_events: Optional[bool] = None) -> None:
+    def disconnect_provider(self, key: str, keep_events: bool | None = None) -> None:
         name = dict(PROVIDERS)[key]
         if keep_events is None:
             box = QMessageBox(self)

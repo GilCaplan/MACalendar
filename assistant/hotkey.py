@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Callable, Set
+from collections.abc import Callable
 
 from pynput import keyboard
 
@@ -42,12 +42,12 @@ class HotkeyListener:
     def __init__(self, config: HotkeyConfig, callback: Callable[[], None]) -> None:
         self.callback = callback
         self._trigger_key = _parse_trigger_key(config.key)
-        self._required_modifiers: Set[frozenset] = {
+        self._required_modifiers: set[frozenset] = {
             frozenset(keys)
             for mod in config.modifiers
             for keys in [_MODIFIER_MAP[mod]]
         }
-        self._pressed: Set = set()
+        self._pressed: set = set()
         self._combo_active: bool = False  # debounce — fire once per press, not on repeat
         self._listener: keyboard.Listener | None = None
 

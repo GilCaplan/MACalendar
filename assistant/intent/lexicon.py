@@ -71,7 +71,7 @@ class Lexicon:
         self.attr = attr
         self.example = example
 
-    def built_in(self) -> "frozenset[str]":
+    def built_in(self) -> frozenset[str]:
         """The words the code ships with, read from the module that owns them."""
         import importlib
         try:
@@ -86,7 +86,7 @@ class Lexicon:
         return frozenset()
 
 
-def _time_entry(entry: str) -> "str | None":
+def _time_entry(entry: str) -> str | None:
     from assistant.intent.time_words import normalize_entry
     return normalize_entry(entry)
 
@@ -97,7 +97,7 @@ def _time_entry(entry: str) -> "str | None":
 #:
 #: Adding one here is cheap and is the point: declare it, and both the API and
 #: the settings screen pick it up with no further wiring.
-LEXICONS: "dict[str, Lexicon]" = {
+LEXICONS: dict[str, Lexicon] = {
     lx.name: lx for lx in (
         Lexicon("extend_verbs", "Making something longer or shorter",
                 "Words that change how long an event lasts, rather than moving it.",
@@ -139,7 +139,7 @@ class LexiconStore:
     Shape:  {"extend_verbs": ["squeeze", "stretch out"], "stop_words": [...]}
     """
 
-    def __init__(self, path: "str | None" = None) -> None:
+    def __init__(self, path: str | None = None) -> None:
         # Resolved at CALL time, not as a default argument. A default is bound
         # at import, and this project's stores are all read at import — which is
         # exactly why `conftest.py` sets its overrides before importing
@@ -163,7 +163,7 @@ class LexiconStore:
         if mtime == self._mtime:
             return
         try:
-            with open(self.path, "r", encoding="utf-8") as fh:
+            with open(self.path, encoding="utf-8") as fh:
                 raw = json.load(fh)
         except (OSError, ValueError):
             return                              # keep what we had; never crash a parse
@@ -177,12 +177,12 @@ class LexiconStore:
 
     # -- reading -----------------------------------------------------------
 
-    def added(self, name: str) -> "list[str]":
+    def added(self, name: str) -> list[str]:
         """Just the person's own words for `name`."""
         self._load()                            # a PATCH from the phone lands on disk
         return list(self._data.get(name, ()))
 
-    def effective(self, name: str) -> "frozenset[str]":
+    def effective(self, name: str) -> frozenset[str]:
         """What the engine should actually use: built-in PLUS the person's.
 
         Union, always. An edit can only ever widen what the engine understands.
@@ -254,11 +254,11 @@ class LexiconStore:
         self._mtime = os.path.getmtime(self.path)
 
 
-_store: "LexiconStore | None" = None
+_store: LexiconStore | None = None
 _store_lock = threading.Lock()
 
 
-_user_stores: "dict[str, LexiconStore]" = {}
+_user_stores: dict[str, LexiconStore] = {}
 
 
 def get_lexicon() -> LexiconStore:
@@ -281,7 +281,7 @@ def get_lexicon() -> LexiconStore:
         return st
 
 
-def effective(name: str) -> "frozenset[str]":
+def effective(name: str) -> frozenset[str]:
     """The engine's entry point. Cheap: the file's mtime is the only syscall on
     the common path, and the parse that calls this runs in ~50 ms."""
     return get_lexicon().effective(name)

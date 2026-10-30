@@ -66,12 +66,12 @@ def strip_discourse_tail(s: str) -> str:
 DEFAULT_TIME = "today"
 
 
-def content(s: str) -> "set[str]":
+def content(s: str) -> set[str]:
     return {w for w in re.findall(r"[a-z0-9']+", strip_discourse_tail(s).lower())
             if w not in _STOP}
 
 
-def violations(text: str, items: "list[dict]") -> "list[str]":
+def violations(text: str, items: list[dict]) -> list[str]:
     """Empty list means the decomposition is faithful to `text`."""
     src = content(text)
     out: list[str] = []

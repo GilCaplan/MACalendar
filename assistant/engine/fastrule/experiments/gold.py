@@ -27,7 +27,7 @@ from assistant.common.wordlists import MONTH_INDEX as _MONTH  # noqa: E402
 from assistant.common.wordlists import WEEKDAY_INDEX as _WEEKDAY  # noqa: E402
 
 
-def _phrase_to_date(phrase: str, today: "_dt.date") -> "str | None":
+def _phrase_to_date(phrase: str, today: _dt.date) -> str | None:
     """A day that does not exist ("the 31st" in September, "february 29th"
     in a common year) names no single day: None, like a range. It raised
     ValueError until 2026-09-29, found by the Swift port's parity check."""
@@ -37,7 +37,7 @@ def _phrase_to_date(phrase: str, today: "_dt.date") -> "str | None":
         return None
 
 
-def _phrase_to_date_raw(phrase: str, today: "_dt.date") -> "str | None":
+def _phrase_to_date_raw(phrase: str, today: _dt.date) -> str | None:
     """Resolve a ground-truth date phrase to an ISO date, or None when the
     phrase is inherently a RANGE ("next week", "this weekend") — those have
     no single right answer, so they are excluded from scoring rather than
@@ -150,7 +150,7 @@ def time_is_unambiguous(phrase: str) -> bool:
 CONTRADICTORY = "contradictory"
 
 
-def _ruled_hhmm(phrase: str, text: str) -> "str | None":
+def _ruled_hhmm(phrase: str, text: str) -> str | None:
     """The start time the RULINGS say a spoken time means, in its sentence.
 
     `_phrase_to_hhmm` reads the phrase alone and puts every bare hour in the
@@ -194,7 +194,7 @@ _RANGE = re.compile(
     r"(?P<b>\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?|noon|midday|midnight)$", re.I)
 
 
-def ruled_range(phrase: str, text: str) -> "tuple[str, str] | None":
+def ruled_range(phrase: str, text: str) -> tuple[str, str] | None:
     """(start, end) the rulings give a spoken range, or None if it is not one.
 
     When only the END carries its half ("from 9 to 11pm", "from 3 to 4pm"),
@@ -235,7 +235,7 @@ def ruled_range(phrase: str, text: str) -> "tuple[str, str] | None":
     return start, end
 
 
-def _phrase_to_hhmm(phrase: str) -> "str | None":
+def _phrase_to_hhmm(phrase: str) -> str | None:
     """Resolve an explicit spoken time to HH:MM, or None if it isn't one."""
     s = (phrase or "").strip().lower()
     words = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,

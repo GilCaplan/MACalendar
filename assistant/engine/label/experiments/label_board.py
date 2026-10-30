@@ -78,13 +78,14 @@ def main() -> int:
     a = ap.parse_args()
 
     from freezegun import freeze_time
+
     import assistant.engine as engine
+    from assistant.db import get_db
     from assistant.engine import llm as _llm
     from assistant.engine.decompose_validate import stage as _dv
     from assistant.engine.fastrule.build import Built, build_all
-    from assistant.engine.state import EngineState, Item
     from assistant.engine.llmjudge.datasets.generate import CLOCK
-    from assistant.db import get_db
+    from assistant.engine.state import EngineState, Item
 
     cfg = engine.load_config()
     _llm.get_rule_parser().analyze("book gym tomorrow at 7am", current_view="month")
@@ -223,20 +224,20 @@ def main() -> int:
     if ev_total:
         print(f"    events categorised        {ev_total}"
               f"   ·  Personal fallback {100.0 * personal / ev_total:.1f}%")
-        print(f"    category spread           "
+        print("    category spread           "
               + ", ".join(f"{k} {v}" for k, v in cat_dist.most_common(8)))
     if tagged + untagged:
         print(f"    tasks tagged              {tagged}/{tagged + untagged}"
               f" = {100.0 * tagged / (tagged + untagged):.1f}%")
-        print(f"    tag spread                "
+        print("    tag spread                "
               + ", ".join(f"{k} {v}" for k, v in tag_dist.most_common(8)))
     print()
     if title_total:
-        print(f"  TITLE FIDELITY (not label accuracy — see the module docstring)")
+        print("  TITLE FIDELITY (not label accuracy — see the module docstring)")
         print(f"    produced title lands in the same category as the gold title:"
               f" {100.0 * title_agree / title_total:.1f}%  ({title_agree}/{title_total})")
-        print(f"    A mismatch means the TITLE differed. The gold category is")
-        print(f"    `classify(gold_title)`, so this can never score the classifier.")
+        print("    A mismatch means the TITLE differed. The gold category is")
+        print("    `classify(gold_title)`, so this can never score the classifier.")
     print()
     for label, bad in (("readback", readback_fail), ("refresh", refresh_wrong)):
         for text, why in bad[:6]:

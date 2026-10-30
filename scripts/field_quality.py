@@ -50,7 +50,7 @@ def _content_words(text: str) -> set:
             if w not in STOPWORDS and not w.isdigit()}
 
 
-def transcript_clock_hours(text: str) -> "set[tuple[int, int | None]]":
+def transcript_clock_hours(text: str) -> set[tuple[int, int | None]]:
     """(hour mod 12, minutes-or-None) for every explicit time in the words.
     noon/midnight included; a bare "at 7" gives (7, None)."""
     out = set()
@@ -69,7 +69,7 @@ def transcript_clock_hours(text: str) -> "set[tuple[int, int | None]]":
     return out
 
 
-def _time_ok(start_time: str, wanted: set) -> "bool | None":
+def _time_ok(start_time: str, wanted: set) -> bool | None:
     """None = uncovered (no explicit time in the words)."""
     if not wanted:
         return None
@@ -83,7 +83,7 @@ def _time_ok(start_time: str, wanted: set) -> "bool | None":
     return False
 
 
-def _date_ok(date_str: str, text: str, ts: float) -> "bool | None":
+def _date_ok(date_str: str, text: str, ts: float) -> bool | None:
     """Checkable only for today/tonight/tomorrow and named weekdays."""
     try:
         ev = _dt.date.fromisoformat((date_str or "")[:10])
@@ -113,7 +113,7 @@ def _title_sim(title: str, text: str) -> float:
     return grounded * brevity
 
 
-def _grounded_or_absent(value: str, text: str) -> "bool | None":
+def _grounded_or_absent(value: str, text: str) -> bool | None:
     """Extras (location/description/attendees): absent = uncovered; present
     must draw its words from the transcript (invention check)."""
     if not (value or "").strip():
@@ -124,7 +124,7 @@ def _grounded_or_absent(value: str, text: str) -> "bool | None":
     return len(words & _content_words(text)) / len(words) >= 0.5
 
 
-def _qty_ok(quantity: int, text: str) -> "bool | None":
+def _qty_ok(quantity: int, text: str) -> bool | None:
     nums = set()
     for m in re.finditer(r"\b(\d{1,3})\b", text):
         tail = text[m.end():m.end() + 3]
@@ -136,7 +136,7 @@ def _qty_ok(quantity: int, text: str) -> "bool | None":
     return quantity in nums
 
 
-def _tag_ok(tags: list, title: str, classes, reference, resolver=None) -> "bool | None":
+def _tag_ok(tags: list, title: str, classes, reference, resolver=None) -> bool | None:
     """Tags are CLASSIFICATION over a finite class set (Gil, 2026-09-05) —
     the registry's tag names, not fuzzy words. Two objective checks:
     (a) every assigned tag must BE one of the classes (an out-of-set tag is an
@@ -168,7 +168,7 @@ def _tag_ok(tags: list, title: str, classes, reference, resolver=None) -> "bool 
 
 
 def score_item(action: dict, text: str, ts: float,
-               tag_classes=None, tag_reference=None, tag_resolver=None) -> "dict | None":
+               tag_classes=None, tag_reference=None, tag_resolver=None) -> dict | None:
     """One created item → {'score': 0..1, 'parts': {...}} or None (not a create)."""
     name = action.get("action", "")
     p = action.get("parameters", {}) or {}
@@ -205,7 +205,7 @@ def score_item(action: dict, text: str, ts: float,
     return None
 
 
-def _combine_bools(*vals) -> "float | None":
+def _combine_bools(*vals) -> float | None:
     known = [v for v in vals if v is not None]
     if not known:
         return None

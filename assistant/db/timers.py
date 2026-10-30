@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import datetime
-from typing import List, Optional
 
 
 def counter_press_amount(press: dict, price_per_unit: float) -> float:
@@ -44,7 +43,7 @@ class TimersMixin:
             )
             return cur.lastrowid
 
-    def get_timers(self, include_archived: bool = False) -> List[dict]:
+    def get_timers(self, include_archived: bool = False) -> list[dict]:
         """Return all timer projects as dicts, newest first."""
         with self._conn() as conn:
             where = "" if include_archived else "WHERE archived = 0"
@@ -76,7 +75,7 @@ class TimersMixin:
     # Timer Sessions
     # ------------------------------------------------------------------
 
-    def create_timer_session(self, timer_id: int, title: str = "", start_time: Optional[str] = None) -> int:
+    def create_timer_session(self, timer_id: int, title: str = "", start_time: str | None = None) -> int:
         """Start a new session for a timer. Returns new row id."""
         now = datetime.datetime.now().astimezone().isoformat()
         with self._conn() as conn:
@@ -86,7 +85,7 @@ class TimersMixin:
             )
             return cur.lastrowid
 
-    def get_timer_sessions(self, timer_id: int) -> List[dict]:
+    def get_timer_sessions(self, timer_id: int) -> list[dict]:
         """Return all sessions for a timer, oldest first."""
         with self._conn() as conn:
             rows = conn.execute(
@@ -95,7 +94,7 @@ class TimersMixin:
             ).fetchall()
             return [dict(r) for r in rows]
 
-    def get_running_session(self, timer_id: int) -> Optional[dict]:
+    def get_running_session(self, timer_id: int) -> dict | None:
         """Return the currently running (open) session for a timer, or None."""
         with self._conn() as conn:
             row = conn.execute(
@@ -117,7 +116,7 @@ class TimersMixin:
                 (*fields.values(), session_id),
             )
 
-    def stop_timer_session(self, session_id: int, end_time: Optional[str] = None) -> None:
+    def stop_timer_session(self, session_id: int, end_time: str | None = None) -> None:
         """Close an open session by setting end_time."""
         with self._conn() as conn:
             conn.execute(
@@ -130,7 +129,7 @@ class TimersMixin:
         with self._conn() as conn:
             conn.execute("DELETE FROM timer_sessions WHERE id = ?", (session_id,))
 
-    def split_timer_session(self, session_id: int, split_at: Optional[str] = None) -> int:
+    def split_timer_session(self, session_id: int, split_at: str | None = None) -> int:
         """
         Split a session at split_at (ISO datetime string) or its midpoint.
         Closes the original session at split_at and creates a new one.
@@ -183,7 +182,7 @@ class TimersMixin:
             )
             return cur.lastrowid
 
-    def get_counters(self, include_archived: bool = False) -> List[dict]:
+    def get_counters(self, include_archived: bool = False) -> list[dict]:
         """Return all counters as dicts, newest first."""
         with self._conn() as conn:
             where = "" if include_archived else "WHERE archived = 0"
@@ -221,8 +220,8 @@ class TimersMixin:
         counter_id: int,
         delta: int = 1,
         label: str = "",
-        pressed_at: Optional[str] = None,
-        amount: Optional[float] = None,
+        pressed_at: str | None = None,
+        amount: float | None = None,
     ) -> int:
         """Log a single +/- tap on a counter. Returns new row id.
 
@@ -237,7 +236,7 @@ class TimersMixin:
             )
             return cur.lastrowid
 
-    def get_counter_presses(self, counter_id: int) -> List[dict]:
+    def get_counter_presses(self, counter_id: int) -> list[dict]:
         """Return all presses for a counter, oldest first."""
         with self._conn() as conn:
             rows = conn.execute(
@@ -274,7 +273,7 @@ class TimersMixin:
         cycle_started_at: str,
         payout_at: str,
         count: int,
-        amount: Optional[float],
+        amount: float | None,
         currency: str,
         note: str = "",
     ) -> int:
@@ -295,7 +294,7 @@ class TimersMixin:
             )
             return cur.lastrowid
 
-    def get_counter_payouts(self, counter_id: int) -> List[dict]:
+    def get_counter_payouts(self, counter_id: int) -> list[dict]:
         """Return all payouts for a counter, newest first."""
         with self._conn() as conn:
             rows = conn.execute(
@@ -327,7 +326,7 @@ class TimersMixin:
         with self._conn() as conn:
             conn.execute("DELETE FROM counter_payouts WHERE id = ?", (payout_id,))
 
-    def get_counter_cycle_start(self, counter_id: int) -> Optional[str]:
+    def get_counter_cycle_start(self, counter_id: int) -> str | None:
         """Return the start of the counter's current (open) tally cycle.
 
         This is the most recent payout's `payout_at` for that counter, or

@@ -11,8 +11,6 @@ me looking for a collapse that had not happened:
 """
 from __future__ import annotations
 
-import pytest
-
 from scripts.weekly_review import BULK_MIN, BULK_WINDOW_S, _drop_bulk_runs
 
 

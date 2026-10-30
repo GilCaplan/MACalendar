@@ -228,12 +228,13 @@ class Featuriser:
     """One item -> {group: vector}. Groups are what the ablations switch."""
 
     def __init__(self, embed: bool = False) -> None:
-        import joblib
         import importlib
+
+        import joblib
         FS = importlib.import_module("assistant.engine.segmentation.fastseg.fastseg")
-        from assistant.engine.segmentation.fastseg import kind as K
         from assistant.actions.calendar import categories as C
         from assistant.actions.todo import tagging as T
+        from assistant.engine.segmentation.fastseg import kind as K
         self.FS, self.K, self.C, self.T = FS, K, C, T
         base = ENGINE / "label" / "models"
         ev = joblib.load(base / "event_label.joblib")
@@ -277,7 +278,7 @@ class Featuriser:
         return self.FS.tag(text, time_)
 
     # -- the rulings' own gates, read with the engine's regexes ----------------
-    def ruling(self, text, time_) -> "str | None":
+    def ruling(self, text, time_) -> str | None:
         FS = self.FS
         clock = bool(FS._STATED_CLOCK.search(time_ or ""))
         if clock and not FS._VAGUE_TIME_HEDGE.search(text) and not FS._DUE_DATE_EDIT.match(text) \
@@ -342,7 +343,7 @@ class Featuriser:
             f[f"frame_{k}"] = float(bool(rx.search(text)))
         return f
 
-    def stage1(self, texts) -> "np.ndarray":
+    def stage1(self, texts) -> np.ndarray:
         """Stage 1: the event-category model's 13 probabilities, the to-do-tag
         model's 4 one-vs-rest probabilities, and the keyword rules as one-hots."""
         ev = self.ev_pipe.predict_proba(texts)
@@ -364,7 +365,7 @@ class Featuriser:
                 + [f"tkp_{c}" for c in self.tk_classes] + ["tkp_max"]
                 + [f"rule_cat_{c}" for c in self.cat_names] + [f"rule_tag_{c}" for c in self.tag_names])
 
-    def embed_probs(self, texts) -> "np.ndarray":
+    def embed_probs(self, texts) -> np.ndarray:
         """The Q46 embedding heads' probabilities (nomic-embed-text via ollama)."""
         from assistant.engine.label import embed as E
         texts = list(texts)
@@ -390,6 +391,7 @@ class Featuriser:
 def _embed_diagnose(texts) -> str:
     """The door swallows its exception; ask once more, outside it, to say why."""
     import urllib.request
+
     from assistant.engine.label import embed as E
     body = json.dumps({"model": E.MODEL, "input": [E.PREFIX + t for t in texts]}).encode()
     try:
@@ -506,7 +508,7 @@ def main() -> int:
         if it["src"] != "real":                 # real items came through fastseg already
             it["text"] = strip_spoken_noise(it["text"]) or it["text"]
             it["time"] = strip_spoken_noise(it["time"]) if it["time"] else ""
-    print(f"  items loaded: " + ", ".join(f"{k} {len(v)}" for k, v in sources.items()), flush=True)
+    print("  items loaded: " + ", ".join(f"{k} {len(v)}" for k, v in sources.items()), flush=True)
     for i, it in enumerate(allitems):
         it["engine"] = it["tagk"] = fz.engine_kind(it["text"], it["time"])
         it["ruling"] = fz.ruling(it["text"], it["time"])

@@ -57,7 +57,7 @@ def _save(recs: list[dict]) -> None:
     os.replace(tmp, p)
 
 
-def clean(rec: dict) -> "tuple[dict | None, str]":
+def clean(rec: dict) -> tuple[dict | None, str]:
     """A valid record from what a client sent, or (None, why not)."""
     kind = str(rec.get("kind") or "").lower()
     if kind not in KINDS:
@@ -107,7 +107,7 @@ def clean(rec: dict) -> "tuple[dict | None, str]":
             "note": str(rec.get("note") or "")[:500]}, ""
 
 
-def add(rec: dict) -> "tuple[dict | None, str]":
+def add(rec: dict) -> tuple[dict | None, str]:
     got, why = clean(rec)
     if got is None:
         return None, why
@@ -120,7 +120,7 @@ def add(rec: dict) -> "tuple[dict | None, str]":
     return got, ""
 
 
-def update(oid: str, fields: dict) -> "tuple[dict | None, str]":
+def update(oid: str, fields: dict) -> tuple[dict | None, str]:
     with _lock:
         recs = load()
         for i, r in enumerate(recs):

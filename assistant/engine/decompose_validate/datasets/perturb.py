@@ -47,7 +47,7 @@ _WEEKDAY = ("monday", "tuesday", "wednesday", "thursday", "friday",
             "saturday", "sunday")
 
 
-def applicable(item: dict, kind: str, anchor: "str | None" = None) -> bool:
+def applicable(item: dict, kind: str, anchor: str | None = None) -> bool:
     """Can this defect be injected into this item at all?
 
     "Can" means REPAIRABLE IN PRINCIPLE, not merely "the field exists". A defect
@@ -136,7 +136,7 @@ def perturb(item: dict, kind: str) -> dict:
 
 
 def kind_for(row_id: str, index: int, item: dict, control_share: float = 0.34,
-             anchor: "str | None" = None) -> str:
+             anchor: str | None = None) -> str:
     """Which defect this item gets — stable, and biased toward controls.
 
     A third of items are left alone deliberately (see the module docstring): the
@@ -154,7 +154,7 @@ def kind_for(row_id: str, index: int, item: dict, control_share: float = 0.34,
     return "none"
 
 
-def perturb_row(row: dict) -> "tuple[list, list]":
+def perturb_row(row: dict) -> tuple[list, list]:
     """A gold row -> (broken items, the defect kind applied to each)."""
     broken, kinds = [], []
     for i, g in enumerate(row["gold"]):

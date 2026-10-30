@@ -19,15 +19,20 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-from PyQt6.QtCore import QPoint, Qt, QTimer                          # noqa: E402
-from PyQt6.QtTest import QTest                                       # noqa: E402
-from PyQt6.QtWidgets import (                                        # noqa: E402
-    QApplication, QGroupBox, QToolButton, QWidget,
+from PyQt6.QtCore import QPoint, Qt  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import (  # noqa: E402
+    QApplication,
+    QToolButton,
+    QWidget,
 )
 
-from assistant.calendar_ui.settings_dialog import open_settings, _ui_state  # noqa: E402
-from assistant.config import (                                       # noqa: E402
-    AudioConfig, HebrewCalendarConfig, NLUConfig, UIConfig,
+from assistant.calendar_ui.settings_dialog import _ui_state, open_settings  # noqa: E402
+from assistant.config import (  # noqa: E402
+    AudioConfig,
+    HebrewCalendarConfig,
+    NLUConfig,
+    UIConfig,
 )
 from tests.unit._settings_driver import drive_settings  # noqa: E402
 
@@ -203,6 +208,7 @@ def test_every_checkbox_on_every_page_can_be_clicked(app, monkeypatch):
     handler still named the removed column). Click everything; nothing may
     raise. An installed excepthook makes PyQt report instead of abort."""
     import sys
+
     from PyQt6.QtWidgets import QCheckBox
     raised = []
     monkeypatch.setattr(sys, "excepthook", lambda *exc: raised.append(exc[1]))
@@ -233,7 +239,6 @@ def test_every_explained_setting_has_an_info_button_saying_the_same(app):
     """Gil, 2026-09-29: "add info tooltip for non trivial features". Every
     control with an explanation gets an ⓘ beside it, and the ⓘ says exactly
     what the control's own tooltip says — one text, two ways to reach it."""
-    from PyQt6.QtWidgets import QCheckBox, QComboBox
     failures = []
 
     def interact(dlg):
@@ -256,6 +261,7 @@ def test_every_explained_setting_has_an_info_button_saying_the_same(app):
 
 def test_attach_is_idempotent_and_one_per_row(app):
     from PyQt6.QtWidgets import QComboBox, QHBoxLayout
+
     from assistant.calendar_ui.info_tip import attach
     root = QWidget()
     row = QHBoxLayout(root)

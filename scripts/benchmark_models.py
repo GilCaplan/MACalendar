@@ -34,6 +34,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Scratch stores before anything from `assistant` is imported — the store
 # paths are read at import time. See tests/isolation.py for why.
 from tests.isolation import isolate  # noqa: E402
+
 isolate("macalendar-benchmark-")
 from assistant.config import load_config  # noqa: E402
 
@@ -142,8 +143,8 @@ def _score(parsed, expected) -> dict:
 
 
 def bench(model: str, runs: int, use_memory: bool, cfg) -> dict:
+    import assistant.actions.calendar  # noqa
     from assistant.actions import ActionRegistry
-    import assistant.actions.calendar, assistant.actions.todo, assistant.actions.clarify  # noqa
     from assistant.intent.parser import IntentParser
 
     cfg = cfg.model_copy(deep=True)

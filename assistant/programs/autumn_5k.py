@@ -28,7 +28,6 @@ Two deliberate departures from the plan as originally drafted:
 from __future__ import annotations
 
 import datetime
-from typing import List
 
 from assistant.workout_plan import SessionSpec
 
@@ -42,7 +41,7 @@ def _s(kind, title, date, detail="", km=None, minutes=None, lower=False, pinned=
     )
 
 
-def build() -> List[SessionSpec]:
+def build() -> list[SessionSpec]:
     """Every session in the block, in preferred-date order."""
     return [
         # --- Week 0: Wed 2 - Sat 5 Sep. A short opening week. -------------

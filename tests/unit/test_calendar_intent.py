@@ -31,6 +31,7 @@ def test_now_resolves_to_the_clock_instead_of_failing_validation():
     """
     import datetime as _dt
     import re as _re
+
     from assistant.actions.calendar.intent import CalendarIntent
 
     now = _dt.datetime.now()

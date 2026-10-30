@@ -25,7 +25,6 @@ import datetime as _dt
 import pathlib
 import sqlite3
 import sys
-
 from collections import Counter
 
 from assistant.common.scratch_env import scratch_env
@@ -61,10 +60,10 @@ def main() -> int:
     from freezegun import freeze_time
 
     from assistant.config import load_config
-    from assistant.intent.rule_parser import RULE_THRESHOLD
     from assistant.engine import llm as _llm
     from assistant.engine.fastrule import fast_track
     from assistant.engine.state import EngineState
+    from assistant.intent.rule_parser import RULE_THRESHOLD
     from scripts.score_dataset_run import load_overrides, load_provenance
 
     cfg = load_config()

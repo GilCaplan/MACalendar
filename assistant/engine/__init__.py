@@ -38,9 +38,11 @@ from __future__ import annotations
 import logging
 import os
 import threading
-
-from assistant import users as _users
 from typing import Any
+
+from assistant import clock as _clock  # the moment the command was SAID
+from assistant import users as _users
+from assistant.engine import llm as _llm
 
 # ONE ALIAS PER BOX in the chain (DOCUMENTATION/ENGINE_REWIRE.md):
 #
@@ -49,19 +51,17 @@ from typing import Any
 #
 # Each is a stage module with the frozen `run(state, cfg) -> state`.
 from assistant.engine import segmentation as _segment
+from assistant.engine.component import Component, Stage
 from assistant.engine.decompose_validate import stage as _decompose_validate
 from assistant.engine.decompose_validate import stage as _dv_objects
 from assistant.engine.fastrule import fast_track as _fast_track
-from assistant.engine import llm as _llm
 from assistant.engine.fastrule import stage as _fastrule
 from assistant.engine.ingest import repair as _transcript
 from assistant.engine.ingest.coalesce import coalesce  # noqa: F401  (re-exported: server.py and tests import it from here)
 from assistant.engine.label import label as _label
 from assistant.engine.llmjudge import llmjudge as _crosscheck
-from assistant.engine.component import Component, Stage
 from assistant.engine.state import EngineState, ExecutedAction
 from assistant.exceptions import AssistantError, TargetNotFound
-from assistant import clock as _clock  # the moment the command was SAID
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +81,8 @@ def load_config():
     """config.yaml is local-only (gitignored); fall back to the example, then
     defaults (CI). The engine owns its config loading — it must never import
     from the API layer, which imports it."""
-    from assistant.config import AppConfig, ConfigError, load_config as _load
+    from assistant.config import AppConfig, ConfigError
+    from assistant.config import load_config as _load
     for path in ("config.yaml", "config.example.yaml"):
         try:
             return _load(path)
@@ -117,7 +118,7 @@ class Engine(Component):
         self.transcript = Stage("transcript", _transcript)
         # The RE-RUNNABLE half: items are rebuilt from scratch on every pass,
         # so no field rule can apply twice.
-        self.stages: "list[Stage]" = [
+        self.stages: list[Stage] = [
             Stage("segment", _segment),
             Stage("decompose_validate", _decompose_validate),
             Stage("fastrule", _fastrule),
@@ -127,7 +128,7 @@ class Engine(Component):
         # in one step, so nothing can be committed and left unlabelled.
         self.label = Stage("label", _label)
 
-    def parse(self, state: EngineState, cfg, frozen: "list | None" = None,
+    def parse(self, state: EngineState, cfg, frozen: list | None = None,
               round_no: int = 0) -> None:
         """Steps 2→5 + the field rules — re-runnable (fresh items each time;
         loop-back mistakes are already on the state for the stages' prompts).
@@ -255,7 +256,7 @@ class Engine(Component):
 
     def run(self, text: str, trace: Any = None, source: str = "ios",
             device: str = "", stream: str = "",
-            current_view: str = "month", trace_run: "str | None" = None,
+            current_view: str = "month", trace_run: str | None = None,
             supports_edit: bool = False, supports_confirm: bool = False) -> dict:
         """Parse and execute one transcript; return the API response dict.
 
@@ -332,8 +333,9 @@ class Engine(Component):
         # the acquire, so queueing time lands inside the trace clock and shows
         # up folded into the first stage — a "Vocabulary" step reading 4 s is
         # usually this. It is a real quantity and nothing named it.
-        from assistant import llm_bus as _bus
         import time as _t
+
+        from assistant import llm_bus as _bus
         _held = _run_lock.locked()
         _t0 = _t.perf_counter()
         # EVERY model call made below inherits this request's priority.
@@ -555,7 +557,7 @@ _engine = Engine()
 
 def run_transcript(text: str, trace: Any = None, source: str = "ios",
                    device: str = "", stream: str = "",
-                   current_view: str = "month", trace_run: "str | None" = None,
+                   current_view: str = "month", trace_run: str | None = None,
                    supports_edit: bool = False,
                    supports_confirm: bool = False) -> dict:
     """Thin shim over Engine.run — the entry point every caller already has.
@@ -795,7 +797,7 @@ def _commit(state: EngineState, cfg) -> None:
     # an uncategorised one.
     _label.run(state, cfg)
 
-def _hint(state: EngineState) -> "dict | None":
+def _hint(state: EngineState) -> dict | None:
     """One coaching hint for the client to show after this reply, or None.
 
     Two codes, both title classes from the real-usage board (Gil,
@@ -825,7 +827,7 @@ def _hint(state: EngineState) -> "dict | None":
     return None
 
 
-def _loop_target(state: EngineState) -> "str | None":
+def _loop_target(state: EngineState) -> str | None:
     """"segment", or None when nothing here earns a loop.
 
     The decision moved into `llmjudge/findings.py::ROUTE` on 2026-09-10
@@ -925,7 +927,8 @@ def _verify_store():
     """The token store the clients poll (GET /voice/verify/<token>). It lives
     with the HTTP layer; both sides import lazily so neither owns the other at
     import time."""
-    from assistant.api.server import _verify_store as store, _verify_lock as lock
+    from assistant.api.server import _verify_lock as lock
+    from assistant.api.server import _verify_store as store
     return store, lock
 
 
@@ -976,7 +979,7 @@ def _start_background_verify(state: EngineState, cfg) -> None:
     _users.thread(target=_work, daemon=True, name="crosscheck-bg").start()
 
 
-def _background_verify(state: EngineState, cfg) -> "dict | None":
+def _background_verify(state: EngineState, cfg) -> dict | None:
     """The check itself, on the worker thread. Returns the correction payload
     for the verify endpoint (None = agreed)."""
     from assistant.engine.decompose_validate.text_helpers import is_placeholder_title
@@ -1057,7 +1060,7 @@ def _background_verify(state: EngineState, cfg) -> "dict | None":
     return result
 
 
-def _revert_spec(kind: str, row: "dict | None") -> "dict | None":
+def _revert_spec(kind: str, row: dict | None) -> dict | None:
     """A ready-to-POST body that re-creates a row the background check removed,
     so a client can offer one-tap revert. Shaped for POST /events and POST
     /todos — the endpoints every client already uses — so reverting is just a
@@ -1096,7 +1099,7 @@ def _revert_spec(kind: str, row: "dict | None") -> "dict | None":
 # The confirm-create gate (DEVQA Q9) — a question that would create something
 # ---------------------------------------------------------------------------
 
-def _create_spec(item) -> "list":
+def _create_spec(item) -> list:
     """A validated create intent as ready-to-POST bodies — the same idea as
     `_revert_spec`, and deliberately the same shape: POST /events and POST
     /todos are the endpoints every client already uses, so accepting a
@@ -1170,7 +1173,7 @@ def _create_spec(item) -> "list":
     return []
 
 
-def _confirm_proposal(state: EngineState) -> "list | None":
+def _confirm_proposal(state: EngineState) -> list | None:
     """The proposals step 4 held back for confirmation, as POSTable bodies.
 
     None means commit as usual — either nothing was flagged, or the flagged
@@ -1227,7 +1230,7 @@ def _confirm_response(state: EngineState, cfg, proposal: list, trace_run) -> dic
     return resp
 
 
-def _remove_extra(state: EngineState, finding) -> "tuple[str | None, dict | None]":
+def _remove_extra(state: EngineState, finding) -> tuple[str | None, dict | None]:
     """Delete a committed row the words never asked for (self_check_apply on).
 
     Returns (spoken note, revert spec). The spec captures the row *before* the
@@ -1269,7 +1272,7 @@ _ANAPHOR_TARGETS = frozenset(
     "the event the task that event this event that task this task".split(" "))
 
 
-def _other_store(state: EngineState, item) -> "tuple | None":
+def _other_store(state: EngineState, item) -> tuple | None:
     """The same change, on the OTHER list, when that list holds exactly one
     clear match — else None (the not-found stands, or the model rechecks).
 
@@ -1284,6 +1287,7 @@ def _other_store(state: EngineState, item) -> "tuple | None":
     only and never crosses.
     """
     import re as _re
+
     from assistant.trace import RULE
     action, intent = item.action or "", item.intent
     target = (getattr(intent, "match_title", None) or "").strip()
@@ -1351,7 +1355,7 @@ def _other_store(state: EngineState, item) -> "tuple | None":
     return new
 
 
-def _recheck_not_found(state: EngineState, cfg, item) -> "tuple | None":
+def _recheck_not_found(state: EngineState, cfg, item) -> tuple | None:
     """One LLM second opinion on a confident parse whose target is missing.
     Returns (action, intent) to run instead, or None to let the not-found
     stand — including when the LLM agrees the target really is absent."""
@@ -1439,7 +1443,7 @@ def _parse_error_response(state: EngineState, cfg, e: AssistantError) -> dict:
 
 
 def _record_memory(state: EngineState, cfg, result_msg: str,
-                   success: "bool | None" = None) -> "int | None":
+                   success: bool | None = None) -> int | None:
     if not getattr(cfg.nlu, "memory_enabled", True):
         return None
     if success is None:
@@ -1538,7 +1542,7 @@ def _mine_reformulations(state: EngineState, cfg) -> None:
     _users.thread(target=_mine, daemon=True, name="reformulations").start()
 
 
-def _publish(state: EngineState, resp: dict, trace_run: "str | None") -> None:
+def _publish(state: EngineState, resp: dict, trace_run: str | None) -> None:
     """Let the HUD see this run — live, and then durably.
 
     BOTH lines are written. `publish_result` closes the live run the card is

@@ -17,7 +17,7 @@ import pytest
 from tests.unit._ios_sources import ios_source
 
 
-def _swift_list(name: str) -> "list[str]":
+def _swift_list(name: str) -> list[str]:
     src = ios_source("APIClient.swift")
     m = re.search(rf"static let {name} = \[(.*?)\]", src, re.S)
     assert m, f"{name} not found in APIClient.swift"

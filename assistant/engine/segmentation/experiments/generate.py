@@ -42,7 +42,7 @@ if _ROOT not in sys.path:
 #: working.
 _BANKS = os.path.join(_ROOT, "assistant", "engine", "fastrule", "datasets", "banks")
 
-from assistant.engine.segmentation.fastseg import invariant                  # noqa: E402
+from assistant.engine.segmentation.fastseg import invariant  # noqa: E402
 
 # --------------------------------------------------------------------------
 # What counts as a time reference — by SLOT NAME, which is why gold is exact
@@ -95,7 +95,7 @@ def _class_of(slot: str) -> str:
 # Derivation: template -> parts -> (action, time) per part
 # --------------------------------------------------------------------------
 
-def template_parts(t: dict) -> "list[str]":
+def template_parts(t: dict) -> list[str]:
     """The item-level pieces of a template.
 
     `atomic` is the bank's own judgement and it outranks the joiner: that is
@@ -106,7 +106,7 @@ def template_parts(t: dict) -> "list[str]":
     return [p.strip() for p in _JOINER.split(t["template"]) if p.strip()]
 
 
-def _pull_times(part: str) -> "tuple[str, list[tuple[str, str]]]":
+def _pull_times(part: str) -> tuple[str, list[tuple[str, str]]]:
     """part -> (action template, [(class, time template), ...])
 
     Returns the action with its time expressions removed, and each time
@@ -145,7 +145,7 @@ def _tidy_action(action: str) -> str:
     return action
 
 
-def derive(t: dict) -> "list[dict] | None":
+def derive(t: dict) -> list[dict] | None:
     """Template -> per-item (action, time, tag) templates. None if underivable."""
     parts = template_parts(t)
     pulled = [_pull_times(p) for p in parts]
@@ -266,7 +266,7 @@ def q61_tag(tag: str, time_str: str) -> str:
 #: meets a person (Q47 B / Q50 — `intent/encounter.py`, the one rule both
 #: readers share, or a capitalised name in its words) is a to-do.
 def q63_tag(tag: str, time_str: str, action: str, text: str,
-            row_times: "list[str] | None" = None) -> str:
+            row_times: list[str] | None = None) -> str:
     """`row_times`: every item's time in the row. A row where any item states
     a time has something to infer from (a sequence chains, a date is shared),
     which the ruling keeps as an event."""
@@ -294,7 +294,7 @@ _CALENDAR_DESTINATION = re.compile(
     r"\b(?:on|to|in|from|off)\s+(?:my|the)\s+(?:calendar|schedule|diary|agenda)\b", re.I)
 
 
-def _tag_for(action_tpl: str, t: dict) -> "str | None":
+def _tag_for(action_tpl: str, t: dict) -> str | None:
     """Which surface this item targets: calendar, to-do list, or a question.
 
     NOTE (design, recorded rather than assumed): the tag names the SURFACE, not
@@ -410,7 +410,7 @@ def _contradicts_itself(time_str: str) -> bool:
     return sum(bool(rx.search(time_str or "")) for rx in _HALVES) > 1
 
 
-def validate(text: str, items: "list[dict]", t: dict) -> "list[str]":
+def validate(text: str, items: list[dict], t: dict) -> list[str]:
     """Every check that must hold before a generated row is allowed out."""
     bad = list(invariant.violations(text, items))
     for i, it in enumerate(items, 1):
@@ -446,7 +446,7 @@ def validate(text: str, items: "list[dict]", t: dict) -> "list[str]":
 _EXCLUDE_ACTIONS = {"propose"}
 
 
-def build(per_template: int = 6, seed: int = 20260908) -> "tuple[list[dict], list[dict]]":
+def build(per_template: int = 6, seed: int = 20260908) -> tuple[list[dict], list[dict]]:
     banks = json.load(open(os.path.join(_BANKS, "fillers.json")))
     templates = json.load(open(os.path.join(_BANKS, "complex_patterns.json")))
     rows, dropped = [], []

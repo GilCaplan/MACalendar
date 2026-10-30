@@ -7,7 +7,6 @@ import pytest
 
 from assistant.actions.calendar.action import _find_event
 from assistant.db import CalendarDB
-from assistant.intent.context import context_memory
 
 
 @pytest.fixture

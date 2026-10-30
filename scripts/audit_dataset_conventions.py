@@ -80,7 +80,7 @@ _CLAUSE = re.compile(r"\s*(?:,|\.|—|;)?\s*\b(?:and then|and also|also|and|then
                      r"|\s*[.;—]\s+", re.I)
 
 
-def _list_management(text: str) -> "tuple[int, int] | None":
+def _list_management(text: str) -> tuple[int, int] | None:
     """(clauses, list-management clauses) when any clause is Q52 list
     management, else None."""
     import sys
@@ -160,7 +160,7 @@ _DAY = re.compile(
 _STANDING = re.compile(r"\bremind\s+me\s+(?:when|if|whenever)\b", re.I)
 
 
-def _owed_nothing(half: str) -> "str | None":
+def _owed_nothing(half: str) -> str | None:
     h = half.strip()
     if _PLACEHOLDER.search(h):
         return "placeholder"
@@ -178,7 +178,7 @@ def _owed_nothing(half: str) -> "str | None":
     return None
 
 
-def _halves(text: str) -> "list[tuple[str, str]]":
+def _halves(text: str) -> list[tuple[str, str]]:
     """Every (first, second) reading of a compound — one per occurrence of
     the first connective found. More than one means the join is ambiguous."""
     for conn in _CONNECTIVE_SPLITS:
@@ -188,7 +188,7 @@ def _halves(text: str) -> "list[tuple[str, str]]":
     return []
 
 
-def per_half(row: dict) -> "tuple[str, dict] | None":
+def per_half(row: dict) -> tuple[str, dict] | None:
     """(class, owed) for a compound the rulings re-read, else None."""
     kinds = row["intent"].split("+")
     readings = _halves(row["text"])
@@ -219,7 +219,7 @@ def per_half(row: dict) -> "tuple[str, dict] | None":
                 best = hit
     return best
 
-def classify(row: dict) -> "tuple[str, str] | tuple[str, str, dict] | None":
+def classify(row: dict) -> tuple[str, str] | tuple[str, str, dict] | None:
     """(class, treatment[, owed]) for a row our conventions re-read, else None.
 
     Compounds are read half by half first (`per_half`, which subsumes the
@@ -242,7 +242,7 @@ def classify(row: dict) -> "tuple[str, str] | tuple[str, str, dict] | None":
     return None
 
 
-def _classify_whole(row: dict) -> "tuple[str, str] | None":
+def _classify_whole(row: dict) -> tuple[str, str] | None:
     """The whole-row classes (2026-09-05 .. 2026-09-27)."""
     text, scen, intent = row["text"], row["scenario"], row["intent"]
     creator = intent in ("set", "createoradd")

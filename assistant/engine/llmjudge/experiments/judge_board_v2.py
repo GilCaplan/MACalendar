@@ -53,13 +53,15 @@ def main() -> int:
     ap.add_argument("--split", choices=("train", "test"), default="train")
     ap.add_argument("-n", type=int, default=0, help="0 = every case in the split")
     ap.add_argument("--show", type=int, default=8, help="misses to print (train only)")
-    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    from scripts.dataset_tiers import add_argument as _add_tier
+    from scripts.dataset_tiers import resolve as _resolve
     _add_tier(ap)
     a = ap.parse_args()
     if a.split == "test":
         a.show = 0
 
     from freezegun import freeze_time
+
     import assistant.engine as engine
     from assistant.engine import llm as _llm
     from assistant.engine.decompose_validate import stage as _dv
@@ -150,7 +152,7 @@ def main() -> int:
     n_scored = sum(typed_planted.values()) + sum(blind_planted.values()) + clean_n
     print(f"\nLLMJUDGE BOARD v2 — {a.split.upper()} half, {n_scored} cases scored "
           f"({unbuildable} skipped: nothing built) · {elapsed:.0f}s\n")
-    print(f"  TYPED PLANTS — caught means the EXPECTED finding on the expected item")
+    print("  TYPED PLANTS — caught means the EXPECTED finding on the expected item")
     print(f"  {'mutation':<26}{'planted':>8}{'caught':>8}{'catch rate':>12}   wrong type instead")
     for m in sorted(typed_planted):
         wt = ", ".join(f"{t}×{k}" for t, k in wrong_type[m].most_common(3)) or "—"

@@ -35,18 +35,22 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-import yaml                                                          # noqa: E402
-from PyQt6.QtCore import QPoint, Qt, QTimer                          # noqa: E402
-from PyQt6.QtTest import QTest                                       # noqa: E402
-from PyQt6.QtWidgets import (                                        # noqa: E402
-    QApplication, QCheckBox, QComboBox, QPushButton, QWidget,
+import yaml  # noqa: E402
+from PyQt6.QtCore import QPoint, Qt, QTimer  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import (  # noqa: E402
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QPushButton,
+    QWidget,
 )
 
-from assistant import config_store                                   # noqa: E402
+from assistant import config_store  # noqa: E402
 from assistant.actions.calendar import categories as categories_mod  # noqa: E402
-from assistant.calendar_ui.settings_dialog import open_settings      # noqa: E402
-from assistant.config import load_config                             # noqa: E402
-from assistant.tts.speaker import Speaker                            # noqa: E402
+from assistant.calendar_ui.settings_dialog import open_settings  # noqa: E402
+from assistant.config import load_config  # noqa: E402
+from assistant.tts.speaker import Speaker  # noqa: E402
 from tests.unit._settings_driver import drive_settings  # noqa: E402
 
 # A faithful trim of the live config.yaml: the sections it HAS, and none of the
@@ -401,7 +405,7 @@ def test_a_config_missing_a_brand_new_field_still_saves(app, real_config, monkey
     """
     from PyQt6.QtCore import Qt
     from PyQt6.QtTest import QTest
-    from PyQt6.QtWidgets import QMessageBox, QPushButton
+    from PyQt6.QtWidgets import QMessageBox
     cfg, cfg_path = real_config
 
     # The dialog catches its own exceptions and shows them, so the failure is a
@@ -426,7 +430,6 @@ def test_a_config_missing_a_brand_new_field_still_saves(app, real_config, monkey
     cfg.notifications = _Strict()                 # no `agenda_card`, on purpose
     window = _Window(cfg)
     failures: list = []
-    seen: dict = {}
 
     def interact(dlg):
         save = dlg.save_button
@@ -530,7 +533,7 @@ def test_which_kinds_of_emoji_is_chosen_in_a_dialog_and_saved(app, real_config, 
 
     def in_kinds():
         try:
-            from PyQt6.QtWidgets import QDialog, QDialogButtonBox
+            from PyQt6.QtWidgets import QDialogButtonBox
             d = next(w for w in QApplication.topLevelWidgets()
                      if w.objectName() == "title_emoji_kinds_dialog" and w.isVisible())
             food = d.findChild(QCheckBox, "title_emoji_kind_food")
@@ -565,6 +568,7 @@ def test_a_new_install_ships_with_the_jewish_calendar_off():
     """Gil, 2026-10-02: "the whole Jewish thing off by default and then user
     can put it on". config.example.yaml is what a new Mac copies."""
     import pathlib
+
     import yaml
     ex = yaml.safe_load((pathlib.Path(__file__).resolve().parents[2] / "config.example.yaml").read_text())
     assert ex["hebrew_calendar"]["display_mode"] == "english"

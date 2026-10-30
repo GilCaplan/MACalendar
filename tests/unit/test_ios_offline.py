@@ -117,7 +117,7 @@ def client_src():
     return ios_source("APIClient.swift")
 
 
-def _api_sources() -> "dict[str, str]":
+def _api_sources() -> dict[str, str]:
     """APIClient.swift and EVERY file that extends it. A tab's own calls live in
     its folder (`extension APIClient` in `Features/<Tab>/`); checking only
     APIClient.swift meant each new tab's writes were unchecked until somebody
@@ -145,7 +145,7 @@ def test_the_rule_reaches_files_beyond_apiclient():
     assert "APIClient.swift" in names and len(names) > 1, names
 
 
-def _offenders(client_src: str) -> "list[str]":
+def _offenders(client_src: str) -> list[str]:
     offenders = []
     for name, body in _methods(client_src):
         if not MUTATING.search(body):

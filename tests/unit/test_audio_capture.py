@@ -27,6 +27,7 @@ def _audio_library(monkeypatch):
     """
     import sys
     import types
+
     from assistant.audio import capture
     if capture.sd is not None:
         return

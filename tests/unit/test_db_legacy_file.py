@@ -54,6 +54,7 @@ def test_opening_it_twice_changes_nothing(legacy):
 
 def test_the_store_reads_the_old_file_through_its_own_calls(legacy):
     import datetime
+
     from assistant.db import CalendarDB
     db = CalendarDB(str(legacy))
     day = datetime.date(2026, 10, 30)
@@ -69,7 +70,8 @@ def test_the_store_reads_the_old_file_through_its_own_calls(legacy):
 
 def test_the_old_file_is_stamped_with_the_schema_and_gains_the_tag_table(legacy):
     import sqlite3
-    from assistant.db import CalendarDB, SCHEMA_VERSION
+
+    from assistant.db import SCHEMA_VERSION, CalendarDB
     with sqlite3.connect(legacy) as c:
         assert c.execute("PRAGMA user_version").fetchone()[0] == 0     # never stamped
     CalendarDB(str(legacy))
@@ -82,7 +84,8 @@ def test_the_old_file_is_stamped_with_the_schema_and_gains_the_tag_table(legacy)
 def test_a_file_from_newer_code_is_opened_with_a_warning_not_rewritten(legacy, caplog):
     import logging
     import sqlite3
-    from assistant.db import CalendarDB, SCHEMA_VERSION
+
+    from assistant.db import SCHEMA_VERSION, CalendarDB
     with sqlite3.connect(legacy) as c:
         c.execute(f"PRAGMA user_version = {SCHEMA_VERSION + 1}")
     with caplog.at_level(logging.WARNING, logger="assistant.db.base"):
@@ -96,6 +99,7 @@ def test_the_mac_checker_passes_the_old_file_and_never_writes_it(capsys):
     """`python -m assistant.db.verify` is what the Mac session runs on the
     real calendar.db before restarting the apps; it must work on a copy."""
     import hashlib
+
     from assistant.db import verify
     src = FIX / "legacy_calendar.db"
     digest = hashlib.sha256(src.read_bytes()).hexdigest()

@@ -51,9 +51,8 @@ from assistant.common.scratch_env import scratch_env  # noqa: E402
 scratch_env("mv_", keep=("MEMORY_DB", "LOCATION", "MODELS", "LABEL_FEEDBACK",
                          "HEARTBEATS", "HUD_STATE", "DEVICE_SECRET", "DEVICES"))
 
-from assistant.engine.segmentation.fastseg.fastseg import (                    # noqa: E402
-    _CALENDAR_VERBS, _PREAMBLE, _TASK_VERBS)
-from assistant.intent.rule_parser import INTENT_MAP                            # noqa: E402
+from assistant.engine.segmentation.fastseg.fastseg import _CALENDAR_VERBS, _PREAMBLE, _TASK_VERBS  # noqa: E402
+from assistant.intent.rule_parser import INTENT_MAP  # noqa: E402
 
 KNOWN = set(_TASK_VERBS) | set(_CALENDAR_VERBS) | {v for v, _ in INTENT_MAP}
 #: Auxiliaries, modals and framing verbs — never an ask by themselves.

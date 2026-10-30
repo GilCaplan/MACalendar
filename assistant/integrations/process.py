@@ -28,8 +28,8 @@ import time
 logger = logging.getLogger(__name__)
 
 #: name -> Popen, for the children THIS process started.
-_children: "dict[str, subprocess.Popen]" = {}
-_locks: "dict[str, threading.Lock]" = {}
+_children: dict[str, subprocess.Popen] = {}
+_locks: dict[str, threading.Lock] = {}
 _locks_guard = threading.Lock()
 
 

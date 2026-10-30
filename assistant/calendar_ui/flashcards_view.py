@@ -41,7 +41,7 @@ import random
 import re
 import unicodedata
 import zipfile
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from PyQt6.QtCore import QEvent, QPointF, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter, QPen, QPixmap
@@ -57,6 +57,7 @@ from PyQt6.QtWidgets import (
     QFormLayout,
     QFrame,
     QHBoxLayout,
+    QHeaderView,
     QInputDialog,
     QLabel,
     QLineEdit,
@@ -74,7 +75,6 @@ from PyQt6.QtWidgets import (
     QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
-    QHeaderView,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -109,7 +109,7 @@ def normalise_word(word: str) -> str:
     return word.casefold()
 
 
-def missing_words(answer: str, typed: str) -> "list[tuple[str, bool]]":
+def missing_words(answer: str, typed: str) -> list[tuple[str, bool]]:
     """The answer's tokens (whitespace kept) with True on each word the typed
     text did not contain — counted, so a word typed once covers one use."""
     have = collections.Counter(w for w in (normalise_word(t) for t in typed.split()) if w)
@@ -139,11 +139,11 @@ def format_interval(days: float) -> str:
     return f"{days / 365:.1f}y"
 
 
-def interval_hint(progress: "dict | None", grade: int, now: "_dt.datetime | None" = None) -> str:
+def interval_hint(progress: dict | None, grade: int, now: _dt.datetime | None = None) -> str:
     """What the grade button will do to this item — the store's own arithmetic."""
     if grade == 1:
         return f"{fsrs.RELEARN_MINUTES} min"
-    now = now or _dt.datetime.now(_dt.timezone.utc)
+    now = now or _dt.datetime.now(_dt.UTC)
     s0 = d0 = None
     elapsed = 0.0
     if progress and progress.get("stability") is not None:
@@ -151,7 +151,7 @@ def interval_hint(progress: "dict | None", grade: int, now: "_dt.datetime | None
         try:
             last = _dt.datetime.fromisoformat(str(progress["last"]).replace("Z", "+00:00"))
             if last.tzinfo is None:
-                last = last.replace(tzinfo=_dt.timezone.utc)
+                last = last.replace(tzinfo=_dt.UTC)
             elapsed = max(0.0, (now - last).total_seconds() / 86400)
         except (KeyError, ValueError):
             pass
@@ -159,7 +159,7 @@ def interval_hint(progress: "dict | None", grade: int, now: "_dt.datetime | None
     return format_interval(fsrs.interval_days(s))
 
 
-def question_answer(entry: dict) -> "tuple[str, str]":
+def question_answer(entry: dict) -> tuple[str, str]:
     """One line each for the summary's list of misses."""
     card, item = entry["card"], entry["item"]
     t = card["type"]
@@ -310,7 +310,7 @@ def _label(text: str = "", name: str = "", *, wrap: bool = True) -> QLabel:
     return lab
 
 
-def _button(text: str, name: str = "", cb: "Callable | None" = None, *, focus: bool = False) -> QPushButton:
+def _button(text: str, name: str = "", cb: Callable | None = None, *, focus: bool = False) -> QPushButton:
     b = QPushButton(text)
     if name:
         b.setObjectName(name)
@@ -379,7 +379,7 @@ def _save_english_open(on: bool) -> None:
         pass
 
 
-def english_prompt(card: dict, item: str) -> "str | None":
+def english_prompt(card: dict, item: str) -> str | None:
     """The question in English (`en`, Gil 2026-10-12), or None. A cloze's
     English without gaps would give the answer away, so it waits."""
     en = card.get("en") or {}
@@ -434,7 +434,7 @@ def answer_line(card: dict, item: str) -> str:
     return ""
 
 
-def english_answer(card: dict, item: str) -> "str | None":
+def english_answer(card: dict, item: str) -> str | None:
     """The answer in English, shown straight under the answer."""
     en = card.get("en") or {}
     kind, rev = card["type"], item == "rev"
@@ -533,8 +533,8 @@ class PictureCanvas(QWidget):
         self.revealed: set = set()
         self.selected = -1
         self.colors = _palette(True)
-        self._drag: "tuple[QPointF, QPointF] | None" = None
-        self._scaled: Optional[QPixmap] = None
+        self._drag: tuple[QPointF, QPointF] | None = None
+        self._scaled: QPixmap | None = None
         self.set_picture(path)
 
     def set_picture(self, path: str) -> None:
@@ -546,7 +546,7 @@ class PictureCanvas(QWidget):
     def has_picture(self) -> bool:
         return not self._pix.isNull()
 
-    def fit(self, width: int, max_h: "int | None" = None, max_scale: float = 1.6) -> None:
+    def fit(self, width: int, max_h: int | None = None, max_scale: float = 1.6) -> None:
         width = max(80, int(width))
         if self._pix.isNull():
             self.setFixedSize(width, 80)
@@ -658,7 +658,7 @@ class PictureCanvas(QWidget):
 class _SetRow(QWidget):
     """A library row: a click anywhere on it ticks its checkbox."""
 
-    check: Optional[QCheckBox] = None
+    check: QCheckBox | None = None
 
     def mouseReleaseEvent(self, ev):  # noqa: N802
         if (self.check is not None and ev.button() == Qt.MouseButton.LeftButton
@@ -697,7 +697,7 @@ class FlashcardsView(FeaturePanel):
     feature_name = "flashcards"
 
     def __init__(self, db=None, config=None, dark: bool = True, *,
-                 store: "FlashcardStore | None" = None, parent=None):
+                 store: FlashcardStore | None = None, parent=None):
         super().__init__(parent)
         self._db = db
         self._fixed_store = store is not None
@@ -707,7 +707,7 @@ class FlashcardsView(FeaturePanel):
         self._selected: set = set()
         self._collapsed: set = _load_collapsed()   # subject ids folded shut
         self._archived_open = False                # the Archived section
-        self._archived_box: Optional[QWidget] = None
+        self._archived_box: QWidget | None = None
         self._set_boxes: dict = {}
         self._set_dir: dict = {}
         self._rng = random.Random()
@@ -715,10 +715,10 @@ class FlashcardsView(FeaturePanel):
         self._queue: list = []
         self._idx = 0
         self._round_mode = "smart"
-        self._first: "dict[tuple, dict]" = {}
+        self._first: dict[tuple, dict] = {}
         self._cur: dict = {}
-        self._canvas: Optional[PictureCanvas] = None
-        self._canvas_max_h: "int | None" = None
+        self._canvas: PictureCanvas | None = None
+        self._canvas_max_h: int | None = None
         self._build()
         self.apply_theme(dark)
         self.reload()
@@ -1226,7 +1226,7 @@ class FlashcardsView(FeaturePanel):
     def _mode(self) -> str:
         return next((k for k, b in self._mode_btns.items() if b.isChecked()), "smart")
 
-    def _types(self) -> "list[str]":
+    def _types(self) -> list[str]:
         return [k for k, b in self._type_btns.items() if b.isChecked()]
 
     def _limit(self) -> int:
@@ -1242,7 +1242,7 @@ class FlashcardsView(FeaturePanel):
             self._study_btn.setText(why)
         self._study_btn.setEnabled(bool(n))
 
-    def _round_size(self) -> "tuple[int, str]":
+    def _round_size(self) -> tuple[int, str]:
         ids = sorted(self._selected)
         if not ids:
             return 0, "Select sets to study"
@@ -1304,7 +1304,7 @@ class FlashcardsView(FeaturePanel):
 
     # dialogs (methods so tests can answer them)
 
-    def _ask_text(self, title: str, label: str, text: str = "") -> "str | None":
+    def _ask_text(self, title: str, label: str, text: str = "") -> str | None:
         val, ok = QInputDialog.getText(self, title, label, QLineEdit.EchoMode.Normal, text)
         return val.strip() if ok and val.strip() else None
 
@@ -1324,13 +1324,13 @@ class FlashcardsView(FeaturePanel):
         box.setText(text)
         box.exec()
 
-    def _pick_import_files(self) -> "list[str]":
+    def _pick_import_files(self) -> list[str]:
         paths, _ = QFileDialog.getOpenFileNames(
             self, "Import flashcards", os.path.expanduser("~"),
             "Flashcard sets (*.yaml *.yml *.json *.zip)")
         return paths
 
-    def _ask_import_mode(self, filename: str, existing: "list[str]") -> "str | None":
+    def _ask_import_mode(self, filename: str, existing: list[str]) -> str | None:
         box = QMessageBox(self)
         box.setWindowTitle("Set already exists")
         names = ", ".join(existing[:4]) + ("…" if len(existing) > 4 else "")
@@ -1346,7 +1346,7 @@ class FlashcardsView(FeaturePanel):
 
     # actions
 
-    def _existing_in(self, path: str) -> "list[str]":
+    def _existing_in(self, path: str) -> list[str]:
         """Names of sets in this file the library already holds (subject + set_id)."""
         from assistant.features.flashcards.store import _load, _slug
         docs = []
@@ -1689,7 +1689,7 @@ class FlashcardsView(FeaturePanel):
         if card.get("page") not in (None, ""):
             self._text(f"p. {card['page']}", 13, name="fc_muted")
 
-    def _add_canvas(self, path: str, labels=(), mode: str = "plain", max_h: "int | None" = None) -> PictureCanvas:
+    def _add_canvas(self, path: str, labels=(), mode: str = "plain", max_h: int | None = None) -> PictureCanvas:
         c = PictureCanvas(path, labels, mode)
         c.colors = self._pal
         self._canvas, self._canvas_max_h = c, max_h
@@ -2093,7 +2093,7 @@ class FlashcardsView(FeaturePanel):
 # ---------------------------------------------------------------- dialogs
 
 class NewSetDialog(QDialog):
-    def __init__(self, subjects: "list[str]", subject: str = "", parent=None):
+    def __init__(self, subjects: list[str], subject: str = "", parent=None):
         super().__init__(parent)
         self.setWindowTitle("New set")
         f = QFormLayout(self)
@@ -2114,7 +2114,7 @@ class NewSetDialog(QDialog):
         bb.rejected.connect(self.reject)
         f.addRow(bb)
 
-    def values(self) -> "tuple[str, str, str]":
+    def values(self) -> tuple[str, str, str]:
         return (self.subject.currentText().strip(), self.name.text().strip(),
                 self.direction.currentData())
 
@@ -2131,7 +2131,7 @@ class _Form(QWidget):
 
     kind = ""
 
-    def __init__(self, editor: "SetEditorDialog"):
+    def __init__(self, editor: SetEditorDialog):
         super().__init__()
         self.editor = editor
         self.form = QFormLayout(self)
@@ -2333,7 +2333,7 @@ class _OrderForm(_Form):
 
 
 class _PictureMixin:
-    def _choose_picture(self) -> "str | None":
+    def _choose_picture(self) -> str | None:
         path = self.editor.pick_picture()
         if not path:
             return None
@@ -2508,7 +2508,7 @@ class SetEditorDialog(QDialog):
         self.setStyleSheet(_qss(_palette(dark)))
         self.resize(1040, 800)
         self._cards: list = []
-        self.editing_id: "int | None" = None
+        self.editing_id: int | None = None
         info = store.get_set(set_id)
         self.setWindowTitle(f"Edit cards — {info['name']}")
         rtl = info.get("dir") == "rtl"
@@ -2613,7 +2613,7 @@ class SetEditorDialog(QDialog):
         first = first.strip().splitlines()[0] if first.strip() else ""
         return f"{TYPE_LABELS.get(card['type'], card['type'])} · {first[:70]}"
 
-    def _refresh(self, select_id: "int | None" = None) -> None:
+    def _refresh(self, select_id: int | None = None) -> None:
         self._cards = self.store.get_set(self.set_id)["cards"]
         self.list.blockSignals(True)
         self.list.clear()

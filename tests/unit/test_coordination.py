@@ -10,7 +10,6 @@ import pytest
 
 from assistant.intent.coordination import split_clauses
 
-
 # --- the baseline: real clause-coordination splits, NP-coordination doesn't ---
 
 def test_two_asks_split():

@@ -13,10 +13,25 @@ import datetime as _dt
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
-    QAbstractItemView, QCheckBox, QComboBox, QDialog, QFormLayout, QFrame,
-    QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit, QMenu,
-    QMessageBox, QPushButton, QTableWidget, QTableWidgetItem, QToolButton,
-    QVBoxLayout, QWidget,
+    QAbstractItemView,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QFrame,
+    QHBoxLayout,
+    QHeaderView,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QMenu,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
 )
 
 from assistant import users
@@ -66,7 +81,7 @@ class LoginDialog(QDialog):
         self.setWindowTitle("Sign in")
         self.setModal(True)
         self.setMinimumWidth(340)
-        self.user_id: "str | None" = None
+        self.user_id: str | None = None
         lay = QVBoxLayout(self)
         lay.setContentsMargins(28, 24, 28, 22)
         lay.setSpacing(10)
@@ -109,7 +124,7 @@ class LoginDialog(QDialog):
         self.accept()
 
 
-def keep_signed_in(uid: "str | None") -> None:
+def keep_signed_in(uid: str | None) -> None:
     """Make ``uid`` the signed-in person on this Mac, with a saved session —
     for when they are acting as the admin implicitly and are about to change
     something (requiring sign-in) that would end that."""
@@ -123,7 +138,7 @@ def keep_signed_in(uid: "str | None") -> None:
     users.set_process_default(uid)
 
 
-def sign_in(parent=None) -> "str | None":
+def sign_in(parent=None) -> str | None:
     """Make sure someone is signed in on this Mac: the saved session if it is
     still live, else the sign-in dialog. Returns who, or None if cancelled.
     Before the users migration there is nobody to sign in — returns None and
@@ -308,7 +323,7 @@ class AccountDialog(QDialog):
         r.setObjectName("rule")
         return r
 
-    def _share(self, grantee: str, level: "str | None") -> None:
+    def _share(self, grantee: str, level: str | None) -> None:
         registry.set_share(self.me, grantee, level)
         self.changed.emit()
 
@@ -485,7 +500,7 @@ class AdminDialog(QDialog):
         box.checkbox = w
         return box
 
-    def _selected(self) -> "str | None":
+    def _selected(self) -> str | None:
         rows = self.table.selectionModel().selectedRows()
         r = rows[0].row() if rows else -1
         return self._ids[r] if 0 <= r < len(getattr(self, "_ids", [])) else None

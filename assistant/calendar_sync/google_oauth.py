@@ -33,8 +33,8 @@ import secrets
 import threading
 import time
 import urllib.parse
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Optional
 
 import requests
 
@@ -74,7 +74,7 @@ class OAuthClient:
     client_secret: str = ""
 
 
-def desktop_client(cfg) -> Optional[OAuthClient]:
+def desktop_client(cfg) -> OAuthClient | None:
     """The Desktop client from its downloaded JSON, or None when absent/invalid."""
     path = client_secret_path(cfg)
     try:
@@ -85,7 +85,7 @@ def desktop_client(cfg) -> Optional[OAuthClient]:
     return parse_client_json(data)
 
 
-def parse_client_json(data) -> Optional[OAuthClient]:
+def parse_client_json(data) -> OAuthClient | None:
     """Google's client JSON is {"installed": {...}} for a Desktop client
     ({"web": {...}} for a web one, which cannot use a loopback redirect)."""
     if not isinstance(data, dict):
@@ -99,7 +99,7 @@ def parse_client_json(data) -> Optional[OAuthClient]:
     return OAuthClient("desktop", cid, str(block.get("client_secret") or ""))
 
 
-def ios_client(cfg) -> Optional[OAuthClient]:
+def ios_client(cfg) -> OAuthClient | None:
     cid = (cfg.ios_client_id or "").strip()
     return OAuthClient("ios", cid) if cid else None
 
@@ -194,7 +194,7 @@ def exchange_code(client: OAuthClient, code: str, verifier: str, redirect_uri: s
 # Token store
 # ---------------------------------------------------------------------------
 
-def load_token() -> Optional[dict]:
+def load_token() -> dict | None:
     try:
         with open(token_path()) as f:
             data = json.load(f)
@@ -234,13 +234,13 @@ class GoogleAuth:
     """Hands out a valid access token, refreshing it with the stored refresh
     token (and the client that issued it) when it is about to expire."""
 
-    def __init__(self, token: Optional[dict] = None, session=None) -> None:
+    def __init__(self, token: dict | None = None, session=None) -> None:
         self._token = token if token is not None else load_token()
         self._http = session or requests
         self._lock = threading.Lock()
 
     @property
-    def token(self) -> Optional[dict]:
+    def token(self) -> dict | None:
         return self._token
 
     def get_token(self, force_refresh: bool = False) -> str:

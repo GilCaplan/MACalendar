@@ -164,7 +164,11 @@ def main() -> int:
 def report(rows: list, res: dict, a) -> int:
     from assistant.common.similarity import token_prf
     from assistant.engine.fastrule.experiments.gold import (
-        _EXPLICIT_TIME_RE, CONTRADICTORY, _phrase_to_date, _ruled_hhmm)
+        _EXPLICIT_TIME_RE,
+        CONTRADICTORY,
+        _phrase_to_date,
+        _ruled_hhmm,
+    )
     from assistant.offline.reconcile import titles_match
 
     lat = [v["ms"] for v in res.values()

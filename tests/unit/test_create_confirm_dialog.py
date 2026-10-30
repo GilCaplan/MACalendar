@@ -13,13 +13,15 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-from PyQt6.QtCore import Qt, QTimer                                  # noqa: E402
-from PyQt6.QtTest import QTest                                       # noqa: E402
-from PyQt6.QtWidgets import (                                        # noqa: E402
-    QApplication, QDialogButtonBox, QLabel,
+from PyQt6.QtCore import Qt, QTimer  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import (  # noqa: E402
+    QApplication,
+    QDialogButtonBox,
+    QLabel,
 )
 
-from assistant.calendar_ui.window import ask_create_confirm          # noqa: E402
+from assistant.calendar_ui.window import ask_create_confirm  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -34,7 +36,7 @@ def _payload(prompt, items):
 def _drive(interact):
     """Schedule real interaction against the modal once it is up."""
     def _go():
-        from PyQt6 import sip as _sip   # a stale wrapper segfaulted Linux CI (TASKS 53)
+        from PyQt6 import sip as _sip  # a stale wrapper segfaulted Linux CI (TASKS 53)
         dlg = QApplication.activeModalWidget()
         if dlg is None or _sip.isdeleted(dlg) or not dlg.isVisible():                      # not up yet — try again
             QTimer.singleShot(10, _go)

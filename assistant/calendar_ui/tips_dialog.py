@@ -12,8 +12,7 @@ from __future__ import annotations
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import (QDialog, QFrame, QLabel, QPushButton, QScrollArea,
-                             QVBoxLayout, QWidget)
+from PyQt6.QtWidgets import QDialog, QFrame, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from assistant.tips import STEPS, TIPS
 

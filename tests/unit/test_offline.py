@@ -124,8 +124,8 @@ def test_the_database_works_offline(no_network, tmp_path, monkeypatch):
     # call, so by this point it is already pointing at the shared scratch file
     # and this test was quietly asserting on whatever else had written there.
     monkeypatch.setenv("MACALENDAR_DB", str(tmp_path / "c.db"))
-    from assistant.actions.calendar.intent import CalendarIntent
     import assistant.db as dbmod
+    from assistant.actions.calendar.intent import CalendarIntent
     monkeypatch.setattr(dbmod, "_db_instance", dbmod.CalendarDB(str(tmp_path / "c.db")))
     db = dbmod.get_db()
     db.create_event(CalendarIntent(title="Offline event", date="2026-09-04",

@@ -14,7 +14,7 @@ DB_PATH = os.path.expanduser("~/.assistant_tools/calendar.db")
 
 def _utcnow_iso() -> str:
     """UTC timestamp for sync bookkeeping — comparable against Graph API timestamps."""
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+    return datetime.datetime.now(datetime.UTC).isoformat()
 
 def _memory_feedback(record_type: str, record_id: int, feedback: str,
                      changed: dict | None = None) -> None:
@@ -35,7 +35,7 @@ def _memory_feedback(record_type: str, record_id: int, feedback: str,
 #: note autosave, tick, rename, timer start or counter press reloaded every
 #: panel and the calendar a few seconds later — the window flashed under the
 #: user's hands (2026-10-21 audit).
-_OWN_WRITES: "dict[str, float]" = {}
+_OWN_WRITES: dict[str, float] = {}
 
 def _note_own_write(path: str) -> None:
     try:
@@ -43,6 +43,6 @@ def _note_own_write(path: str) -> None:
     except OSError:
         pass
 
-def own_write_mtime(path: str) -> "float | None":
+def own_write_mtime(path: str) -> float | None:
     """The mtime this process's own last write left on `path`, if any."""
     return _OWN_WRITES.get(os.path.abspath(path))

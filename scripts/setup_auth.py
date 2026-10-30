@@ -15,8 +15,8 @@ import sys
 # Allow running from the project root
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from assistant.config import load_config
 from assistant.actions.calendar.auth import MSALAuth
+from assistant.config import load_config
 
 
 def main():
@@ -43,7 +43,7 @@ def main():
     print("Starting device-code authentication flow...")
     print("─" * 60)
     try:
-        token = auth.device_code_flow()
+        auth.device_code_flow()
         print("─" * 60)
         print("\n✅ Authentication successful!")
         cache_path = os.path.expanduser(config.microsoft.token_cache_path)

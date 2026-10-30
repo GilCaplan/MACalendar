@@ -82,7 +82,7 @@ def _banks():
     return widen(base_banks), widen(grown)
 
 
-def render_family(t: dict, banks: dict, cap: int, seen: set, split: str) -> "list[dict]":
+def render_family(t: dict, banks: dict, cap: int, seen: set, split: str) -> list[dict]:
     """`generate._emit`'s loop for one family, on the tier anchors and seed,
     never re-emitting a text in `seen` (lower-cased, shared)."""
     spec = DV.SEG.derive(t)
@@ -111,7 +111,7 @@ def render_family(t: dict, banks: dict, cap: int, seen: set, split: str) -> "lis
     return rows
 
 
-def agreeing_families(base_rows) -> "tuple[set, list]":
+def agreeing_families(base_rows) -> tuple[set, list]:
     regen, _dropped = DV.build()
     by_id = {r["id"]: r for r in regen}
     ok = collections.defaultdict(lambda: True)
@@ -121,7 +121,7 @@ def agreeing_families(base_rows) -> "tuple[set, list]":
     return {f for f, v in ok.items() if v}, sorted(f for f, v in ok.items() if not v)
 
 
-def draw_all(max_per_source: "int | None" = None):
+def draw_all(max_per_source: int | None = None):
     """(base lines, [(family, rows)], report); `max_per_source` stops each source
     after N families (a quick smoke for the tests)."""
     def full(key):
@@ -173,7 +173,7 @@ def draw_all(max_per_source: "int | None" = None):
 _CACHE: dict = {}
 
 
-def build_tier(tier: str) -> "list[str]":
+def build_tier(tier: str) -> list[str]:
     if tier not in TIERS:
         raise SystemExit(f"unknown tier {tier!r}; choose from {list(TIERS)}")
     if "dv" not in _CACHE:

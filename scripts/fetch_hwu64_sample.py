@@ -219,7 +219,7 @@ def main() -> None:
     try:
         csv_text = _fetch()
     except urllib.error.URLError as e:
-        raise SystemExit(f"could not reach GitHub: {e}")
+        raise SystemExit(f"could not reach GitHub: {e}") from None
 
     rows = _clean_rows(csv_text)
     print(f"{len(rows)} usable rows after cleaning "

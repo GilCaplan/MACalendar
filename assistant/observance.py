@@ -47,7 +47,7 @@ import datetime
 import functools
 import json
 import os
-from typing import List, Literal, Optional, Tuple
+from typing import Literal
 
 from astral import LocationInfo
 from astral.sun import sun
@@ -96,7 +96,7 @@ class DayAvailability:
 
     date: datetime.date
     status: Status
-    windows: Tuple[TimeWindow, ...]
+    windows: tuple[TimeWindow, ...]
     reason: str            # why the day is limited; '' when fully free
     holiday_name: str      # the yom tov / fast responsible, if any
 
@@ -138,7 +138,7 @@ class ObservanceSettings:
 #: what the module normally uses — see `current_settings()`.
 DEFAULT_SETTINGS = ObservanceSettings()
 
-_settings_cache: "ObservanceSettings | None" = None
+_settings_cache: ObservanceSettings | None = None
 
 #: Where a device's reported position is kept. Outside the repository with the
 #: other personal stores, and honoured over config.yaml — the configured place
@@ -200,7 +200,7 @@ HOLY_KINDS = ("shabbat", "yom_tov")
 KEEP_OFF, ALLOW = "keep_off", "allow"
 
 
-def _read_overrides() -> "dict[datetime.date, str]":
+def _read_overrides() -> dict[datetime.date, str]:
     try:
         # keyed on the path too: two users' files can share a timestamp
         mtime = (_exceptions_path(), os.path.getmtime(_exceptions_path()))
@@ -215,7 +215,7 @@ def _read_overrides() -> "dict[datetime.date, str]":
         return {}
     if not isinstance(data, dict):
         return {}
-    out: "dict[datetime.date, str]" = {}
+    out: dict[datetime.date, str] = {}
     # "dates" is Q59's shape (allow); "block" is read as keep_off. A date
     # listed both ways is KEPT OFF — the side that cannot book something the
     # user did not want.
@@ -232,12 +232,12 @@ def _read_overrides() -> "dict[datetime.date, str]":
     return out
 
 
-def day_overrides() -> "dict[datetime.date, str]":
+def day_overrides() -> dict[datetime.date, str]:
     """Every date the user has flipped: date -> "keep_off" | "allow"."""
     return dict(_read_overrides())
 
 
-def day_override(date: datetime.date) -> "str | None":
+def day_override(date: datetime.date) -> str | None:
     """"keep_off", "allow", or None when the date follows its default."""
     return _read_overrides().get(date)
 
@@ -250,7 +250,7 @@ def _as_date(value) -> datetime.date:
     return datetime.date.fromisoformat(str(value).strip()[:10])
 
 
-def _write_overrides(overrides: "dict[datetime.date, str]", israel: bool = True) -> None:
+def _write_overrides(overrides: dict[datetime.date, str], israel: bool = True) -> None:
     """Write the store. An override equal to its day's default is dropped —
     it changes nothing, and would silently pin the day if the default moved."""
     keep, allow = [], []
@@ -266,7 +266,7 @@ def _write_overrides(overrides: "dict[datetime.date, str]", israel: bool = True)
     _exc_cache.clear()
 
 
-def set_day_override(date, kept_off: "bool | None", israel: bool = True) -> dict:
+def set_day_override(date, kept_off: bool | None, israel: bool = True) -> dict:
     """Flip one date: True keeps engine events off it, False lets the engine
     book it, None puts it back to its default. Raises ValueError on a
     non-date or a non-bool BEFORE writing. Returns the day's `day_info`."""
@@ -281,10 +281,10 @@ def set_day_override(date, kept_off: "bool | None", israel: bool = True) -> dict
     return day_info(day, israel)
 
 
-def set_day_overrides(overrides: "dict", israel: bool = True) -> "dict[datetime.date, str]":
+def set_day_overrides(overrides: dict, israel: bool = True) -> dict[datetime.date, str]:
     """Replace every override at once — {date: "keep_off" | "allow"} — for
     the Mac dialog's Save. Validated whole before anything is written."""
-    clean: "dict[datetime.date, str]" = {}
+    clean: dict[datetime.date, str] = {}
     for d, verdict in (overrides or {}).items():
         if verdict not in (KEEP_OFF, ALLOW):
             raise ValueError(f"an override is {KEEP_OFF!r} or {ALLOW!r}, not {verdict!r}")
@@ -293,7 +293,7 @@ def set_day_overrides(overrides: "dict", israel: bool = True) -> "dict[datetime.
     return day_overrides()
 
 
-def exception_dates() -> "frozenset[datetime.date]":
+def exception_dates() -> frozenset[datetime.date]:
     """Q59's view of the store: the dates the user ALLOWED."""
     return frozenset(d for d, v in _read_overrides().items() if v == ALLOW)
 
@@ -303,7 +303,7 @@ def is_exception(date: datetime.date) -> bool:
     return day_override(date) == ALLOW
 
 
-def set_exception_dates(dates) -> "list[str]":
+def set_exception_dates(dates) -> list[str]:
     """Q59's writer, kept for old clients: replace the ALLOWED dates and leave
     every kept-off date alone. An allow on a day that is not kept off by
     default changes nothing and is dropped. Raises ValueError on anything
@@ -317,7 +317,7 @@ def set_exception_dates(dates) -> "list[str]":
 
 
 def set_location(latitude: float, longitude: float, timezone: str,
-                 city: str = "", source: str = "device") -> "ObservanceSettings":
+                 city: str = "", source: str = "device") -> ObservanceSettings:
     """Record where sundown should be computed for, and use it from now on.
 
     Sundown drifts by more than three hours across a year in one place, and by
@@ -346,7 +346,7 @@ def set_location(latitude: float, longitude: float, timezone: str,
     return reload_settings()
 
 
-def get_location() -> "dict | None":
+def get_location() -> dict | None:
     """The stored position, or None when nothing has ever reported one."""
     try:
         with open(LOCATION_PATH, encoding="utf-8") as f:
@@ -356,7 +356,7 @@ def get_location() -> "dict | None":
     return data if isinstance(data, dict) and "latitude" in data else None
 
 
-def clear_location() -> "ObservanceSettings":
+def clear_location() -> ObservanceSettings:
     """Forget the reported position and fall back to the configured place."""
     try:
         os.remove(LOCATION_PATH)
@@ -474,7 +474,7 @@ def reload_settings() -> ObservanceSettings:
 @functools.lru_cache(maxsize=2048)
 def _sun_times(
     date: datetime.date, lat: float, lon: float, tz: str, depression: float
-) -> Optional[Tuple[datetime.time, datetime.time, datetime.time]]:
+) -> tuple[datetime.time, datetime.time, datetime.time] | None:
     """(sunrise, sunset, tzeit) in local wall-clock time, or None if unavailable.
 
     Cached on the primitive arguments rather than the settings object so the
@@ -497,7 +497,7 @@ def _shift(t: datetime.time, minutes: int) -> datetime.time:
     return (base + datetime.timedelta(minutes=minutes)).time()
 
 
-def sunrise(date: datetime.date, settings: Optional[ObservanceSettings] = None) -> Optional[datetime.time]:
+def sunrise(date: datetime.date, settings: ObservanceSettings | None = None) -> datetime.time | None:
     """Sunrise at the configured place — "at sunrise" (`intent.time_words`)."""
     settings = settings or current_settings()
     times = _sun_times(date, settings.latitude, settings.longitude,
@@ -505,14 +505,14 @@ def sunrise(date: datetime.date, settings: Optional[ObservanceSettings] = None) 
     return times[0] if times else None
 
 
-def sunset(date: datetime.date, settings: Optional[ObservanceSettings] = None) -> Optional[datetime.time]:
+def sunset(date: datetime.date, settings: ObservanceSettings | None = None) -> datetime.time | None:
     settings = settings or current_settings()
     times = _sun_times(date, settings.latitude, settings.longitude,
                        settings.timezone, settings.tzeit_depression)
     return times[1] if times else None
 
 
-def tzeit(date: datetime.date, settings: Optional[ObservanceSettings] = None) -> Optional[datetime.time]:
+def tzeit(date: datetime.date, settings: ObservanceSettings | None = None) -> datetime.time | None:
     settings = settings or current_settings()
     """Nightfall — when Shabbat or a chag ends on *date*."""
     times = _sun_times(date, settings.latitude, settings.longitude,
@@ -520,7 +520,7 @@ def tzeit(date: datetime.date, settings: Optional[ObservanceSettings] = None) ->
     return times[2] if times else None
 
 
-def candle_lighting(date: datetime.date, settings: Optional[ObservanceSettings] = None) -> Optional[datetime.time]:
+def candle_lighting(date: datetime.date, settings: ObservanceSettings | None = None) -> datetime.time | None:
     settings = settings or current_settings()
     ss = sunset(date, settings)
     return _shift(ss, -settings.candle_lighting_minutes) if ss else None
@@ -632,7 +632,7 @@ def day_kind(date: datetime.date, israel: bool = True) -> DayKind:
 def day_name(date: datetime.date, israel: bool = True) -> str:
     """What to call the day on a settings row: 'Shabbat · Shmini Atzeres',
     'Chol hamoed Succos', 'Tzom Gedalia', 'Chanukah', or '' on a plain day."""
-    parts: List[str] = []
+    parts: list[str] = []
     if is_shabbat(date):
         parts.append("Shabbat")
     yt = yom_tov_name(date, israel)
@@ -703,7 +703,7 @@ def day_info(date: datetime.date, israel: bool = True) -> dict:
     }
 
 
-def days_info(start: datetime.date, end: datetime.date, israel: bool = True) -> List[dict]:
+def days_info(start: datetime.date, end: datetime.date, israel: bool = True) -> list[dict]:
     out, cur = [], start
     while cur <= end:
         out.append(day_info(cur, israel))
@@ -726,8 +726,8 @@ def _long_festival(date: datetime.date, israel: bool) -> str:
         return ""
 
 
-def week_span(today: Optional[datetime.date] = None,
-              israel: bool = True) -> Tuple[datetime.date, datetime.date, str]:
+def week_span(today: datetime.date | None = None,
+              israel: bool = True) -> tuple[datetime.date, datetime.date, str]:
     """(start, end, festival) of the settings' "This week" box: the Sunday to
     Saturday week holding *today*, widened to the whole of Sukkot or Pesach —
     first yom tov through the last — when any day of that week is part of
@@ -763,7 +763,7 @@ def _starts_at_sundown(date: datetime.date, israel: bool) -> bool:
     return is_major_fast(date)
 
 
-def _daytime_blocked(date: datetime.date, israel: bool) -> Tuple[bool, str]:
+def _daytime_blocked(date: datetime.date, israel: bool) -> tuple[bool, str]:
     """(blocked?, reason) for the daylight hours of *date* itself."""
     yt = yom_tov_name(date, israel)
     if is_shabbat(date) and yt:
@@ -784,7 +784,7 @@ def _daytime_blocked(date: datetime.date, israel: bool) -> Tuple[bool, str]:
 
 def availability(
     date: datetime.date,
-    settings: Optional[ObservanceSettings] = None,
+    settings: ObservanceSettings | None = None,
     israel: bool = True,
 ) -> DayAvailability:
     """What *date* offers: its daylight hours, and the evening that follows it.
@@ -795,7 +795,7 @@ def availability(
     for motzei Shabbat only when a chag would otherwise cost a session.
     """
     settings = settings or current_settings()
-    windows: List[TimeWindow] = []
+    windows: list[TimeWindow] = []
 
     day_blocked, day_reason = _daytime_blocked(date, israel)
     try:
@@ -878,12 +878,12 @@ def availability(
 def blocked_days(
     start: datetime.date,
     end: datetime.date,
-    settings: Optional[ObservanceSettings] = None,
+    settings: ObservanceSettings | None = None,
     israel: bool = True,
-) -> List[DayAvailability]:
+) -> list[DayAvailability]:
     """Every day in [start, end] that is not fully free — for prompts and previews."""
     settings = settings or current_settings()
-    out: List[DayAvailability] = []
+    out: list[DayAvailability] = []
     cur = start
     while cur <= end:
         av = availability(cur, settings, israel)
@@ -916,13 +916,13 @@ class HolyWindow:
     end: datetime.datetime        # tzeit on the last day
     start_name: str               # what begins: "Shabbat", "Rosh Hashana", ...
     end_name: str                 # what ends
-    days: Tuple[datetime.date, ...]
+    days: tuple[datetime.date, ...]
     israel: bool = True
 
     @property
     def name(self) -> str:
         """Every distinct day name in order — "Rosh Hashana & Shabbat"."""
-        names: List[str] = []
+        names: list[str] = []
         for d in self.days:
             n = _holy_day_name(d, self.israel)
             if n not in names:
@@ -975,9 +975,9 @@ def _holy_day_name(date: datetime.date, israel: bool) -> str:
 def holy_windows(
     start: datetime.date,
     end: datetime.date,
-    settings: Optional[ObservanceSettings] = None,
+    settings: ObservanceSettings | None = None,
     israel: bool = True,
-) -> List[HolyWindow]:
+) -> list[HolyWindow]:
     """Every Shabbat / yom tov window that touches a civil date in [start, end].
 
     A window touches its eve (candle lighting falls on it) through its last
@@ -1001,7 +1001,7 @@ def holy_windows(
     except OverflowError:
         return []
 
-    groups: List[List[datetime.date]] = []
+    groups: list[list[datetime.date]] = []
     while cur <= stop:
         if _holy_day_name(cur, israel):
             if groups and groups[-1][-1] == cur - datetime.timedelta(days=1):
@@ -1010,7 +1010,7 @@ def holy_windows(
                 groups.append([cur])
         cur += datetime.timedelta(days=1)
 
-    out: List[HolyWindow] = []
+    out: list[HolyWindow] = []
     for days in groups:
         eve, last = days[0] - datetime.timedelta(days=1), days[-1]
         if last < start or eve > end:
@@ -1034,7 +1034,7 @@ def holy_windows(
     return out
 
 
-def place_key(settings: Optional[ObservanceSettings] = None) -> str:
+def place_key(settings: ObservanceSettings | None = None) -> str:
     """A fingerprint of everything that moves a window's minutes.
 
     A client caching windows keeps this beside them: when a fresh answer
@@ -1049,7 +1049,7 @@ def place_key(settings: Optional[ObservanceSettings] = None) -> str:
 def holy_windows_payload(
     start: datetime.date,
     end: datetime.date,
-    settings: Optional[ObservanceSettings] = None,
+    settings: ObservanceSettings | None = None,
     israel: bool = True,
 ) -> dict:
     """`holy_windows` as JSON, with the place they were computed for.

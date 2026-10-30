@@ -15,8 +15,7 @@ from __future__ import annotations
 
 import os
 
-from assistant.integrations import Integration
-from assistant.integrations import ollama_gate
+from assistant.integrations import Integration, ollama_gate
 
 #: Jude's roles, each resolved from `<ROLE>_PROVIDER` / `<ROLE>_MODEL` in its
 #: `backend/llm.py`. Pinning all five is what stops a stray `.env` in the
@@ -49,7 +48,7 @@ class JudeIntegration(Integration):
         from assistant.config import load_config
         return load_config().ollama
 
-    def command(self, python: str) -> "list[str]":
+    def command(self, python: str) -> list[str]:
         return [python, "-m", "uvicorn", "backend.main:app",
                 "--host", "127.0.0.1", "--port", str(self.port())]
 

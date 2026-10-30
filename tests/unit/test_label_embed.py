@@ -93,6 +93,7 @@ def test_the_call_inherits_the_callers_priority(monkeypatch):
     """A label for a live command is live traffic: the door must not force a
     priority of its own onto `hold()`."""
     import contextlib
+
     from assistant import model_protocol
     monkeypatch.delenv("MACALENDAR_LLM_DISABLED", raising=False)
     seen = []
@@ -237,7 +238,7 @@ def test_the_ngram_fallback_holds_to_its_own_bar_for_todos(monkeypatch):
     confidently wrong 19 times in 29; a to-do now falls back to no tag unless
     the n-gram model is near-certain."""
     monkeypatch.setenv("MACALENDAR_LLM_DISABLED", "1")
-    from assistant.engine.label.model import LabelModel, FALLBACK_MIN_CONFIDENCE
+    from assistant.engine.label.model import FALLBACK_MIN_CONFIDENCE, LabelModel
     m = LabelModel.load("task")
     if getattr(m, "embed_head", None) is None:
         import pytest

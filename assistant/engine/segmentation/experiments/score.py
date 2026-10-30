@@ -43,13 +43,13 @@ disagree about what the invariant is.
 """
 from __future__ import annotations
 
-from assistant.engine.segmentation.fastseg import invariant as _invariant
-
 import argparse
 import collections
 import difflib
 import json
 import re
+
+from assistant.engine.segmentation.fastseg import invariant as _invariant
 
 # --------------------------------------------------------------------------
 # Tokenisation
@@ -199,7 +199,7 @@ def action_boundary_only(gold: dict, pred: dict) -> bool:
     return diff <= (content_tokens(gold["time"]) | content_tokens(pred["time"]))
 
 
-def field_hits(gold: dict, pred: dict) -> "tuple[bool, bool, bool]":
+def field_hits(gold: dict, pred: dict) -> tuple[bool, bool, bool]:
     """(action_boundary_ok, time_exact, tag_exact) for one matched pair.
 
     Only the ACTION is soft, and only in the one way that is genuinely
@@ -424,13 +424,13 @@ def load_rows(paths=None, split: str = None, family: str = None,
     for cand in paths:
         tried.append(cand)
         try:
-            with open(cand, "r", encoding="utf-8") as fh:
+            with open(cand, encoding="utf-8") as fh:
                 raw = fh.read()
         except OSError:
             # A named file that is missing is an error; a CANDIDATE that is
             # missing is just the next guess.
             if explicit:
-                raise SystemExit(f"cannot read {cand}")
+                raise SystemExit(f"cannot read {cand}") from None
             continue
         opened += 1
         for n, line in enumerate(raw.splitlines(), start=1):
@@ -440,7 +440,7 @@ def load_rows(paths=None, split: str = None, family: str = None,
             try:
                 row = json.loads(line)
             except ValueError as exc:
-                raise SystemExit(f"{cand}:{n}: not JSON — {exc}")
+                raise SystemExit(f"{cand}:{n}: not JSON — {exc}") from None
             row["_file"] = cand.rsplit("/", 1)[-1]
             if split and row.get("split") != split:
                 continue

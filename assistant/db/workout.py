@@ -5,7 +5,6 @@ from __future__ import annotations
 import datetime
 import sqlite3
 import uuid
-from typing import List, Optional
 
 
 class WorkoutMixin:
@@ -15,7 +14,7 @@ class WorkoutMixin:
     # Workout: Exercises
     # ------------------------------------------------------------------
 
-    def create_workout_exercise(self, id: str, name: str, created_at: Optional[str] = None) -> str:
+    def create_workout_exercise(self, id: str, name: str, created_at: str | None = None) -> str:
         """Insert a new exercise with a client-generated UUID. Idempotent on id
         (INSERT OR IGNORE) so a retried offline-sync POST is safe to resend."""
         now = created_at or datetime.datetime.now().isoformat()
@@ -26,7 +25,7 @@ class WorkoutMixin:
             )
         return id
 
-    def get_workout_exercises(self) -> List[dict]:
+    def get_workout_exercises(self) -> list[dict]:
         """Return all exercises, alphabetical (used for search-or-create autocomplete)."""
         with self._conn() as conn:
             rows = conn.execute(
@@ -34,14 +33,14 @@ class WorkoutMixin:
             ).fetchall()
         return [dict(r) for r in rows]
 
-    def get_workout_exercise(self, exercise_id: str) -> Optional[dict]:
+    def get_workout_exercise(self, exercise_id: str) -> dict | None:
         with self._conn() as conn:
             row = conn.execute(
                 "SELECT * FROM workout_exercises WHERE id = ?", (exercise_id,)
             ).fetchone()
         return dict(row) if row else None
 
-    def find_workout_exercise_by_name(self, name: str) -> Optional[dict]:
+    def find_workout_exercise_by_name(self, name: str) -> dict | None:
         """Case-insensitive exact name match — used to reuse an existing exercise
         instead of creating a duplicate."""
         with self._conn() as conn:
@@ -157,7 +156,7 @@ class WorkoutMixin:
             self._insert_workout_template_blocks(conn, template_id, template.get("blocks") or [])
         return template_id
 
-    def get_workout_templates(self, include_drafts: bool = False) -> List[dict]:
+    def get_workout_templates(self, include_drafts: bool = False) -> list[dict]:
         """Return templates newest-first. Drafts (status='draft', pending review after
         AI generation) are excluded unless include_drafts=True."""
         where = "" if include_drafts else "WHERE status != 'draft'"
@@ -167,7 +166,7 @@ class WorkoutMixin:
             ).fetchall()
             return [self._hydrate_workout_template(conn, r) for r in rows]
 
-    def get_workout_template(self, template_id: str) -> Optional[dict]:
+    def get_workout_template(self, template_id: str) -> dict | None:
         with self._conn() as conn:
             row = conn.execute(
                 "SELECT * FROM workout_templates WHERE id = ?", (template_id,)
@@ -261,7 +260,7 @@ class WorkoutMixin:
                  item.get("created_at") or now],
             )
 
-    def get_workout_plans(self, status: Optional[str] = None) -> List[dict]:
+    def get_workout_plans(self, status: str | None = None) -> list[dict]:
         with self._conn() as conn:
             if status:
                 rows = conn.execute(
@@ -274,7 +273,7 @@ class WorkoutMixin:
                 ).fetchall()
             return [dict(r) for r in rows]
 
-    def get_workout_plan(self, plan_id: str) -> Optional[dict]:
+    def get_workout_plan(self, plan_id: str) -> dict | None:
         """A plan with its items attached, ordered by date then start time."""
         with self._conn() as conn:
             row = conn.execute(
@@ -292,7 +291,7 @@ class WorkoutMixin:
 
     def get_workout_plan_items(
         self, start_date: str = "", end_date: str = "", plan_id: str = ""
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Items in a date range — what the calendar's day/week views ask for."""
         clauses, params = [], []
         if start_date:
@@ -309,7 +308,7 @@ class WorkoutMixin:
             ).fetchall()
             return [dict(r) for r in rows]
 
-    def get_workout_plan_item(self, item_id: str) -> Optional[dict]:
+    def get_workout_plan_item(self, item_id: str) -> dict | None:
         with self._conn() as conn:
             row = conn.execute(
                 "SELECT * FROM workout_plan_items WHERE id = ?", (item_id,)
@@ -327,7 +326,7 @@ class WorkoutMixin:
                 [*allowed.values(), item_id],
             )
 
-    def set_plan_item_event(self, item_id: str, event_id: Optional[int]) -> None:
+    def set_plan_item_event(self, item_id: str, event_id: int | None) -> None:
         """Link a plan item to the calendar event it was materialised into."""
         with self._conn() as conn:
             conn.execute(
@@ -409,15 +408,15 @@ class WorkoutMixin:
 
     def get_workout_sessions(
         self,
-        limit: Optional[int] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-    ) -> List[dict]:
+        limit: int | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> list[dict]:
         """Return sessions most-recent-first, optionally filtered by started_at range
         and/or capped with limit."""
         query = "SELECT * FROM workout_sessions"
-        conditions: List[str] = []
-        params: List = []
+        conditions: list[str] = []
+        params: list = []
         if start_date:
             conditions.append("started_at >= ?")
             params.append(start_date)
@@ -434,7 +433,7 @@ class WorkoutMixin:
             rows = conn.execute(query, params).fetchall()
             return [self._hydrate_workout_session(conn, r) for r in rows]
 
-    def get_workout_session(self, session_id: str) -> Optional[dict]:
+    def get_workout_session(self, session_id: str) -> dict | None:
         with self._conn() as conn:
             row = conn.execute(
                 "SELECT * FROM workout_sessions WHERE id = ?", (session_id,)

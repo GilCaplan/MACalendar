@@ -31,12 +31,14 @@ scratch_env("macalendar-shoot-", keep=("MODELS", "LABEL_FEEDBACK",
                                        "DEVICE_SECRET", "DEVICES"))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtCore import QTimer                     # noqa: E402
-from PyQt6.QtWidgets import QApplication            # noqa: E402
+from PyQt6.QtCore import QTimer  # noqa: E402
+from PyQt6.QtWidgets import QApplication  # noqa: E402
 
-from assistant import trace as _trace               # noqa: E402
+from assistant import trace as _trace  # noqa: E402
 from assistant.calendar_ui.thinking_panel import (  # noqa: E402
-    PANEL_HEIGHT, PANEL_WIDTH, ThinkingPanel,
+    PANEL_HEIGHT,
+    PANEL_WIDTH,
+    ThinkingPanel,
 )
 
 

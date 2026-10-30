@@ -28,7 +28,6 @@ import math
 import pathlib
 import re
 
-
 # ---------------------------------------------------------------------------
 # Featurizers
 # ---------------------------------------------------------------------------
@@ -36,9 +35,9 @@ import re
 class Featurizer:
     """Turns text into a fixed vector of named signals."""
 
-    names: "list[str]" = []
+    names: list[str] = []
 
-    def extract(self, text: str) -> "list[float]":  # pragma: no cover
+    def extract(self, text: str) -> list[float]:  # pragma: no cover
         raise NotImplementedError
 
     def __len__(self) -> int:
@@ -83,7 +82,7 @@ class OperationFeatures(Featurizer):
              "remove-speak2", "query-opener2", "availability", "cross-off",
              "done-query"]
 
-    def extract(self, text: str) -> "list[float]":
+    def extract(self, text: str) -> list[float]:
         low = text.lower()
         h = lambda p: _has(p, low)          # noqa: E731
         return [
@@ -151,7 +150,7 @@ class AtomicityFeatures(Featurizer):
     #: from "book the gym and remind me to call the plumber" (two).
     _MID_LO, _MID_HI = 0.2, 0.8
 
-    def extract(self, text: str) -> "list[float]":
+    def extract(self, text: str) -> list[float]:
         low = text.lower()
         h = lambda p: _has(p, low)          # noqa: E731
         times = len(re.findall(r"\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\bat\s+\d{1,2}\b", low))
@@ -253,7 +252,7 @@ class KindFeatures(Featurizer):
              "long", "activity-noun", "at-num", "chore-noun", "for-me",
              "user-category", "user-tag"]
 
-    def extract(self, text: str) -> "list[float]":
+    def extract(self, text: str) -> list[float]:
         low = text.lower()
         h = lambda p: _has(p, low)          # noqa: E731
         return [
@@ -296,11 +295,11 @@ class LogisticModel:
         self.name = name
         self.classes = tuple(classes)
         self.featurizer = featurizer
-        self.weights: "dict[str, list[float]]" = {}
+        self.weights: dict[str, list[float]] = {}
 
     # -- training (FIT TIME ONLY — see the class docstring) -----------------
     def fit(self, texts, labels, balanced: bool = True,
-            C: float = 1.0, epochs: int = 300, lr: float = 0.5) -> "LogisticModel":
+            C: float = 1.0, epochs: int = 300, lr: float = 0.5) -> LogisticModel:
         """Fit with scikit-learn when it is installed (Gil: "just use the
         library version") — L-BFGS with L2 regularization and real class
         weighting beats a hand-rolled loop with a guessed learning rate. The
@@ -325,7 +324,7 @@ class LogisticModel:
             self.weights[c] = [float(v) for v in clf.coef_[0]]
         return self
 
-    def _fit_pure(self, X, labels, balanced, epochs, lr) -> "LogisticModel":
+    def _fit_pure(self, X, labels, balanced, epochs, lr) -> LogisticModel:
         """Dependency-free fallback (batch gradient descent)."""
         n, d = len(X), len(self.featurizer)
         counts = {c: max(1, sum(1 for l in labels if l == c)) for c in self.classes}
@@ -348,11 +347,11 @@ class LogisticModel:
         return self
 
     # -- inference ---------------------------------------------------------
-    def scores(self, text: str) -> "dict[str, float]":
+    def scores(self, text: str) -> dict[str, float]:
         x = self.featurizer.extract(text)
         return {c: sum(a * b for a, b in zip(w, x)) for c, w in self.weights.items()}
 
-    def predict(self, text: str) -> "tuple[str | None, float]":
+    def predict(self, text: str) -> tuple[str | None, float]:
         """(label, margin) — margin is the gap to the runner-up, i.e. how
         decisive the call was. None when the model has no weights."""
         if not self.weights:
@@ -392,7 +391,7 @@ class LogisticModel:
     def to_dict(self) -> dict:
         return {"classes": list(self.classes), "weights": self.weights}
 
-    def load(self, blob: dict) -> "LogisticModel":
+    def load(self, blob: dict) -> LogisticModel:
         """Load weights, REFUSING a vector that does not match the featurizer.
 
         `scores` dots with `zip`, which truncates silently: a weights file
@@ -451,7 +450,7 @@ class ModelRouter:
     #: trades 2 more slow-path rows for 8 fewer half-executed commands.
     ATOMIC_MARGIN_FLOOR = 0.25
 
-    def __init__(self, weights_path: "pathlib.Path | None" = None) -> None:
+    def __init__(self, weights_path: pathlib.Path | None = None) -> None:
         self.operation = LogisticModel("operation", self.OPS, OperationFeatures())
         self.kind = LogisticModel("kind", self.KINDS, KindFeatures())
         self.atomicity = LogisticModel("atomicity", self.ATOMICITY, AtomicityFeatures())
@@ -491,7 +490,7 @@ class ModelRouter:
         label, margin = self.atomicity.predict(text)
         return label == "compound" and margin >= self.ATOMIC_MARGIN_FLOOR
 
-    def route(self, text: str) -> "str | None":
+    def route(self, text: str) -> str | None:
         if not self.load():
             return None
         op, op_margin = self.operation.predict(text)

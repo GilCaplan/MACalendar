@@ -24,7 +24,8 @@ import re
 import sqlite3
 import threading
 import time
-from typing import Callable, Any, Iterable
+from collections.abc import Callable, Iterable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +150,7 @@ def _mask_dates(params: Any) -> Any:
 
 
 class CommandMemory:
-    def __init__(self, path: "str | None" = None) -> None:
+    def __init__(self, path: str | None = None) -> None:
         # No path → the BOUND user's memory (assistant/users); nobody bound →
         # MEMORY_PATH, as always. Read at call time, not frozen as a default.
         if path is None:
@@ -371,7 +372,7 @@ class CommandMemory:
         return out
 
     def learn_from_reformulations(self, *, dry_run: bool = False,
-                                  verify: "Callable[[str, str], bool] | None" = None
+                                  verify: Callable[[str, str], bool] | None = None
                                   ) -> list[dict[str, Any]]:
         """Turn those pairs into corrections the model will actually see.
 
@@ -587,7 +588,7 @@ _memory: CommandMemory | None = None
 _memory_lock = threading.Lock()
 
 
-_user_memories: "dict[str, CommandMemory]" = {}
+_user_memories: dict[str, CommandMemory] = {}
 
 
 def get_memory() -> CommandMemory:

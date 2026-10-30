@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import datetime
 import uuid
-from typing import TYPE_CHECKING, ClassVar, List, Optional, Type
+from typing import TYPE_CHECKING, ClassVar
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -40,31 +40,31 @@ if TYPE_CHECKING:
 
 class _GenSet(BaseModel):
     type: str  # 'reps' | 'time'
-    target_reps: Optional[int] = None
-    weight_kg: Optional[float] = None
-    target_seconds: Optional[int] = None
-    note: Optional[str] = None
+    target_reps: int | None = None
+    weight_kg: float | None = None
+    target_seconds: int | None = None
+    note: str | None = None
 
 
 class _GenBlock(BaseModel):
     kind: str  # 'single' | 'superset'
     # .single
-    exercise_name: Optional[str] = None
-    sets: List[_GenSet] = Field(default_factory=list)
-    rest_between_sets_override: Optional[int] = None
+    exercise_name: str | None = None
+    sets: list[_GenSet] = Field(default_factory=list)
+    rest_between_sets_override: int | None = None
     # .superset
-    exercise_name_a: Optional[str] = None
-    exercise_name_b: Optional[str] = None
-    sets_a: List[_GenSet] = Field(default_factory=list)
-    sets_b: List[_GenSet] = Field(default_factory=list)
-    rest_after_round: Optional[int] = None
+    exercise_name_a: str | None = None
+    exercise_name_b: str | None = None
+    sets_a: list[_GenSet] = Field(default_factory=list)
+    sets_b: list[_GenSet] = Field(default_factory=list)
+    rest_after_round: int | None = None
 
 
 class _GenTemplate(BaseModel):
     name: str
     default_rest_between_sets: int = 90
     default_rest_between_exercises: int = 120
-    blocks: List[_GenBlock] = Field(default_factory=list)
+    blocks: list[_GenBlock] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -141,7 +141,7 @@ class GenerateWorkoutRoutineAction(BaseAction):
         "Do NOT use this for logging a completed workout, or for editing/tweaking an existing "
         "routine — only for generating a brand-new one from scratch."
     )
-    intent_model: ClassVar[Type[BaseIntent]] = GenerateWorkoutRoutineIntent
+    intent_model: ClassVar[type[BaseIntent]] = GenerateWorkoutRoutineIntent
     parameters_schema: ClassVar[dict] = {
         "type": "object",
         "properties": {
@@ -181,7 +181,7 @@ class GenerateWorkoutRoutineAction(BaseAction):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _generate_routine(parser: "IntentParser", goal: str) -> _GenTemplate:
+    def _generate_routine(parser: IntentParser, goal: str) -> _GenTemplate:
         user_prompt = f"User's goal: {goal!r}\n\nProduce the JSON routine now."
         data = parser.call_llm_json(_ROUTINE_SCHEMA_PROMPT, user_prompt)
         try:
@@ -249,7 +249,7 @@ class GenerateWorkoutRoutineAction(BaseAction):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _self_critique(parser: "IntentParser", goal: str, template: _GenTemplate) -> str:
+    def _self_critique(parser: IntentParser, goal: str, template: _GenTemplate) -> str:
         summary_lines = [f"Routine: {template.name}"]
         for i, block in enumerate(template.blocks):
             if block.kind == "single":

@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import logging
+
 from assistant import clock as _clock  # the moment the command was SAID
 
 logger = logging.getLogger(__name__)
@@ -131,7 +132,8 @@ def _iso(value, today):
         return None
 
 
-def _clock(value):
+def _hhmm(value):
+    """An "HH:MM" the model returned, or None for anything else."""
     if not value or not isinstance(value, str):
         return None
     v = value.strip()
@@ -140,7 +142,7 @@ def _clock(value):
     return None
 
 
-def build_objects(text: str, cfg) -> "tuple[list, int]":
+def build_objects(text: str, cfg) -> tuple[list, int]:
     """The single call. Returns ([(action_name, intent)], llm_ms)."""
     from assistant.engine import llm as _llm
 
@@ -158,9 +160,12 @@ def _to_intents(objects: list, today) -> list:
     what one call gets right; quietly fixing its output would measure the fixer.
     """
     from assistant.actions.calendar.intent import (
-        CalendarIntent, DeleteEventIntent, QueryScheduleIntent, UpdateEventIntent)
-    from assistant.actions.todo.intent import (
-        CompleteTodoIntent, CreateTodoIntent, DeleteTodoIntent, QueryTodoIntent)
+        CalendarIntent,
+        DeleteEventIntent,
+        QueryScheduleIntent,
+        UpdateEventIntent,
+    )
+    from assistant.actions.todo.intent import CompleteTodoIntent, CreateTodoIntent, DeleteTodoIntent, QueryTodoIntent
 
     pairs = []
     for o in objects:
@@ -177,8 +182,8 @@ def _to_intents(objects: list, today) -> list:
                 pairs.append(("create_event", CalendarIntent(
                     title=title,
                     date=_iso(o.get("date"), today),
-                    start_time=_clock(o.get("start_time")),
-                    end_time=_clock(o.get("end_time")),
+                    start_time=_hhmm(o.get("start_time")),
+                    end_time=_hhmm(o.get("end_time")),
                     attendees=[a for a in (o.get("attendees") or []) if isinstance(a, str)],
                     location=(o.get("location") or None),
                     recurrence=(o.get("recurrence") or None) or None,
@@ -187,7 +192,7 @@ def _to_intents(objects: list, today) -> list:
                 pairs.append(("update_event", UpdateEventIntent(
                     match_title=match or None,
                     new_date=_iso(o.get("date"), today),
-                    new_start_time=_clock(o.get("start_time")))))
+                    new_start_time=_hhmm(o.get("start_time")))))
             elif kind == "event" and op == "delete":
                 pairs.append(("delete_event", DeleteEventIntent(
                     match_title=match or None,

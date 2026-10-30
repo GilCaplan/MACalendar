@@ -49,7 +49,7 @@ _BUILTIN_STOP_PATTERNS = [
 ]
 
 
-def build_stop_re(extra_phrases: "list[str] | None" = None) -> "re.Pattern[str]":
+def build_stop_re(extra_phrases: list[str] | None = None) -> re.Pattern[str]:
     """Stop-keyword regex from built-ins plus user-configured phrases."""
     patterns = list(_BUILTIN_STOP_PATTERNS)
     for phrase in (extra_phrases or []):
@@ -141,7 +141,7 @@ def repair_command_frames(text: str) -> str:
     return out
 
 
-def _peel_stop_keywords(transcript: str, extra_phrases: "list[str] | None" = None) -> str:
+def _peel_stop_keywords(transcript: str, extra_phrases: list[str] | None = None) -> str:
     """Every trailing stop keyword off, not just the last one.
 
     The regex is anchored at the end, so one pass removes one keyword: "add
@@ -160,7 +160,7 @@ def _peel_stop_keywords(transcript: str, extra_phrases: "list[str] | None" = Non
     return cur
 
 
-def strip_stop_keyword(transcript: str, extra_phrases: "list[str] | None" = None) -> str:
+def strip_stop_keyword(transcript: str, extra_phrases: list[str] | None = None) -> str:
     """Remove trailing stop keywords from the transcript.
 
     Falls back to the original when that leaves nothing: the words were ALL
@@ -171,7 +171,7 @@ def strip_stop_keyword(transcript: str, extra_phrases: "list[str] | None" = None
     return cleaned if cleaned else transcript
 
 
-def is_ignorable(raw_text: str, extra_phrases: "list[str] | None" = None) -> bool:
+def is_ignorable(raw_text: str, extra_phrases: list[str] | None = None) -> bool:
     """Nothing to act on — the cheapest read there is, and the first one taken.
 
     Three shapes of non-command reach the brain: silence that transcribed to
@@ -215,7 +215,7 @@ def is_trivial_transcript(text: str) -> bool:
 
 def run(state: EngineState, cfg) -> EngineState:
     from assistant.stt.vocab import apply_vocab, get_vocab
-    from assistant.trace import VOCAB, DONE
+    from assistant.trace import DONE, VOCAB
 
     # Peeled, not merely stripped — and the peeled value is what decides
     # whether this is a command at all. "that's it" and "set events" are stop
@@ -295,6 +295,7 @@ def _confirms_path() -> str:
     """Confirmation counters live BESIDE the vocabulary, never inside it —
     vocab.json is hand-curated and junk written there degrades the assistant."""
     import os
+
     from assistant.stt.vocab import VOCAB_PATH
     return os.path.join(os.path.dirname(VOCAB_PATH), "transcript_confirms.json")
 
@@ -409,7 +410,7 @@ def confirm_unchanged(text: str) -> list:
         return []
     path = _confirms_path()
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             counts = json.load(f)
     except Exception:
         counts = {}

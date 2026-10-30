@@ -675,11 +675,12 @@ def build_cases(rows: list, seed: int = SEED, progress: bool = False,
     CHANGES the rendered object before the case is written.
     """
     from freezegun import freeze_time
+
     from assistant.engine import llm as _llm
     from assistant.engine.decompose_validate import stage as _dv
     from assistant.engine.fastrule.build import Built, build_all
-    from assistant.engine.state import EngineState, Item
     from assistant.engine.llmjudge.datasets.v2 import mutations
+    from assistant.engine.state import EngineState, Item
 
     # spaCy's pipeline must be built OUTSIDE the frozen clock — building it
     # under freezegun raises, and every row would then resolve nothing.
@@ -893,7 +894,7 @@ def _base_rows_from_file(path: pathlib.Path) -> list:
 
 
 def build_command_tier(tier: str, seed: int = SEED, variants: int = 4,
-                       base_rows: "list | None" = None) -> list:
+                       base_rows: list | None = None) -> list:
     """The GROWN rows of `tier` (the base file supplies the rest).
 
     Each grown row carries `grown_in` — the smallest tier it belongs to — and

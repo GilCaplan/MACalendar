@@ -3,13 +3,20 @@ types to start using it, who uses it now, and its log."""
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QFontDatabase
-from PyQt6.QtWidgets import (QDialog, QHBoxLayout, QLabel, QListWidget,
-                             QListWidgetItem, QPlainTextEdit, QPushButton,
-                             QVBoxLayout)
+from PyQt6.QtWidgets import (
+    QDialog,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QPlainTextEdit,
+    QPushButton,
+    QVBoxLayout,
+)
 
 from assistant.host import logs
 from assistant.pairing import codes

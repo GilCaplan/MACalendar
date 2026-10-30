@@ -130,10 +130,14 @@ def set_visible(name: str, on: bool) -> None:
         # Parse before replacing: a text edit that produced something YAML
         # cannot read would leave the assistant unable to boot, and the whole
         # point of editing text is that the file keeps working.
+        # Not an `assert`: `python -O` strips those, and this check is what
+        # stops a bad edit reaching the file.
         try:
             parsed = yaml.safe_load(updated) or {}
-            assert bool(parsed.get("features", {}).get(name)) == bool(on)
+            reads_back = bool(parsed.get("features", {}).get(name)) == bool(on)
         except Exception:                       # noqa: BLE001
+            reads_back = False
+        if not reads_back:
             raise ValueError(f"refusing to write config.yaml: the edit for "
                              f"{name!r} did not read back correctly")
         tmp = path + ".tmp"

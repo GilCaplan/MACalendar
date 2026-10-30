@@ -7,20 +7,19 @@ Start with:
 
 from __future__ import annotations
 
-import hashlib
-import re
-
 import datetime
+import hashlib
 import logging
 import os
+import re
 from typing import TYPE_CHECKING, Any
 
 import yaml
-
-from assistant import model_protocol as _mp
 from flask import Flask, jsonify, request
 
-from assistant.config import AppConfig, ConfigError, load_config as _load_config_file
+from assistant import model_protocol as _mp
+from assistant.config import AppConfig, ConfigError
+from assistant.config import load_config as _load_config_file
 
 
 def load_config(path: str = "config.yaml") -> AppConfig:
@@ -71,7 +70,7 @@ _confirm_lock = _threading.Lock()
 CONFIRM_TTL_SEC = 600
 
 
-def _confirm_sweep(now: "float | None" = None) -> None:
+def _confirm_sweep(now: float | None = None) -> None:
     """Drop expired proposals. Called on every touch of the store — there is no
     timer here on purpose: a handful of dicts does not deserve a thread."""
     now = _time.time() if now is None else now
@@ -91,6 +90,7 @@ def change_token() -> str:
     this one.
     """
     import os as _os
+
     # With users: every calendar this viewer can see, plus the registry — a
     # new share, or a shared calendar changing, moves the token (DEVQA Q65).
     from assistant.users import sharing as _sharing
@@ -105,7 +105,7 @@ def change_token() -> str:
         return "0"
 
 
-def create_event_from_body(data: dict) -> "tuple[dict, int]":
+def create_event_from_body(data: dict) -> tuple[dict, int]:
     """POST /events' body → the created event. Shared with /voice/confirm so an
     accepted proposal is created by exactly the code a client's own POST would
     have run — one create path, no second way into db.py."""
@@ -123,7 +123,7 @@ def create_event_from_body(data: dict) -> "tuple[dict, int]":
     return idempotent_create("events", data, lambda: db.create_event_from_dict(fields), db=db)
 
 
-def create_todo_from_body(data: dict) -> "tuple[dict, int]":
+def create_todo_from_body(data: dict) -> tuple[dict, int]:
     """POST /todos' body → the created task, idempotent on `client_token`.
     Shared with /voice/confirm (see create_event_from_body)."""
     title = data.get("title", "").strip()
@@ -217,8 +217,9 @@ def warm_up_components() -> None:
     the first phone command doesn't pay 10–20 s of cold starts."""
     def _go() -> None:
         import time as _t
-        from assistant.engine import load_config as _engine_cfg
+
         from assistant.engine import llm as _gen
+        from assistant.engine import load_config as _engine_cfg
         t0 = _t.perf_counter()
         for name, fn in (("rule parser", _gen.get_rule_parser),
                          ("whisper", _get_stt),
@@ -279,8 +280,8 @@ def retry_pending_once(run_transcript, mem, budget: int) -> int:
     # the SAME stream and two phones' queued commands were concatenated into one
     # utterance. `model_protocol.stream_key` is the identity; it falls back to
     # source-only for rows a client wrote without an id.
-    from assistant.model_protocol import stream_key
     from assistant.model_protocol import priority_for as stream_priority
+    from assistant.model_protocol import stream_key
     by_source: dict = {}
     for row in live:
         # The stream was RESOLVED AT THE DOOR, where the token was available.
@@ -428,7 +429,7 @@ def create_app() -> Flask:
     # (assistant/offline/PROTOCOL.md). HTTP only.
     from assistant.offline import routes as _offline_routes
     _offline_routes.register(app)
-    from assistant.magic import routes as _magic_routes       # Easter egg: suggest words
+    from assistant.magic import routes as _magic_routes  # Easter egg: suggest words
     _magic_routes.register(app)
 
     # Occasions (DEVQA Q73): birthdays, anniversaries, yahrzeits, countdowns
@@ -535,7 +536,7 @@ def create_app() -> Flask:
     # Voice endpoints
     # ------------------------------------------------------------------
 
-    def _run_transcript(transcript: str, trace: "Trace | None" = None,
+    def _run_transcript(transcript: str, trace: Trace | None = None,
                         source: str = "ios", device: str = "",
                         stream: str = "", current_view: str = "month",
                         trace_run: str | None = None,
@@ -569,7 +570,7 @@ def create_app() -> Flask:
             resp["confirm_token"] = token
         return resp
 
-    def _flag(name: str, body: "dict[str, Any] | None" = None) -> bool:
+    def _flag(name: str, body: dict[str, Any] | None = None) -> bool:
         """Does the caller declare it can render one of the round-trips?
 
         `supports_edit` (the needs_edit editor) and `supports_confirm` (the
@@ -584,10 +585,10 @@ def create_app() -> Flask:
             else request.form.get(name)
         return str(wren).strip().lower() in ("1", "true", "yes", "on")
 
-    def _supports_edit(body: "dict[str, Any] | None" = None) -> bool:
+    def _supports_edit(body: dict[str, Any] | None = None) -> bool:
         return _flag("supports_edit", body)
 
-    def _supports_confirm(body: "dict[str, Any] | None" = None) -> bool:
+    def _supports_confirm(body: dict[str, Any] | None = None) -> bool:
         return _flag("supports_confirm", body)
 
     if not _no_bg:
@@ -641,7 +642,7 @@ def create_app() -> Flask:
             logger.error("Audio decode failed: %s", e)
             return jsonify({"error": f"Audio decode failed: {e}", "code": 422}), 422
 
-        from assistant.trace import Trace, STT
+        from assistant.trace import STT, Trace
         trace = Trace(source="ios")
         try:
             stt = _get_stt()
@@ -713,10 +714,12 @@ def create_app() -> Flask:
         phone read and already booked while this runs (phone first, DEVQA
         Q87); the result carries the comparison as `offline`, as on `/voice`.
         """
-        from flask import Response, stream_with_context
         import json as _json
         import queue as _queue
-        from assistant.trace import Trace, STT, ERROR
+
+        from flask import Response, stream_with_context
+
+        from assistant.trace import ERROR, STT, Trace
 
         # Read anything off the request here, in the request context — the
         # worker below runs on a bare thread where `request` is gone.
@@ -743,7 +746,7 @@ def create_app() -> Flask:
             if not text_cmd:
                 return jsonify({"error": "Missing 'audio' file or 'transcript'", "code": 400}), 400
 
-        q: "_queue.Queue[dict | None]" = _queue.Queue()
+        q: _queue.Queue[dict | None] = _queue.Queue()
         trace = Trace(source="ios")
         trace.on_step(lambda st: q.put({"type": "step", **st.to_dict()}))
 
@@ -1012,7 +1015,9 @@ def create_app() -> Flask:
         if mem_id is not None:
             try:
                 from assistant.intent.memory import (
-                    FEEDBACK_APPROVED, FEEDBACK_REJECTED, get_memory,
+                    FEEDBACK_APPROVED,
+                    FEEDBACK_REJECTED,
+                    get_memory,
                 )
                 get_memory().set_feedback(
                     int(mem_id),
@@ -1184,15 +1189,15 @@ def create_app() -> Flask:
 
     @app.get("/vocab/onboarding")
     def vocab_onboarding_get():
-        from assistant.stt.vocab import get_vocab
         from assistant.stt import vocab_onboarding
+        from assistant.stt.vocab import get_vocab
         return jsonify(vocab_onboarding.payload(get_vocab()))
 
     @app.post("/vocab/onboarding")
     def vocab_onboarding_post():
         """{"answers": {"people": ["Kyra"], ...}, "presets": ["tefillah"], "done": true}"""
-        from assistant.stt.vocab import get_vocab
         from assistant.stt import vocab_onboarding
+        from assistant.stt.vocab import get_vocab
         body = request.get_json(silent=True) or {}
         return jsonify(vocab_onboarding.apply(
             get_vocab(), body.get("answers"), body.get("presets"), bool(body.get("done", True))))
@@ -1202,8 +1207,8 @@ def create_app() -> Flask:
         """Mine vocabulary candidates. Body: {"text": "..."} (WhatsApp export / notes)
         or {"source": "calendar"} or {"names": ["Rocky Caplan", ...]} (phone contacts).
         Returns candidates only — nothing is added."""
-        from assistant.stt.vocab import get_vocab
         from assistant.stt import vocab_import
+        from assistant.stt.vocab import get_vocab
         body = request.get_json(silent=True) or {}
         known = {e.word for e in get_vocab().entries}
         if body.get("names"):
@@ -1684,8 +1689,6 @@ def create_app() -> Flask:
     def config_patch():
         data = request.get_json(silent=True) or {}
         path = os.path.normpath(_CONFIG_PATH)
-        with open(path) as f:
-            current = yaml.safe_load(f) or {}
 
         # Edited as TEXT, one line at a time. `yaml.dump` here rewrote the
         # whole document and destroyed every comment in it — the notes saying
@@ -1696,6 +1699,8 @@ def create_app() -> Flask:
         from assistant.features import yaml_text
         with open(path) as f:
             text = f.read()
+        # A file that no longer parses is not edited line by line on top.
+        yaml.safe_load(text)
 
         # The two event defaults are NUMBERS the engine computes with, so this
         # request shape is checked before a byte is written: "90" or 0 stored
@@ -1703,8 +1708,7 @@ def create_app() -> Flask:
         # what the client showed.
         events = data.get("events")
         if events is not None:
-            from assistant.config import (MAX_EVENT_MINUTES, MIN_EVENT_LENGTH,
-                                          SERIES_END_BOUNDS)
+            from assistant.config import MAX_EVENT_MINUTES, MIN_EVENT_LENGTH, SERIES_END_BOUNDS
             if not isinstance(events, dict):
                 return jsonify({"error": "events must be an object", "code": 400}), 400
             # (low, high, unit) per setting: the two event defaults in minutes,

@@ -52,7 +52,7 @@ MAX_ENTRIES = 400
 MAX_FIELD = 4000
 
 
-def _clip(text: str) -> "tuple[str, int]":
+def _clip(text: str) -> tuple[str, int]:
     text = text or ""
     return (text[:MAX_FIELD], len(text))
 
@@ -141,7 +141,7 @@ def size() -> int:
         return 0
 
 
-def read_since(offset: int) -> "tuple[list, int]":
+def read_since(offset: int) -> tuple[list, int]:
     """New entries past `offset`. Mirrors trace_bus.read_since, including its
     trim handling: a file shorter than the offset was rewritten, so restart."""
     from assistant.common.jsonl import tail

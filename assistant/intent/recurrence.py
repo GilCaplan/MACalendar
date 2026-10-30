@@ -26,6 +26,7 @@ import re
 
 from assistant.common.wordlists import WEEKDAY_ABBR_INDEX as _WEEKDAYS
 from assistant.common.wordlists import WEEKDAYS as _FULL
+
 _DAY_ALT = "|".join(sorted(_WEEKDAYS, key=len, reverse=True))
 #: One weekday, singular or plural ("tuesday", "tuesdays", "tue").
 _DAY = rf"(?:{_DAY_ALT})s?"

@@ -162,6 +162,7 @@ def post(path: str, payload: dict, timeout, base_url: str, session=None):
     ``requests`` raises only when THIS machine's call does — a helper's
     failure is never the command's failure."""
     import requests
+
     from assistant import model_protocol
     sess = session or requests
     targets = plan(str(payload.get("model") or ""), base_url)

@@ -5,7 +5,9 @@
 
 See ARCHITECTURE.md.
 """
-from assistant.engine.ingest import repair                  # noqa: F401
-from assistant.engine.ingest.coalesce import (              # noqa: F401
-    coalesce, coalesce_groups, wrap,
+from assistant.engine.ingest import repair  # noqa: F401
+from assistant.engine.ingest.coalesce import (  # noqa: F401
+    coalesce,
+    coalesce_groups,
+    wrap,
 )

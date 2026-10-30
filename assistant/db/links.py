@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import datetime
 import sqlite3
-from typing import List, Optional
 
 from assistant.db.common import _utcnow_iso
 
@@ -33,13 +32,13 @@ class LinksMixin:
     # An event that disappears any OTHER way (a sync, a series regeneration)
     # only unlinks — `_migrate_links`' trigger.
 
-    def linked_todo(self, event_id: int) -> Optional[dict]:
+    def linked_todo(self, event_id: int) -> dict | None:
         with self._conn() as conn:
             row = conn.execute("SELECT * FROM todos WHERE linked_event_id = ?",
                                (event_id,)).fetchone()
         return self._decode_tags(dict(row)) if row else None
 
-    def linked_todos(self, event_id: int) -> List[dict]:
+    def linked_todos(self, event_id: int) -> list[dict]:
         todo = self.linked_todo(event_id)
         return [todo] if todo else []
 
@@ -64,7 +63,7 @@ class LinksMixin:
             conn.execute("UPDATE todos SET linked_event_id = NULL, updated_at = ? "
                          "WHERE id = ?", (_utcnow_iso(), todo_id))
 
-    def create_linked_todo(self, event_id: int) -> Optional[int]:
+    def create_linked_todo(self, event_id: int) -> int | None:
         """The to-do that IS `event_id`. Its existing one if it has one; None
         if the event is gone."""
         ev = self.get_event(event_id)
@@ -83,7 +82,7 @@ class LinksMixin:
         return todo_id
 
     def create_linked_event(self, todo_id: int, date: str = "", start_time: str = "09:00",
-                            end_time: str = "") -> Optional[int]:
+                            end_time: str = "") -> int | None:
         """The event that IS `todo_id` — on `date`, else its due date, else
         today; 09:00 unless told otherwise (the Q47 default for an unclocked
         event), an hour long. Its existing one if it has one; None if the
@@ -111,7 +110,7 @@ class LinksMixin:
     # Only when the series has nothing left does the to-do complete.
 
     @staticmethod
-    def _next_instance(conn, event_id: int, not_before: str = "") -> "Optional[sqlite3.Row]":
+    def _next_instance(conn, event_id: int, not_before: str = "") -> sqlite3.Row | None:
         """The series instance after `event_id`, on or after `not_before`."""
         ev = conn.execute("SELECT series_id, date FROM events WHERE id = ?",
                           (event_id,)).fetchone()

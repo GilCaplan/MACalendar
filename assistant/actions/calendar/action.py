@@ -1,14 +1,14 @@
 """Calendar voice actions — create, update, and delete events."""
 
 import datetime as _dt_module
-from typing import ClassVar, Optional, Type
+from typing import ClassVar
 
+from assistant import clock as _clock  # the moment the command was SAID
 from assistant.actions import register
-from assistant.exceptions import TargetNotFound
 from assistant.actions.base import BaseAction, BaseIntent
 from assistant.actions.calendar.intent import CalendarIntent, DeleteEventIntent, QueryScheduleIntent, UpdateEventIntent
+from assistant.exceptions import TargetNotFound
 from assistant.intent.context import context_memory
-from assistant import clock as _clock  # the moment the command was SAID
 
 
 def _fmt_date(date_str: str) -> str:
@@ -33,7 +33,7 @@ class CreateEventAction(BaseAction):
         "Schedule or add a new event to the calendar. Triggers on phrases like "
         "'schedule a meeting', 'add an event', 'remind me to', 'set up a call'."
     )
-    intent_model: ClassVar[Type[BaseIntent]] = CalendarIntent
+    intent_model: ClassVar[type[BaseIntent]] = CalendarIntent
     parameters_schema: ClassVar[dict] = {
         "type": "object",
         "properties": {
@@ -133,7 +133,7 @@ class UpdateEventAction(BaseAction):
         "EXTEND/LENGTHEN/SHORTEN: 'to Xpm' means new_end_time, NOT new_start_time. "
         "Identify the event with match_start_time when no title is given (e.g. 'extend the 1pm event')."
     )
-    intent_model: ClassVar[Type[BaseIntent]] = UpdateEventIntent
+    intent_model: ClassVar[type[BaseIntent]] = UpdateEventIntent
     parameters_schema: ClassVar[dict] = {
         "type": "object",
         "properties": {
@@ -225,7 +225,7 @@ class DeleteEventAction(BaseAction):
         "Remove a calendar event. Triggers on phrases like "
         "'cancel my meeting', 'delete the appointment', 'delete it'."
     )
-    intent_model: ClassVar[Type[BaseIntent]] = DeleteEventIntent
+    intent_model: ClassVar[type[BaseIntent]] = DeleteEventIntent
     parameters_schema: ClassVar[dict] = {
         "type": "object",
         "properties": {
@@ -273,7 +273,7 @@ class QueryScheduleAction(BaseAction):
         "'what does my day look like', 'what's on my schedule', 'when is my first meeting', "
         "'how many events do I have today', 'read my schedule', 'what's next'."
     )
-    intent_model: ClassVar[Type[BaseIntent]] = QueryScheduleIntent
+    intent_model: ClassVar[type[BaseIntent]] = QueryScheduleIntent
     parameters_schema: ClassVar[dict] = {
         "type": "object",
         "properties": {
@@ -304,6 +304,7 @@ class QueryScheduleAction(BaseAction):
 
     def execute(self, intent: QueryScheduleIntent, _config) -> str:  # type: ignore[override]
         import datetime as dt
+
         from assistant.db import get_db
         db = get_db()
 
@@ -417,7 +418,7 @@ _GENERIC_TITLE_WORDS = frozenset({
 })
 
 
-def _find_event(db, match_title: str, match_date: Optional[str], match_start_time: Optional[str] = None) -> Optional[dict]:
+def _find_event(db, match_title: str, match_date: str | None, match_start_time: str | None = None) -> dict | None:
     """
     Find the best-matching event by title and optional date.
     Implements token-based fuzzy matching with stop-word filtering.

@@ -110,11 +110,13 @@ def main() -> int:
     a = ap.parse_args()
 
     from freezegun import freeze_time
+
     import assistant.engine as engine
     from assistant.engine import llm as _llm
-    from assistant.engine.llmjudge import rewrite as _rw, findings as F
-    from assistant.engine.state import EngineState, CheckFinding
+    from assistant.engine.llmjudge import findings as F
+    from assistant.engine.llmjudge import rewrite as _rw
     from assistant.engine.llmjudge.datasets.generate import CLOCK
+    from assistant.engine.state import CheckFinding, EngineState
 
     cfg = engine.load_config()
     _llm.get_rule_parser().analyze("book gym tomorrow at 7am", current_view="month")

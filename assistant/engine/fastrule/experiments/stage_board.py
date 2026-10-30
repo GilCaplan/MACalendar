@@ -79,7 +79,7 @@ def _title_of(intent) -> str:
 _WHEN_KEYS = ("time_phrase", "date_phrase", "recurrence", "duration", "lead_time")
 
 
-def audit_input(item, gold: dict, want_action: str, n_items: int) -> "str | None":
+def audit_input(item, gold: dict, want_action: str, n_items: int) -> str | None:
     """What, if anything, was ALREADY wrong when FastRule received this item.
 
     Returns the stage to blame, or None when the input was sound. Checked
@@ -129,15 +129,15 @@ def main() -> int:
     a = ap.parse_args()
 
     from freezegun import freeze_time
+
     import assistant.engine as engine
     from assistant.engine import llm as _llm
+    from assistant.engine.decompose_validate import stage as _dv
     from assistant.engine.fastrule import stage as _stage
     from assistant.engine.fastrule.build import Built, build_all
-    from assistant.engine.fastrule.stage import _may_commit
-    from assistant.engine.state import EngineState
-    from assistant.engine.decompose_validate import stage as _dv
-    from assistant.engine.state import Item
     from assistant.engine.fastrule.experiments.fastrule_shape import _CLOCK
+    from assistant.engine.fastrule.stage import _may_commit
+    from assistant.engine.state import EngineState, Item
 
     cfg = engine.load_config()
     # Warm the parser OUTSIDE the frozen clock: building spaCy's pipeline under
@@ -308,7 +308,7 @@ def main() -> int:
     total_ok = correct + bad_faithful[0]
     total_rows = sound + bad_n[0]
     if a.input == "chain":
-        print(f"THIS STAGE'S SCORE — right on sound input, FAITHFUL on broken")
+        print("THIS STAGE'S SCORE — right on sound input, FAITHFUL on broken")
         print(f"  {total_ok}/{total_rows} = {pc(total_ok, total_rows)}\n")
     print("ON SOUND INPUT" if a.input == "chain" else "THIS STAGE'S SCORE")
     print(f"  HANDLED (an object came out)   {handled:4d}  {pc(handled, sound)}")
@@ -318,7 +318,7 @@ def main() -> int:
     if by_rule or by_model:
         print(f"\n  who produced it — converter {by_rule} ({pc(rule_ok, by_rule)} right)"
               f" · rescue {by_model} ({pc(model_ok, by_model)} right)")
-    print(f"\nEND-TO-END (context, NOT this stage's score)")
+    print("\nEND-TO-END (context, NOT this stage's score)")
     print(f"  handled {e2e_handled}/{n} = {pc(e2e_handled, n)}"
           f"   ·   correct {e2e_correct}/{n} = {pc(e2e_correct, n)}")
     if blame:

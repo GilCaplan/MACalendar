@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import datetime
-from typing import Optional
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QDate, Qt, QTime, pyqtSignal
 from PyQt6.QtWidgets import (
     QComboBox,
     QDateEdit,
@@ -21,20 +20,18 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from PyQt6.QtCore import QDate, QTime
 
 import assistant.calendar_ui.styles as _styles
 from assistant.calendar_ui import icons
-from assistant.calendar_ui.styles import BLUE, EVENT_COLORS, GRAY_TEXT
 from assistant.calendar_ui.dialog_utils import install_enter_confirms
-
+from assistant.calendar_ui.styles import BLUE, EVENT_COLORS, GRAY_TEXT
 
 # The Repeat combo's rows, in order. The product's four cadences (CLAUDE.md,
 # "Recurring events") — offering a fifth would promise what the db can't keep.
 _CADENCES = ["", "daily", "weekly", "monthly", "yearly"]
 
 
-def _day_label(d: datetime.date, today: Optional[datetime.date] = None) -> str:
+def _day_label(d: datetime.date, today: datetime.date | None = None) -> str:
     """'Fri 30 Oct', with the year only when it isn't this one."""
     today = today or datetime.date.today()
     text = f"{d:%a} {d.day} {d:%b}"
@@ -58,8 +55,8 @@ def _ordinal(n: int) -> str:
 
 
 def repeat_hint(recurrence: str, start: datetime.date,
-                end: Optional[datetime.date], editing_series: bool = False,
-                today: Optional[datetime.date] = None, recur_days: str = "") -> str:
+                end: datetime.date | None, editing_series: bool = False,
+                today: datetime.date | None = None, recur_days: str = "") -> str:
     """The caption under End repeat: what saving will book, in words.
 
     The end date is INCLUSIVE — "ends on 30 Oct" books the 30th — which is
@@ -82,7 +79,7 @@ def repeat_hint(recurrence: str, start: datetime.date,
     return text
 
 
-def series_badge(event: Optional[dict], today: Optional[datetime.date] = None) -> str:
+def series_badge(event: dict | None, today: datetime.date | None = None) -> str:
     """'Part of a weekly series · ends Fri 30 Oct' — '' for a one-off."""
     if not event or not event.get("series_id") or not event.get("recurrence"):
         return ""
@@ -95,7 +92,7 @@ def series_badge(event: Optional[dict], today: Optional[datetime.date] = None) -
     return f"Part of a {event['recurrence']} series · {tail}"
 
 
-def repeat_rule_changed(event: Optional[dict], data: dict) -> bool:
+def repeat_rule_changed(event: dict | None, data: dict) -> bool:
     """Did this save change the series' RULE (cadence or end), not just this row?
 
     The rule belongs to every instance, so a change to it goes to the whole
@@ -120,7 +117,7 @@ class ColorDot(QWidget):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def paintEvent(self, event):
-        from PyQt6.QtGui import QPainter, QColor, QBrush
+        from PyQt6.QtGui import QBrush, QColor, QPainter
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setBrush(QBrush(QColor(self.color)))
@@ -140,9 +137,9 @@ class EventDialog(QDialog):
     def __init__(
         self,
         parent=None,
-        event: Optional[dict] = None,
-        default_date: Optional[datetime.date] = None,
-        default_time: Optional[datetime.time] = None,
+        event: dict | None = None,
+        default_date: datetime.date | None = None,
+        default_time: datetime.time | None = None,
         db=None,
     ):
         super().__init__(parent)
@@ -159,7 +156,7 @@ class EventDialog(QDialog):
         self._selected_color = (event or {}).get("color", BLUE)
         self._picked = bool((event or {}).get("color"))
         self._default_time = default_time
-        self.event_data: Optional[dict] = None
+        self.event_data: dict | None = None
         self.delete_requested: bool = False
         self.duplicate_requested: bool = False
         self.delete_series_requested: bool = False
@@ -498,10 +495,11 @@ class EventDialog(QDialog):
         self.accept()
 
     def _on_share_ics(self) -> None:
+        import os
+
         from PyQt6.QtWidgets import QFileDialog, QMessageBox
 
         from assistant.ics_export import event_to_ics, filename_for
-        import os
         default = os.path.join(os.path.expanduser("~/Desktop"),
                                filename_for(self._event))
         path, _ = QFileDialog.getSaveFileName(
@@ -519,7 +517,7 @@ class EventDialog(QDialog):
     def _recurrence(self) -> str:
         return _CADENCES[self._repeat.currentIndex()]
 
-    def _end_date(self) -> Optional[datetime.date]:
+    def _end_date(self) -> datetime.date | None:
         """The series' last day, or None for Never (or no repeat at all)."""
         if not self._recurrence() or self._ends.currentIndex() == 0:
             return None

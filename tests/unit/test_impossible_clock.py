@@ -56,7 +56,7 @@ def test_old_running_and_gym_rows_become_fitness_on_open(tmp_path, monkeypatch):
                     [("run", "2026-09-01", "07:00", "08:00", "Running"), ("gym", "2026-09-02", "18:00", "19:00", "Gym"),
                      ("lunch", "2026-09-03", "13:00", "14:00", "Meal")])
     con.commit(); con.close()
-    calendar = _db.CalendarDB(str(path))
+    _db.CalendarDB(str(path))   # opening it runs the migration under test
     con = sqlite3.connect(path)
     got = dict(con.execute("SELECT title, category FROM events").fetchall())
     assert got == {"run": "Fitness", "gym": "Fitness", "lunch": "Meal"}

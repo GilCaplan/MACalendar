@@ -71,10 +71,6 @@ def _draw_book(d: ImageDraw.ImageDraw) -> None:
     cx = 512
 
     # The block of pages beneath each leaf: a few pixels of depth, in shade.
-    for dy in range(26, 0, -1):
-        o = dy * SS
-        d.polygon([px(left_x, out_top), px(cx, spine_top), px(cx, spine_bottom),
-                   px(left_x, out_bottom)], fill=None)
     d.polygon([(left_x * SS, out_top * SS + 26 * SS), (cx * SS, spine_top * SS + 26 * SS),
                (cx * SS, spine_bottom * SS + 26 * SS), (left_x * SS, out_bottom * SS + 26 * SS)],
               fill=PAGE_SHADE)

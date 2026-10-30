@@ -32,8 +32,8 @@ def _items(text):
 
 def _built(text):
     import assistant.engine as engine
+    from assistant.engine.fastrule.build import Built, build_all
     from assistant.engine.state import EngineState
-    from assistant.engine.fastrule.build import build_all, Built
     cfg = engine.load_config()
     st = EngineState(raw_text=text, text=text, source="test")
     engine._segment.run(st, cfg)

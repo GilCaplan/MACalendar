@@ -24,9 +24,9 @@ import pathlib
 IOS_ROOT = pathlib.Path(__file__).resolve().parents[2] / "MACalendar-iOS"
 
 
-@functools.lru_cache(maxsize=None)
-def _index() -> "dict[str, list[pathlib.Path]]":
-    found: "dict[str, list[pathlib.Path]]" = {}
+@functools.cache
+def _index() -> dict[str, list[pathlib.Path]]:
+    found: dict[str, list[pathlib.Path]] = {}
     for path in IOS_ROOT.rglob("*.swift"):
         found.setdefault(path.name, []).append(path)
     return found

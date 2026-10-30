@@ -17,6 +17,6 @@ from __future__ import annotations
 from assistant.intent.classifier import ROUTER
 
 
-def route(text: str) -> "str | None":
+def route(text: str) -> str | None:
     """The composed action, or None when either model isn't decisive."""
     return ROUTER.route(text)

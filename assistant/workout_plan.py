@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import dataclasses
 import datetime
-from typing import Dict, List, Optional, Sequence, Tuple
+from collections.abc import Sequence
 
 from assistant import observance as ob
 
@@ -64,10 +64,10 @@ class SessionSpec:
     preferred_date: datetime.date
     detail: str = ""
     discipline: str = ""                 # derived from kind when blank
-    distance_km: Optional[float] = None
-    duration_minutes: Optional[int] = None
-    preferred_time: Optional[datetime.time] = None
-    template_id: Optional[str] = None
+    distance_km: float | None = None
+    duration_minutes: int | None = None
+    preferred_time: datetime.time | None = None
+    template_id: str | None = None
     # Squats, deadlifts, lunges. Only lower-body work is kept off the day
     # before a long run — pressing and pulling the day before does no harm,
     # and blocking it would cost a strength session every week for nothing.
@@ -94,11 +94,11 @@ class PlacedSession:
 
     spec: SessionSpec
     date: datetime.date
-    start_time: Optional[datetime.time]
-    end_time: Optional[datetime.time]
+    start_time: datetime.time | None
+    end_time: datetime.time | None
     window_label: str
     observance_note: str
-    moved_from: Optional[datetime.date] = None
+    moved_from: datetime.date | None = None
 
     def as_plan_item(self) -> dict:
         return {
@@ -133,12 +133,12 @@ class SchedulePolicy:
 
 @dataclasses.dataclass
 class ScheduleResult:
-    placed: List[PlacedSession]
+    placed: list[PlacedSession]
     # Human-readable notes: what moved, what could not be placed, and why.
-    moves: List[str] = dataclasses.field(default_factory=list)
-    warnings: List[str] = dataclasses.field(default_factory=list)
+    moves: list[str] = dataclasses.field(default_factory=list)
+    warnings: list[str] = dataclasses.field(default_factory=list)
 
-    def items(self) -> List[dict]:
+    def items(self) -> list[dict]:
         return [p.as_plan_item() for p in self.placed]
 
 
@@ -148,7 +148,7 @@ class ScheduleResult:
 
 def _is_rest_by_policy(
     date: datetime.date, policy: SchedulePolicy, settings: ob.ObservanceSettings
-) -> Tuple[bool, str]:
+) -> tuple[bool, str]:
     """Training policy on top of observance: (must rest?, why).
 
     Observance already blocks the daylight of a fast. What policy adds is
@@ -165,7 +165,7 @@ def _usable_windows(
     policy: SchedulePolicy,
     settings: ob.ObservanceSettings,
     allow_fallback: bool = True,
-) -> List[ob.TimeWindow]:
+) -> list[ob.TimeWindow]:
     """Windows on *date* this policy is willing to use, best first.
 
     `allow_fallback` is what keeps motzei Shabbat a genuine last resort. The
@@ -193,8 +193,8 @@ def _shift_time(t: datetime.time, minutes: int) -> datetime.time:
 
 
 def _clamp_into_window(
-    window: ob.TimeWindow, preferred: Optional[datetime.time], minutes: int
-) -> Tuple[datetime.time, datetime.time]:
+    window: ob.TimeWindow, preferred: datetime.time | None, minutes: int
+) -> tuple[datetime.time, datetime.time]:
     """Fit a session of *minutes* inside *window*, as near *preferred* as possible."""
     win_lo = window.start.hour * 60 + window.start.minute
     win_hi = window.end.hour * 60 + window.end.minute
@@ -219,7 +219,7 @@ def _clamp_into_window(
 def schedule(
     specs: Sequence[SessionSpec],
     settings: ob.ObservanceSettings = ob.DEFAULT_SETTINGS,
-    policy: Optional[SchedulePolicy] = None,
+    policy: SchedulePolicy | None = None,
 ) -> ScheduleResult:
     """Place every spec on a legal date, moving what has to move.
 
@@ -231,7 +231,7 @@ def schedule(
     result = ScheduleResult(placed=[])
 
     # date -> disciplines already committed that day
-    taken: Dict[datetime.date, List[PlacedSession]] = {}
+    taken: dict[datetime.date, list[PlacedSession]] = {}
 
     def hard_on(day: datetime.date) -> bool:
         return any(p.spec.kind in HARD_KINDS for p in taken.get(day, []))
@@ -271,7 +271,7 @@ def schedule(
                 return False
         return True
 
-    def find_date(spec: SessionSpec) -> Optional[datetime.date]:
+    def find_date(spec: SessionSpec) -> datetime.date | None:
         """Preferred date first, then outward — ordinary days before fallbacks.
 
         The outer loop is the fallback gate: everything reachable without

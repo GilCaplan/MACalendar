@@ -40,6 +40,7 @@ pass:
 from __future__ import annotations
 
 import sys
+
 import pytest
 
 pytest.importorskip("PyQt6")

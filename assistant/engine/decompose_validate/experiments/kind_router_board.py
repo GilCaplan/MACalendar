@@ -28,11 +28,10 @@ import collections
 import json
 import time
 
-from assistant.engine.decompose_validate.experiments import kind_two_stage as K2  # scratch env first
-
 import numpy as np  # noqa: E402
 
 from assistant.engine.decompose_validate import kind_router as KR  # noqa: E402
+from assistant.engine.decompose_validate.experiments import kind_two_stage as K2  # scratch env first
 
 HERE = K2.HERE
 

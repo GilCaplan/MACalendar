@@ -95,7 +95,7 @@ def test_a_z_suffixed_instant_is_read_not_silently_replaced(client):
     learned to read it in 3.11 — unhandled it fell into the "call it now"
     fallback, which is a wrong answer that looks like a right one."""
     tid = _timer(client)
-    an_hour_ago = (datetime.datetime.now(datetime.timezone.utc)
+    an_hour_ago = (datetime.datetime.now(datetime.UTC)
                    - datetime.timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     body = client.post(f"/timers/{tid}/start", json={"start_time": an_hour_ago}).get_json()

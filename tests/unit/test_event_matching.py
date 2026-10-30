@@ -10,7 +10,6 @@ directly via `db._conn()`.
 """
 from __future__ import annotations
 
-
 import pytest
 
 from assistant.actions.calendar.action import _find_event

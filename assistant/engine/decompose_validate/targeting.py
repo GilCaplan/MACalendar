@@ -17,11 +17,9 @@ from __future__ import annotations
 import datetime as _dt
 import re
 
-from assistant.engine.decompose_validate.text_helpers import spoken_times
-
-from assistant.common.wordlists import WEEKDAY_ABBR_INDEX as _WEEKDAY_WORDS  # noqa: E402
 from assistant import clock as _clock  # the moment the command was SAID
-
+from assistant.common.wordlists import WEEKDAY_ABBR_INDEX as _WEEKDAY_WORDS  # noqa: E402
+from assistant.engine.decompose_validate.text_helpers import spoken_times
 
 _REMOVE_SHAPE = re.compile(
     r"^(remove|delete|clear|take)\s+['\"]?(.+?)['\"]?\s+(?:from|off)\s+", re.I)
@@ -129,7 +127,7 @@ def _rule_move_time_fill(state, intent, transcript) -> None:
     tl = transcript.lower().replace(".", ":")
     _T = r"(\d{1,2}(?::\d{2})?)\s*(am|pm|a:m|p:m)?"
 
-    def _resolve(num: str, ap: str, prefer_pm: "bool | None") -> str:
+    def _resolve(num: str, ap: str, prefer_pm: bool | None) -> str:
         h, mm = (num.split(":") + ["00"])[:2]
         h = int(h)
         ap = (ap or "").replace(":", "")

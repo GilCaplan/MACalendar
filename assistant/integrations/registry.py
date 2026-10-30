@@ -18,10 +18,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-_cache: "dict[str, object]" = {}
+_cache: dict[str, object] = {}
 
 
-def all_integrations() -> "list":
+def all_integrations() -> list:
     """Every integration this assistant can host.
 
     Imported lazily and defensively: an integration whose module fails to

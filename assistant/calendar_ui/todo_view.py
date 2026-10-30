@@ -5,10 +5,9 @@ from __future__ import annotations
 import datetime
 import json
 import os
-from typing import Optional
 
-from PyQt6.QtCore import Qt, QDate, QEvent, QMimeData, QTimer, QUrl, pyqtSignal
-from PyQt6.QtGui import QFont, QPixmap
+from PyQt6.QtCore import QDate, QEvent, QMimeData, Qt, QTimer, QUrl, pyqtSignal
+from PyQt6.QtGui import QDesktopServices, QFont, QPixmap
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -34,13 +33,12 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from PyQt6.QtGui import QDesktopServices
 
 from assistant.calendar_ui.dialog_utils import install_enter_confirms
 from assistant.calendar_ui.styles import (
     BLUE,
-    BLUE_HOVER,
     BLUE_DARK,
+    BLUE_HOVER,
     D_GRAY_BG,
     D_GRAY_BORDER,
     D_GRAY_DARK,
@@ -49,12 +47,12 @@ from assistant.calendar_ui.styles import (
     D_WHITE,
     DESTRUCTIVE,
     DESTRUCTIVE_DARK,
-    ON_ACCENT,
     GRAY_BG,
     GRAY_BORDER,
     GRAY_DARK,
     GRAY_MID,
     GRAY_TEXT,
+    ON_ACCENT,
     WHITE,
 )
 
@@ -71,6 +69,7 @@ UNTAGGED_KEY = "__untagged__"
 
 
 from assistant.calendar_ui.feature_panel import FeaturePanel
+
 
 def _tag_colors(db) -> dict[str, str]:
     """name(lower) → hex color for every known tag (falls back to a stable hue)."""
@@ -890,9 +889,9 @@ class TodoItemWidget(QWidget):
         self._expanded = False
         self._font_size = font_size
         self._compact = compact
-        self._detail_panel: Optional[TodoDetailPanel] = None
-        self._list_item: Optional[QListWidgetItem] = None
-        self._list_widget: Optional[QListWidget] = None
+        self._detail_panel: TodoDetailPanel | None = None
+        self._list_item: QListWidgetItem | None = None
+        self._list_widget: QListWidget | None = None
         self._subtask_count: tuple[int, int] = (0, 0)  # (done, total)
         self._build()
         self._refresh_meta()
@@ -1267,8 +1266,8 @@ class TodoItemWidget(QWidget):
         link_actions = {}
         linked = self._linked_event()
         if linked:
-            from assistant.calendar_ui.link_picker import event_label
             from assistant.calendar_ui import icons as _icons
+            from assistant.calendar_ui.link_picker import event_label
             menu.addAction(_icons.icon("link", None, 14), event_label(linked)).setEnabled(False)
             link_actions[menu.addAction("Unlink from event")] = "unlink"
         else:
@@ -1296,7 +1295,7 @@ class TodoItemWidget(QWidget):
         if action == delete_action:
             self.deleted.emit(self._todo["id"])
 
-    def _linked_event(self) -> Optional[dict]:
+    def _linked_event(self) -> dict | None:
         event_id = self._todo.get("linked_event_id")
         return self._db.get_event(event_id) if event_id else None
 
@@ -2523,6 +2522,7 @@ class TodoView(FeaturePanel):
         """Persist a scalar under the top-level `todo:` block of config.yaml."""
         import os
         import re
+
         # MACALENDAR_CONFIG first (config_store.CONFIG_PATH): the cwd-relative
         # path made a UI test that clicked tag mode or the sync mode write the
         # REAL config.yaml — and two suites at once tore it (2026-10-06).
@@ -2588,6 +2588,7 @@ class TodoView(FeaturePanel):
     def _write_sync_mode_to_config(self, mode: str) -> None:
         import os
         import re
+
         # MACALENDAR_CONFIG first (config_store.CONFIG_PATH): the cwd-relative
         # path made a UI test that clicked tag mode or the sync mode write the
         # REAL config.yaml — and two suites at once tore it (2026-10-06).

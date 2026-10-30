@@ -86,10 +86,11 @@ def _route_and_title(rr):
 
 def main() -> int:
     from freezegun import freeze_time
-    from assistant.engine.fastrule.fastrule import FastRule
-    from assistant.intent.rule_parser import RULE_THRESHOLD, RuleParserSkip
+
     from assistant.engine import llm as _objects
     from assistant.engine.decompose_validate import resolve as _resolve
+    from assistant.engine.fastrule.fastrule import FastRule
+    from assistant.intent.rule_parser import RULE_THRESHOLD, RuleParserSkip
 
     fr = FastRule(RULE_THRESHOLD)
     fr.run("book gym tomorrow at 7am")
@@ -214,7 +215,7 @@ def main() -> int:
     print(f"  ALL THREE -> buildable  STRICT   {C['buildable']:4d}  {pc(C['buildable'], n)}")
     print(f"     strict op + clean-carve title {C['buildable_best']:4d}  {pc(C['buildable_best'], n)}   <- the defensible ceiling")
     print(f"                          generous {C['buildable_loose']:4d}  {pc(C['buildable_loose'], n)}")
-    print(f"     (today these 573 rows all DEFER: 0.0%)\n")
+    print("     (today these 573 rows all DEFER: 0.0%)\n")
     print("  where the rest stop:")
     for k, v in stop.most_common():
         if v:

@@ -28,14 +28,15 @@ from __future__ import annotations
 import contextlib
 import contextvars
 import threading
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
-_current: "contextvars.ContextVar[str | None]" = contextvars.ContextVar(
+_current: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "macalendar_user", default=None)
-_process_default: "str | None" = None
+_process_default: str | None = None
 
 
-def current() -> "str | None":
+def current() -> str | None:
     """The user every personal store resolves to, or None (the legacy tree)."""
     uid = _current.get()
     if uid:
@@ -47,7 +48,7 @@ def current() -> "str | None":
 
 
 @contextlib.contextmanager
-def bind(user_id: "str | None"):
+def bind(user_id: str | None):
     """Everything under this block reads and writes `user_id`'s stores."""
     token = _current.set(user_id or None)
     try:
@@ -56,14 +57,14 @@ def bind(user_id: "str | None"):
         _current.reset(token)
 
 
-def set_process_default(user_id: "str | None") -> None:
+def set_process_default(user_id: str | None) -> None:
     """One user for the whole process — the GUI's logged-in user, the HUD's."""
     global _process_default
     _process_default = user_id or None
 
 
 def thread(*, target: Callable[..., Any], args: tuple = (),
-           kwargs: "dict | None" = None, **thread_kw: Any) -> threading.Thread:
+           kwargs: dict | None = None, **thread_kw: Any) -> threading.Thread:
     """`threading.Thread(target=…, args=…, daemon=…)` that runs `target` as
     the CALLER's user — same keywords, so a call site converts one-for-one.
 
@@ -75,7 +76,7 @@ def thread(*, target: Callable[..., Any], args: tuple = (),
     return threading.Thread(target=lambda: ctx.run(target, *args, **kw), **thread_kw)
 
 
-def each_user() -> "list[str | None]":
+def each_user() -> list[str | None]:
     """Every active user, for a loop that serves them all (the pending retry,
     later the sync and the notifier) — or `[None]` before there are users,
     which runs the loop once over the legacy stores, as always."""

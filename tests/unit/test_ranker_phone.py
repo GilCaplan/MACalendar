@@ -26,7 +26,7 @@ VIEW = ios_source("RankerView.swift")
 API = ios_source("RankerAPI.swift")
 
 
-def _swift_patterns(src: str) -> "list[str]":
+def _swift_patterns(src: str) -> list[str]:
     """Every NSRegularExpression pattern literal, unescaped to its regex."""
     return [m.encode().decode("unicode_escape")
             for m in re.findall(r'NSRegularExpression\(\s*pattern:\s*"((?:[^"\\]|\\.)*)"', src)]

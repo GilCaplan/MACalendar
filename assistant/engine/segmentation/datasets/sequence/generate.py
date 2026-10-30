@@ -275,7 +275,7 @@ def _pools(fillers: dict) -> dict:
     }
 
 
-def meal_hour(title: str) -> "int | None":
+def meal_hour(title: str) -> int | None:
     """A meal's own hour, in minutes — from the ONE statement of that ruling
     (`CalendarIntent`'s meal table, Gil 2026-09-20), so the gold follows it if
     it ever changes instead of keeping a second copy (dup audit, 2026-09-25)."""
@@ -581,7 +581,7 @@ def _title(rng, pools, part, opts, meal_slot=None) -> str:
     raise ValueError(c)
 
 
-def _meal_slot(minutes: "int | None", rng) -> str:
+def _meal_slot(minutes: int | None, rng) -> str:
     if minutes is None:
         return rng.choice(["M_morning", "M_midday", "M_evening"])
     if minutes < 11 * 60:

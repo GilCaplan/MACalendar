@@ -8,14 +8,15 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 # Scratch stores BEFORE importing anything from `assistant` — the paths are read
 # at import time. This script had no isolation, and `clear_db()` below (DELETE
 # FROM events, once per scenario) emptied the real calendar.
-from tests.isolation import isolate, assert_isolated  # noqa: E402
+from tests.isolation import assert_isolated, isolate  # noqa: E402
+
 isolate("macalendar-ollama-parser-")
 
 from assistant.actions import ActionRegistry
-from assistant.actions.calendar.action import CreateEventAction, DeleteEventAction, UpdateEventAction
-from assistant.config import OllamaConfig, AppConfig, load_config
-from assistant.intent.parser import IntentParser
+from assistant.config import AppConfig, load_config
 from assistant.db import CalendarDB
+from assistant.intent.parser import IntentParser
+
 
 def clear_db():
     print("🧹 Clearing scratch calendar DB for tests...")
@@ -23,19 +24,19 @@ def clear_db():
     db = CalendarDB()
     with db._conn() as conn:
         conn.execute("DELETE FROM events")
-    
+
     # Verify
     events = db.get_events_for_month(2026, 3) # Or any query
     assert len(events) == 0
 
 def run_test(parser: IntentParser, config: AppConfig, transcript: str, expected_count: int, test_name: str, seed_data: list = None):
-    print(f"\n==============================================")
+    print("\n==============================================")
     print(f"🎬 Test: {test_name}")
     print(f"Transcript: '{transcript}'")
-    
+
     # 1. Clear DB before each test
     clear_db()
-    
+
     # 1.5 Seed DB if provided
     if seed_data:
         db = CalendarDB()
@@ -45,28 +46,28 @@ def run_test(parser: IntentParser, config: AppConfig, transcript: str, expected_
     # 2. Parse intents
     print("⏳ Parsing intents from Ollama...")
     actions_tuples = parser.parse(transcript)
-    
+
     # Filter valid
     valid = [(name, intent) for name, intent in actions_tuples if name != "unknown"]
     print(f"🔍 Parsed {len(valid)} valid actions:")
     for n, i in valid:
         print(f"   -> {n}: {i}")
-        
+
     # 3. Execute
     for action_name, intent in valid:
         action_cls = parser.registry.get(action_name)
         result = action_cls().execute(intent, config)
         print(f"✅ Executed: {result}")
-        
+
     # 4. Verify DB state
     db = CalendarDB()
     with db._conn() as conn:
         rows = conn.execute("SELECT * FROM events").fetchall()
-        
+
     print(f"📊 Final DB event count: {len(rows)}")
     for row in rows:
         print(f"   📅 [{row['date']}] {row['start_time']}-{row['end_time']} | {row['title']} | {row['description']}")
-        
+
     # 5. Assertions
     assert len(rows) == expected_count, f"❌ Failed {test_name}: Expected {expected_count} events, got {len(rows)}"
     print(f"🟢 Passed {test_name}!")
@@ -76,24 +77,24 @@ def run_test(parser: IntentParser, config: AppConfig, transcript: str, expected_
 def main():
     # 1. Setup config and parser
     registry = ActionRegistry()
-    
+
     config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'config.yaml'))
     config = load_config(config_path)
-    
+
     # Force use the specified test model
     config.ollama.model = "llama3.1:8b"
     config.ollama.timeout_seconds = 180
     parser = IntentParser(config, registry)
-    
+
     print("Checking Ollama backend connection at", config.ollama.base_url)
     if not parser.health_check():
         print("❌ Ollama is offline or not responding. Ensure `ollama serve` is running.\n")
         sys.exit(1)
 
     print("✅ Ollama is online. Starting tests...\n")
-    
+
     tomorrow = datetime.date.today() + datetime.timedelta(days=1)
-    
+
     # --- SCENARIO 1: The user's exact complex phrase ---
     t1 = ("Set an event for tomorrow at 10 a.m., 2 p.m., and 3 p.m. "
           "For now, while the first one is, I'll meet up with a friend. "
@@ -101,11 +102,11 @@ def main():
           "And the third one is, doing some activity. Thanks.")
     # Expecting 3 distinct events created based on multi-action parser
     rows_1 = run_test(parser, config, transcript=t1, expected_count=3, test_name="Complex Multi-Event Creation")
-    
+
     # Further validation for Scenario 1
     titles = [r["title"].lower() for r in rows_1]
     descriptions = [r["description"].lower() for r in rows_1]
-    
+
     assert any("friend" in d for d in descriptions) or any("friend" in t for t in titles), "Failed to find 'friend' in resulting events"
     assert any("tel aviv" in d for d in descriptions) or any("tel aviv" in t for t in titles), "Failed to find 'Tel Aviv' in resulting events"
 
@@ -116,17 +117,17 @@ def main():
     # Let's just recount from DB because my test logic executes to real DB.
     # The default for "daily" in db.py generates up to 1 year if recur_until is missing
     # or max_instances = 365/500 depending on hard cap. The DB code limits instance generations.
-    print(f"\n==============================================")
-    print(f"🎬 Test: Simple Recurring Event")
+    print("\n==============================================")
+    print("🎬 Test: Simple Recurring Event")
     clear_db()
-    
+
     valid = parser.parse(t2)
     valid = [(n, i) for n, i in valid if n != "unknown"]
-    print(f"🔍 SCENARIO 2 PARSED:")
+    print("🔍 SCENARIO 2 PARSED:")
     for n, i in valid:
         print(f"   -> {n}: {i}")
         parser.registry.get(n)().execute(i, config)
-        
+
     db = CalendarDB()
     with db._conn() as conn:
         all_rows = conn.execute("SELECT * FROM events").fetchall()
@@ -134,10 +135,10 @@ def main():
         if count == 1:
             r = dict(all_rows[0])
             print("ONLY 1 ROW IN DB. Row data:", r)
-        
+
     print(f"Recurring single action generated {count} events in DB.")
     assert count > 100, f"Recurring event didn't generate instances, built only {count}"
-    print(f"🟢 Passed Simple Recurring Event!")
+    print("🟢 Passed Simple Recurring Event!")
 
 
     # --- SCENARIO 3: Update + Delete mix (Difficulty: Hard) ---
@@ -154,14 +155,14 @@ def main():
     # Only "Lunch Pitch" should remain (modified to 13:00)
     with db._conn() as conn:
         final_ev = conn.execute("SELECT * FROM events").fetchone()
-        
+
     assert final_ev["start_time"] == "13:00", f"Failed update. Found time {final_ev['start_time']} instead of 13:00"
     assert "lunch pitch" in final_ev["title"].lower(), f"Wrong title: {final_ev['title']}"
 
     # --- SCENARIO 4: Recurring with explicit End Date ---
     t4 = "Add a weekly team sync for 9am every Monday, but only until June 1st."
-    print(f"\n==============================================")
-    print(f"🎬 Test: Recurring with End Date")
+    print("\n==============================================")
+    print("🎬 Test: Recurring with End Date")
     clear_db()
     valid = parser.parse(t4)
     valid = [(n, i) for n, i in valid if n != "unknown"]

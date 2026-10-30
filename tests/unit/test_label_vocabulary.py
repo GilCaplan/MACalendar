@@ -20,7 +20,6 @@ import pytest
 from assistant.actions.calendar.categories import classify
 from assistant.actions.todo.tagging import infer_tag
 
-
 # --------------------------------------------------------------- groceries
 
 @pytest.mark.parametrize("title", [

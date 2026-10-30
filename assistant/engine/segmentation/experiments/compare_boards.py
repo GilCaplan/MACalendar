@@ -29,11 +29,11 @@ scratch_env("seg_compare_", keep=("LOCATION", "MODELS", "LABEL_FEEDBACK",
                                   "HEARTBEATS", "HUD_STATE",
                                   "DEVICE_SECRET", "DEVICES"))
 
-from assistant.engine.segmentation.llmseg import llmseg
-from assistant.engine.segmentation.experiments import score as sc               # noqa: E402
-from assistant.engine.segmentation.fastseg.fastseg import fastseg                   # noqa: E402
+from assistant.engine.segmentation.experiments import score as sc  # noqa: E402
 from assistant.engine.segmentation.experiments.prompt_lab import _cache_load, interpret  # noqa: E402
 from assistant.engine.segmentation.experiments.run_board import assign_splits, stratified_sample  # noqa: E402
+from assistant.engine.segmentation.fastseg.fastseg import fastseg  # noqa: E402
+from assistant.engine.segmentation.llmseg import llmseg
 
 #: (label, path into the result dict, formatter). Every board is represented —
 #: omitting one is how a regression gets reported as a win.

@@ -384,6 +384,7 @@ def test_a_running_server_is_asked_to_quit(inst, qapp_or_skip):
 def test_a_tray_quits_only_for_its_own_install():
     """Updating ~/MACalendar must not stop a server run from another checkout."""
     from pathlib import Path
+
     from assistant.host import tray
     calls = []
 

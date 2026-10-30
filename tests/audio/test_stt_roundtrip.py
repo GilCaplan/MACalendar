@@ -138,13 +138,22 @@ def test_stt_word_error_rate_within_threshold(whisper_stt, reference):
 @pytest.fixture
 def rule_parser(isolated_registry):
     from assistant.actions.calendar.action import (
-        CreateEventAction, UpdateEventAction, DeleteEventAction, QueryScheduleAction
-    )
-    from assistant.actions.todo.action import (
-        CreateTodoAction, CompleteTodoAction, DeleteTodoAction, UpdateTodoAction,
-        QueryTodoAction, AddSubtaskAction, CompleteSubtaskAction, DeleteSubtaskAction,
+        CreateEventAction,
+        DeleteEventAction,
+        QueryScheduleAction,
+        UpdateEventAction,
     )
     from assistant.actions.clarify import ClarifyAction
+    from assistant.actions.todo.action import (
+        AddSubtaskAction,
+        CompleteSubtaskAction,
+        CompleteTodoAction,
+        CreateTodoAction,
+        DeleteSubtaskAction,
+        DeleteTodoAction,
+        QueryTodoAction,
+        UpdateTodoAction,
+    )
     from assistant.intent.rule_parser import RuleBasedParser
 
     for cls in [

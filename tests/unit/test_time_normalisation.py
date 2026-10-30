@@ -53,7 +53,7 @@ def test_ambiguous_or_nonsense_times_are_still_refused(said):
     Bare '230' is the interesting one: it is only ever a guess between 2:30 and
     02:30, and the four-digit form already covers the second reading.
     """
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):       # pydantic's ValidationError is one
         _time(said)
 
 

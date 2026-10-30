@@ -18,7 +18,7 @@ and the todo actions both use it.
 from __future__ import annotations
 
 import re
-from typing import Container
+from collections.abc import Container
 
 # Verbs that can head a task title. Used both to recognise that a conjunct
 # already carries its own verb ("wash the dishes and call mom") and to hand the
@@ -157,6 +157,6 @@ def is_errand(part: str) -> bool:
             and not re.match(r"(?:on|to|from|off|of|for|at|in|with)\b", thing, re.I))
 
 
-def is_errand_list(parts: "list[str]") -> bool:
+def is_errand_list(parts: list[str]) -> bool:
     """Every part (verb already handed down) is "<errand verb> <a short thing>"."""
     return len(parts) > 1 and all(is_errand(p) for p in parts)

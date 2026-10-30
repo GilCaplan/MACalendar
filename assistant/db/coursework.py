@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import datetime
 import json
-from typing import Optional
 
 
 class CourseworkMixin:
@@ -111,7 +110,7 @@ class CourseworkMixin:
         with self._conn() as conn:
             conn.execute("DELETE FROM assignments WHERE id = ?", (assignment_id,))
 
-    def delete_completed_assignments(self, course_id: Optional[int] = None) -> int:
+    def delete_completed_assignments(self, course_id: int | None = None) -> int:
         """Delete all completed assignments, optionally filtered by course. Returns count deleted."""
         with self._conn() as conn:
             if course_id is not None:

@@ -5,9 +5,8 @@ from __future__ import annotations
 import datetime
 import logging
 import time as _time
-from typing import List
 
-from PyQt6.QtCore import Qt, QEvent, QMimeData, QByteArray, QTimer, pyqtSignal
+from PyQt6.QtCore import QByteArray, QEvent, QMimeData, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QDrag, QFont, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QGraphicsDropShadowEffect,
@@ -23,7 +22,9 @@ from PyQt6.QtWidgets import (
 logger = logging.getLogger(__name__)
 
 import assistant.calendar_ui.styles as _styles
+from assistant.calendar_ui import holy_times
 from assistant.calendar_ui import view_prefs as _vp
+from assistant.calendar_ui.month_view import HolidayBanner
 from assistant.calendar_ui.styles import (
     BLUE,
     GRAY_BORDER,
@@ -31,8 +32,6 @@ from assistant.calendar_ui.styles import (
     GRAY_TEXT,
     WHITE,
 )
-from assistant.calendar_ui import holy_times
-from assistant.calendar_ui.month_view import HolidayBanner
 from assistant.hebrew_calendar import enumerate_holidays
 
 HOUR_HEIGHT = 60       # px per hour at full size (also the ceiling when compressing)
@@ -62,9 +61,10 @@ class EventBlock(QLabel):
         self._font_size = 12
         self._hour_height = HOUR_HEIGHT
 
-        from assistant.calendar_ui.merged_db import owner_prefix
         import html as _html
+
         from assistant.calendar_ui import icons as _icons
+        from assistant.calendar_ui.merged_db import owner_prefix
         ink = _styles.on_color(color)
         art = "".join(_icons.html(n, ink, self._font_size) + "&nbsp;"
                       for n in _vp.title_icons(event.get("title", "")))
@@ -258,7 +258,7 @@ class _TodoPill(QLabel):
 class TimeIndicatorOverlay(QWidget):
     """Transparent overlay that paints the current-time red line on top of event blocks."""
 
-    def __init__(self, date: datetime.date, parent: "QWidget", hour_height: int = HOUR_HEIGHT):
+    def __init__(self, date: datetime.date, parent: QWidget, hour_height: int = HOUR_HEIGHT):
         super().__init__(parent)
         self._date = date
         self._hour_height = hour_height
@@ -328,8 +328,8 @@ class DayTimeline(QWidget):
         self.hour_height = HOUR_HEIGHT
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setFixedHeight(self.hour_height * 24)
-        self._event_widgets: List[EventBlock] = []
-        self._events: List[dict] = []
+        self._event_widgets: list[EventBlock] = []
+        self._events: list[dict] = []
         self._drag_hover = False
         self._ui_config = None
         self._press_y: int = -1
@@ -374,7 +374,7 @@ class DayTimeline(QWidget):
         except Exception:
             return 0
 
-    def _compute_layout(self, events: List[dict], avail_w: int):
+    def _compute_layout(self, events: list[dict], avail_w: int):
         """
         Returns [(event, x, w, top, height), ...].
         Overlapping events are placed in side-by-side columns (Google Calendar style).
@@ -395,7 +395,7 @@ class DayTimeline(QWidget):
 
     # ------------------------------------------------------------------
 
-    def load_events(self, events: List[dict]) -> None:
+    def load_events(self, events: list[dict]) -> None:
         self._events = events  # store for re-layout on resize
         for w in self._event_widgets:
             w.deleteLater()
@@ -661,7 +661,7 @@ class DayView(QWidget):
         self._time_col = QWidget()
         self._time_col.setFixedWidth(LABEL_WIDTH)
         self._time_col.setFixedHeight(self._hour_height * 24)
-        self._time_labels: List[QLabel] = []
+        self._time_labels: list[QLabel] = []
         time_layout = QVBoxLayout(self._time_col)
         time_layout.setContentsMargins(0, 0, 4, 0)
         time_layout.setSpacing(0)
@@ -944,7 +944,7 @@ class DayView(QWidget):
         fs = 11 if not self._ui_config else self._ui_config.font_day - 2
         for lbl in self._time_labels:
             lbl.setStyleSheet(f"font-size: {fs}px; color: {text2}; padding-top: 2px;")
-        
+
         main_fs = 14 if not self._ui_config else self._ui_config.font_day + 1
         font = self._date_label.font()
         font.setPointSize(main_fs)

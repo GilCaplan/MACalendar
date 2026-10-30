@@ -108,16 +108,19 @@ def _object_for(case, _dv, _seg, cfg, _CLOCK, build):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
+    # Kept so old invocations still parse; the model column is retired, so
+    # every run is deterministic-only now.
     ap.add_argument("--det-only", action="store_true",
-                    help="skip the model column entirely")
-    a = ap.parse_args()
+                    help="no effect: the model column is retired")
+    ap.parse_args()
 
     from freezegun import freeze_time
+
     import assistant.engine as engine
     from assistant.engine import llm as _llm
+    from assistant.engine import segmentation as _seg
     from assistant.engine.decompose_validate import stage as _dv
     from assistant.engine.fastrule import build
-    from assistant.engine import segmentation as _seg
     from assistant.engine.llmjudge import verdict
     from assistant.engine.llmjudge.datasets.generate import CLOCK as _CLOCK
 

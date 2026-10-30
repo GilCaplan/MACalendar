@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 import importlib.util as _iutil
 import threading as _thr
+
 from assistant import clock as _clock  # the moment the command was SAID
 
 # --- spaCy ---
@@ -86,7 +87,8 @@ def _ensure_dt() -> None:
         if _dt_loaded:
             return
         try:
-            from recognizers_date_time import DateTimeRecognizer, Culture as _Culture
+            from recognizers_date_time import Culture as _Culture
+            from recognizers_date_time import DateTimeRecognizer
             _DT_MODEL = DateTimeRecognizer(_Culture.English).get_datetime_model()
             _dt_loaded = True
             logger.info("DateTime recognizer loaded (lazy).")
@@ -97,8 +99,8 @@ def _ensure_dt() -> None:
             _dt_loaded = True  # don't retry
 
 if TYPE_CHECKING:
-    from assistant.actions.base import BaseIntent
     from assistant.actions import ActionRegistry
+    from assistant.actions.base import BaseIntent
 
 # ---------------------------------------------------------------------------
 # Public constants
@@ -117,7 +119,7 @@ class RuleParseResult:
     """Full result from RuleBasedParser.analyze()."""
 
     confidence: float
-    intents: list[tuple[str, "BaseIntent"]]
+    intents: list[tuple[str, BaseIntent]]
     missing_slots: list[str]
     raw_slots: dict  # {action_name: {slot_name: value}}
     transcript: str
@@ -126,7 +128,7 @@ class RuleParseResult:
     #: Phrases whose date was CHOSEN out of a range ("next week") rather than
     #: named. Non-empty ⇒ the caller asks before committing (Gil, 2026-09-17):
     #: the day is a reading of the span, not the speaker's own word for it.
-    range_dates: "list[str] | None" = None
+    range_dates: list[str] | None = None
 
 
 #: Actions the rules reach WITHOUT the verb table — a reader of their own in
@@ -134,14 +136,13 @@ class RuleParseResult:
 DIRECT_READERS = ("add_occasion",)
 
 
-def _occasion_reading(transcript: str) -> "RuleParseResult | None":
+def _occasion_reading(transcript: str) -> RuleParseResult | None:
     """The ``add_occasion`` intent for an occasion stated outright, else None."""
     from assistant.occasions.voice import read
     hit = read(transcript)
     if hit is None:
         return None
-    from assistant.actions.occasion.action import (_GREG_NAMES, _HEB_NAMES,
-                                                   AddOccasionIntent)
+    from assistant.actions.occasion.action import _GREG_NAMES, _HEB_NAMES, AddOccasionIntent
     names = _HEB_NAMES if hit["calendar"] == "hebrew" else _GREG_NAMES
     intent = AddOccasionIntent(kind=hit["kind"], name=hit["title"],
                                date_text=f"{hit['day']} {names[hit['month'] - 1]}",
@@ -544,7 +545,7 @@ _DURATION_WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4,
                    "ten": 10, "half": 0, "quarter": 0}
 
 
-def _duration_minutes(m) -> "int | None":
+def _duration_minutes(m) -> int | None:
     """A matched duration phrase as whole minutes, or None."""
     raw = (m.group(1) or "").lower()
     n = float(_DURATION_WORDS[raw]) if raw in _DURATION_WORDS else (
@@ -571,7 +572,7 @@ def _duration_minutes(m) -> "int | None":
 _EXTEND_VERBS = frozenset({"extend", "lengthen", "stretch", "prolong", "shorten", "trim"})
 
 
-def _extend_verbs() -> "frozenset[str]":
+def _extend_verbs() -> frozenset[str]:
     """`_EXTEND_VERBS` plus anything the person added in Settings.
 
     Read through `lexicon` rather than used directly, so "the way I say it" is a
@@ -633,7 +634,7 @@ _PRIORITY_NAMES = {"high": "high", "medium": "medium", "low": "low",
 # ---------------------------------------------------------------------------
 
 
-def _preprocess(transcript: str) -> "tuple[str, bool, int | None]":
+def _preprocess(transcript: str) -> tuple[str, bool, int | None]:
     """Normalise text and check complexity gate.
 
     Returns (normalised_text, should_skip, lead_minutes) — the last is the
@@ -806,7 +807,7 @@ def _serial_verbs(head, conj) -> bool:
     return not any(c.dep_ in _OBJECT_DEPS for c in head.children)
 
 
-def _serial_verb_pairs(span) -> "frozenset[str]":
+def _serial_verb_pairs(span) -> frozenset[str]:
     """The "wash and fold" bigrams in a span, for `split_items` to keep whole.
 
     `list_split` is pure string work by design and has no parse to consult, so
@@ -1064,7 +1065,7 @@ _BARE_ORDINAL_DATE = re.compile(
 )
 
 
-def _ordinal_to_date(day: int, today: datetime.date) -> "str | None":
+def _ordinal_to_date(day: int, today: datetime.date) -> str | None:
     """A bare "the Nth" means THIS month if that day has not yet passed, else
     NEXT month — the same convention the recogniser applies to "on the 15th",
     so the two phrasings cannot disagree. None for a day that is not a day, and
@@ -1098,7 +1099,7 @@ _NUMBER_WORD = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4,
                 "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 
 
-def _duration_ahead_to_date(n: int, unit: str, today: datetime.date) -> "str | None":
+def _duration_ahead_to_date(n: int, unit: str, today: datetime.date) -> str | None:
     """now + N weeks/months/years, clamped to a real day: "in two months" from
     the 31st lands on the 30th rather than raising."""
     unit = unit.lower()
@@ -1150,7 +1151,7 @@ _BOUND_TRAILING_TIME = re.compile(
     re.IGNORECASE)
 
 
-def _bound_date(tail: str, today: datetime.date, inclusive: bool) -> "tuple[str, int] | None":
+def _bound_date(tail: str, today: datetime.date, inclusive: bool) -> tuple[str, int] | None:
     """Resolve a bound phrase. -> (ISO date, chars of `tail` it occupies).
 
     Which END of a range is meant depends on the speaker's word, and the two
@@ -1237,7 +1238,7 @@ def _bound_date(tail: str, today: datetime.date, inclusive: bool) -> "tuple[str,
     return None
 
 
-def _series_bound(span_text: str, today: datetime.date) -> "tuple[str, int, int] | None":
+def _series_bound(span_text: str, today: datetime.date) -> tuple[str, int, int] | None:
     """Find and resolve a series bound. -> (ISO date, start, end) over `span_text`.
 
     None when there is no bound keyword, or when nothing after it resolves to a
@@ -1305,7 +1306,7 @@ def _extract_temporal(span_text: str, today: datetime.date,
     daypart_candidates: list = []
     #: Where the last reading that carried a CLOCK ended, so a daypart that
     #: follows it directly can be read as that clock's meridiem.
-    last_clock_end: "int | None" = None
+    last_clock_end: int | None = None
 
     # THE SERIES BOUND COMES OFF FIRST, or it is read as the item's own date.
     # `_rec.start_date()` in `_fill_slots` already anchors "every monday" on the
@@ -1817,13 +1818,13 @@ _NOT_A_NAME = frozenset({"something", "someone", "somebody", "anything", "everyt
                          "nothing", "stuff", "things"})
 
 
-def _tagger_kind(text: str, whole: str = "", *, a_create: bool = True) -> "tuple[str, str]":
+def _tagger_kind(text: str, whole: str = "", *, a_create: bool = True) -> tuple[str, str]:
     """(kind, path) from segmentation's tagger, on the words with their time
     phrases taken out — the same split the deep chain hands it. `whole` is the
     command the words came from: a part with no time of its own reads the
     floor's "today", not nothing, when the command names one elsewhere (Q63,
     the same condition `fastseg` applies)."""
-    from assistant.engine.segmentation.fastseg.fastseg import find_time_refs, tag_path, _tag_path
+    from assistant.engine.segmentation.fastseg.fastseg import _tag_path, find_time_refs, tag_path
     if not a_create:
         # the NAME of something that exists: Q63 (what to create when no time
         # was said) does not apply — "scrap blood test" names an event.
@@ -2011,6 +2012,7 @@ _COMPACT_BARE_RE = re.compile(
 _COMING_WEEKDAY_RE = re.compile(
     r"\b(?:this\s+)?coming\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", re.I)
 from assistant.common.wordlists import WEEKDAY_INDEX as _WEEKDAY_INDEX  # noqa: E402
+
 _WEEKDAY_WORD_RE = re.compile(
     r"\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", re.I)
 #: A DAY NAMED ON PURPOSE — "today", "tomorrow", "the 13th", "Sept 14" — as
@@ -2214,7 +2216,7 @@ _COMPLETE_FRAME = re.compile(
     re.I)
 
 
-def mutation_frame_kind(text: str) -> "str | None":
+def mutation_frame_kind(text: str) -> str | None:
     """"delete" / "complete" when the words say to remove or finish a thing
     that already exists, else None."""
     if _DELETE_FRAME.search(text or ""):
@@ -2241,7 +2243,7 @@ _MUTATION_FRAME = re.compile(
     re.I)
 
 
-def _delete_target_kind(span) -> "tuple[str, bool] | None":
+def _delete_target_kind(span) -> tuple[str, bool] | None:
     """(domain, inferred) for a span that OPENS with a delete or change verb,
     read off the thing it names by segmentation's tagger; None otherwise."""
     toks = [t for t in span if t.lower_ not in ("please", "can", "could", "you", "just")]
@@ -3142,7 +3144,7 @@ def _extract_title(span, temporal_spans: list[tuple[int, int]],
     return None
 
 
-def _dobj_conjunct_title(span, temporal_spans: list[tuple[int, int]]) -> "str | None":
+def _dobj_conjunct_title(span, temporal_spans: list[tuple[int, int]]) -> str | None:
     """The FULL coordinated object list, not just the first — "buy X, Y, and
     Z" keeps every one (DEVQA Q14 reversed, 2026-09-16: a shared verb over a
     bare, coordinated object list is ONE segmentation item, so its title
@@ -3998,7 +4000,7 @@ class RuleBasedParser:
     so the caller can hand off to the LLM with pre-filled slot context.
     """
 
-    def __init__(self, registry: "ActionRegistry") -> None:
+    def __init__(self, registry: ActionRegistry) -> None:
         self._registry = registry
         from assistant.intent.context import context_memory
         self._memory = context_memory
@@ -4040,7 +4042,7 @@ class RuleBasedParser:
 
         today = _clock.today()
 
-        all_intents: list[tuple[str, "BaseIntent"]] = []
+        all_intents: list[tuple[str, BaseIntent]] = []
         all_missing: list[str] = []
         range_dates: list[str] = []
         all_raw_slots: dict = {}
@@ -4048,7 +4050,7 @@ class RuleBasedParser:
         dropped_spans = 0
         #: A date resolved on a span that carried no action. None = none seen,
         #: "" = more than one, which is not carried (see the drop site below).
-        carried_date: "str | None" = None
+        carried_date: str | None = None
 
         for span in spans:
             repeating_todo = False
@@ -4295,7 +4297,7 @@ class RuleBasedParser:
             range_dates=range_dates or None,
         )
 
-    def parse(self, transcript: str, current_view: str = "month") -> list[tuple[str, "BaseIntent"]]:
+    def parse(self, transcript: str, current_view: str = "month") -> list[tuple[str, BaseIntent]]:
         """Public parse API compatible with the ParserProtocol.
 
         Returns intents directly when confidence is high and slots are complete.

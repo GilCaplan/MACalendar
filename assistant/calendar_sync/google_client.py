@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import urllib.parse
+
 import requests
 
 from assistant.calendar_sync.google_oauth import GoogleAuth

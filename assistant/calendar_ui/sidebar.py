@@ -6,10 +6,10 @@ import datetime
 
 from PyQt6.QtCore import (
     QDate,
-    QSize,
     QEasingCurve,
     QEvent,
     QPropertyAnimation,
+    QSize,
     Qt,
     pyqtSignal,
 )
@@ -26,8 +26,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from assistant.calendar_ui.styles import BLUE, ON_ACCENT, GRAY_BG, GRAY_BORDER
 import assistant.calendar_ui.styles as _styles
+from assistant.calendar_ui.styles import BLUE, GRAY_BG, GRAY_BORDER, ON_ACCENT
 
 
 class MiniCalendar(QWidget):
@@ -196,7 +196,8 @@ class MiniCalendar(QWidget):
         # stylesheet never reached: it drew Qt's default WHITE bar with grey
         # letters in the dark theme. Its text format sets the colours; the
         # weekend days get the same muted tone, not Qt's default red.
-        from PyQt6.QtGui import QTextCharFormat, QColor as _QColor
+        from PyQt6.QtGui import QColor as _QColor
+        from PyQt6.QtGui import QTextCharFormat
         head = QTextCharFormat()
         head.setBackground(_QColor(bg))
         head.setForeground(_QColor(text2))

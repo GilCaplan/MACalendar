@@ -50,8 +50,9 @@ def test_a_bare_decimal_number_is_now_read_as_a_clock_by_design():
     # validator downstream. "9.99" is no reading at all.
     assert resolve_clock("it's 9.99 for the ticket") is None
 
-    from assistant.actions.calendar.intent import CalendarIntent
     import pytest
+
+    from assistant.actions.calendar.intent import CalendarIntent
     with pytest.raises(Exception, match="out of range"):
         CalendarIntent(title="x", start_time="09:99")
 
@@ -67,6 +68,7 @@ def test_a_range_is_read_to_its_end_clock_not_to_the_end_of_the_sentence():
     "from 6 to 8 tonight" became 18:00-19:00 (2026-09-25). The words after
     the end clock still set the half of the day."""
     import datetime as dt
+
     from assistant.engine.decompose_validate import resolve as R
     day = dt.date(2026, 9, 9)
     for said, want in [("between 2 and 4 this afternoon", ("14:00", "16:00")),
@@ -82,6 +84,7 @@ def test_until_the_end_of_a_month_names_its_last_day():
     """CLAUDE.md: "until" excludes the day it names — except "until the end of
     <month>", which names the final day. The resolver read it as the 30th."""
     import datetime as dt
+
     from assistant.engine.decompose_validate.resolve import resolve_until
     day = dt.date(2026, 9, 26)
     assert resolve_until("every monday until the end of october", day) == "2026-10-31"
@@ -92,6 +95,7 @@ def test_a_range_bound_agrees_with_the_front_door():
     """"until next month" is the day before it starts, "through next month" its
     last day — the resolver returned no end at all (2026-09-26)."""
     import datetime as dt
+
     from assistant.engine.decompose_validate.resolve import resolve_until
     day = dt.date(2026, 9, 26)
     assert resolve_until("weekly until next month", day) == "2026-09-30"

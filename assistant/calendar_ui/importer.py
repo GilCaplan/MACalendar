@@ -23,7 +23,6 @@ import logging
 import os
 import re
 import sqlite3
-from typing import List, Optional, Tuple
 
 from assistant.calendar_ui.styles import BLUE
 
@@ -42,8 +41,8 @@ _FALLBACK_CALENDAR_ROOT = os.path.expanduser("~/Library/Calendars")
 
 
 def _normalize_dt(
-    value: str, tzid: Optional[str] = None
-) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    value: str, tzid: str | None = None
+) -> tuple[str | None, str | None, str | None]:
     """Parse an iCal DATE or DATETIME value.
 
     Returns (date_str, start_time_str, end_time_str) where the last two
@@ -67,7 +66,7 @@ def _normalize_dt(
         dt = datetime.datetime(year, month, day, hour, minute, second)
         if utc:
             # Convert UTC → local naive
-            ts = dt.replace(tzinfo=datetime.timezone.utc).timestamp()
+            ts = dt.replace(tzinfo=datetime.UTC).timestamp()
             dt = datetime.datetime.fromtimestamp(ts)
         date_str = dt.strftime("%Y-%m-%d")
         time_str = dt.strftime("%H:%M")
@@ -80,7 +79,7 @@ def _normalize_dt(
 # ICS parser  (no external deps — stdlib only)
 # ---------------------------------------------------------------------------
 
-def parse_ics(path: str) -> List[dict]:
+def parse_ics(path: str) -> list[dict]:
     """Parse an ICS/iCal file and return a list of event dicts.
 
     Handles CRLF and LF line endings, folded lines (RFC 5545 §3.1), and
@@ -91,15 +90,15 @@ def parse_ics(path: str) -> List[dict]:
     return parse_ics_bytes(raw)
 
 
-def parse_ics_bytes(raw: bytes) -> List[dict]:
+def parse_ics_bytes(raw: bytes) -> list[dict]:
     """Parse raw ICS/iCal bytes (e.g. fetched from a subscription URL)."""
     # Unfold RFC 5545 folded lines (CRLF / CR / LF + SPACE|TAB)
     text = raw.decode("utf-8", errors="replace")
     text = re.sub(r"\r\n[ \t]|\r[ \t]|\n[ \t]", "", text)
     lines = re.split(r"\r\n|\r|\n", text)
 
-    events: List[dict] = []
-    current: Optional[dict] = None
+    events: list[dict] = []
+    current: dict | None = None
 
     for line in lines:
         if line.upper() == "BEGIN:VEVENT":
@@ -121,10 +120,10 @@ def parse_ics_bytes(raw: bytes) -> List[dict]:
     return events
 
 
-def _build_event_dict(raw: dict) -> Optional[dict]:
+def _build_event_dict(raw: dict) -> dict | None:
     """Convert a raw VEVENT property map to a CalendarDB-compatible dict."""
 
-    def get(key: str) -> Tuple[str, str]:
+    def get(key: str) -> tuple[str, str]:
         return raw.get(key, ("", ""))
 
     title = get("SUMMARY")[0].replace("\\n", "\n").replace("\\,", ",")
@@ -174,7 +173,7 @@ def _build_event_dict(raw: dict) -> Optional[dict]:
 # macOS Calendar scanner
 # ---------------------------------------------------------------------------
 
-def scan_macos_calendar() -> List[dict]:
+def scan_macos_calendar() -> list[dict]:
     """Read events from the macOS Calendar local SQLite database.
 
     macOS Calendar stores a *Calendar Cache* SQLite file under
@@ -198,7 +197,7 @@ def scan_macos_calendar() -> List[dict]:
     return _scan_ics_tree(_FALLBACK_CALENDAR_ROOT)
 
 
-def _read_calendar_cache_db(path: str) -> Optional[List[dict]]:
+def _read_calendar_cache_db(path: str) -> list[dict] | None:
     """Attempt to read CalendarItem rows from the macOS Calendar Cache DB."""
     try:
         conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
@@ -206,7 +205,7 @@ def _read_calendar_cache_db(path: str) -> Optional[List[dict]]:
     except Exception:
         return None
 
-    events: List[dict] = []
+    events: list[dict] = []
     try:
         # Try the modern schema (Monterey+). Table and column names vary;
         # we try a few known layouts.
@@ -275,9 +274,9 @@ def _read_calendar_cache_db(path: str) -> Optional[List[dict]]:
     return events
 
 
-def _scan_ics_tree(root: str) -> List[dict]:
+def _scan_ics_tree(root: str) -> list[dict]:
     """Recursively find and parse all .ics files under *root*."""
-    events: List[dict] = []
+    events: list[dict] = []
     if not os.path.isdir(root):
         return events
     for dirpath, _dirs, files in os.walk(root):
@@ -294,7 +293,7 @@ def _scan_ics_tree(root: str) -> List[dict]:
 # Bulk importer (deduplication)
 # ---------------------------------------------------------------------------
 
-def import_events(db, events: List[dict]) -> Tuple[int, int]:
+def import_events(db, events: list[dict]) -> tuple[int, int]:
     """Insert *events* into *db*, skipping duplicates.
 
     Duplicate detection: exact match on (title, date, start_time).

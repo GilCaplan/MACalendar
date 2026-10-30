@@ -12,9 +12,20 @@ from __future__ import annotations
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QIcon, QIntValidator, QPainter, QPixmap
 from PyQt6.QtWidgets import (
-    QColorDialog, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QLabel,
-    QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPlainTextEdit,
-    QPushButton, QVBoxLayout, QWidget,
+    QColorDialog,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
 
 from assistant.actions.calendar import categories as _cat
@@ -118,7 +129,7 @@ class CategoryEditDialog(QDialog):
         lay.addWidget(box)
 
     @staticmethod
-    def _minutes_edit(name: str, value, bounds: "tuple[int, int]", global_value: int) -> QLineEdit:
+    def _minutes_edit(name: str, value, bounds: tuple[int, int], global_value: int) -> QLineEdit:
         edit = QLineEdit("" if value is None else str(value))
         edit.setObjectName(name)
         edit.setValidator(QIntValidator(bounds[0], bounds[1]))
@@ -128,7 +139,7 @@ class CategoryEditDialog(QDialog):
         return edit
 
     @staticmethod
-    def _minutes_value(edit: QLineEdit) -> "int | None":
+    def _minutes_value(edit: QLineEdit) -> int | None:
         """None for an empty box (the global applies); the number otherwise.
         An out-of-range number reaches `upsert`, which refuses it with the
         message shown to the user."""

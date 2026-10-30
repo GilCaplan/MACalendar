@@ -39,7 +39,7 @@ if str(ROOT) not in sys.path:
 DATA = ROOT / "dataset" / "realspeech" / "realspeech_1200.jsonl"
 
 
-def _shape_ok(row: dict, spec: "str | None") -> bool:
+def _shape_ok(row: dict, spec: str | None) -> bool:
     if not spec:
         return True
     if spec.startswith("no:"):
@@ -68,7 +68,8 @@ def main() -> int:
                          "MINING ONLY — slicing the test half by shape to "
                          "decide what to fix is exactly the leakage the "
                          "protocol forbids (ITERATION_PROTOCOL.md).")
-    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    from scripts.dataset_tiers import add_argument as _add_tier
+    from scripts.dataset_tiers import resolve as _resolve
     _add_tier(ap)
     a = ap.parse_args()
 

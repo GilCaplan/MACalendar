@@ -28,14 +28,14 @@ import shutil
 import sqlite3
 import sys
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 RUNS = ROOT / "dataset" / "runs"
 FILES = ("engine_run.db", "calendar.db", "trace_bus.jsonl")
 
 
-def archive(scratch: pathlib.Path, run: "int | None", label: str) -> pathlib.Path:
+def archive(scratch: pathlib.Path, run: int | None, label: str) -> pathlib.Path:
     db = scratch / "engine_run.db"
     with sqlite3.connect(f"file:{db}?mode=ro", uri=True) as c:
         n = c.execute("SELECT COUNT(*) FROM examples").fetchone()[0]
@@ -58,7 +58,7 @@ def archive(scratch: pathlib.Path, run: "int | None", label: str) -> pathlib.Pat
         "loop_run": run, "label": label,
         "source": str(scratch),
         "source_mtime": datetime.fromtimestamp(db.stat().st_mtime).isoformat(timespec="seconds"),
-        "archived_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "archived_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "n_rows": n, "parse_paths": dict(paths),
         "row_ts_range": [ts_min, ts_max],
         "files": files,

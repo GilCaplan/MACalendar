@@ -31,7 +31,6 @@ import logging
 import subprocess
 import threading
 import time
-from typing import Optional
 
 from assistant.notify import notify_verdict
 
@@ -52,7 +51,7 @@ def _applescript(s: str) -> str:
             .replace("\n", " ").replace("\r", " "))
 
 
-def _event_start(event: dict) -> "Optional[datetime.datetime]":
+def _event_start(event: dict) -> datetime.datetime | None:
     """The event's start as a naive local datetime, or None if unparseable
     (same parse notify_verdict uses, so the two never disagree)."""
     try:
@@ -99,7 +98,7 @@ def _deliver(title: str, body: str, cfg, tts_voice: str, minutes: int) -> None:
             logger.warning("notifier: say failed: %s", exc)
 
 
-def _publish_trace(action: str, event: dict, reason: "Optional[str]" = None) -> None:
+def _publish_trace(action: str, event: dict, reason: str | None = None) -> None:
     """One finished bus run in the shape the HUD already renders: a single
     TraceStep-shaped step (stage/title/detail/ms/at_ms/ok, extras under
     "data") plus a result message. Suppression is announced, never silent —
@@ -282,7 +281,7 @@ def _tick(db, cfg, now: datetime.datetime, last: datetime.datetime, *,
 # The daemon
 # --------------------------------------------------------------------------
 
-def mac_user() -> "tuple[str | None, bool]":
+def mac_user() -> tuple[str | None, bool]:
     """(whose banners, whether to show any) for the Mac's notifier: the user
     signed in at the Mac; with nobody signed in, the admin while sign-in is not
     required, else nobody — silent. Before users: (None, True), as always."""

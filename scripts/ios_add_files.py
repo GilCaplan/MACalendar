@@ -55,9 +55,9 @@ def add_like(text: str, like: str, files: list[str]) -> tuple[str, int]:
         text = before_marker(text, "PBXBuildFile",
                              f"{bld} /* {f} in Sources */ = {{isa = PBXBuildFile; fileRef = {ref} /* {f} */; }};")
         text = re.sub(r"(\t+)" + lref + r" /\* " + re.escape(like) + r" \*/,\n",
-                      lambda m: f"{m.group(0)}{m.group(1)}{ref} /* {f} */,\n", text, count=1)
+                      lambda m, ref=ref, f=f: f"{m.group(0)}{m.group(1)}{ref} /* {f} */,\n", text, count=1)
         text = re.sub(r"(\t+)" + lbld + r" /\* " + re.escape(like) + r" in Sources \*/,\n",
-                      lambda m: f"{m.group(0)}{m.group(1)}{bld} /* {f} in Sources */,\n", text, count=1)
+                      lambda m, bld=bld, f=f: f"{m.group(0)}{m.group(1)}{bld} /* {f} in Sources */,\n", text, count=1)
         added += 1
     return text, added
 
@@ -109,7 +109,7 @@ def main(argv: list[str]) -> int:
         text = before_marker(text, "PBXBuildFile",
                              f"{bld} /* {f} in Sources */ = {{isa = PBXBuildFile; fileRef = {ref} /* {f} */; }};")
         text = re.sub(r"(\t\t" + group_id + r" /\* " + re.escape(folder) + r" \*/ = \{\n\t+isa = PBXGroup;\n\t+children = \(\n)",
-                      lambda m: m.group(1) + f"\t\t\t\t{ref} /* {f} */,\n", text, count=1)
+                      lambda m, ref=ref, f=f: m.group(1) + f"\t\t\t\t{ref} /* {f} */,\n", text, count=1)
         phase = re.search(r"isa = PBXSourcesBuildPhase;\n\t+buildActionMask = \d+;\n\t+files = \(\n"
                           r"(?:(?!\);).)*?OfflineReader\.swift in Sources", text, re.S)
         start = phase.start()

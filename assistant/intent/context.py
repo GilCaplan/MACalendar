@@ -8,7 +8,6 @@ without circular imports into action modules.
 from __future__ import annotations
 
 import threading
-from typing import Optional
 
 
 class ContextMemory:
@@ -21,7 +20,7 @@ class ContextMemory:
     #: One shared state PER USER (assistant/users): "it" / "the one I just
     #: made" is the speaker's last event, never another user's. "" is the
     #: state of a process nobody is bound in — today's single shared one.
-    _shared_by_user: "dict[str, dict]" = {}
+    _shared_by_user: dict[str, dict] = {}
     _lock: threading.Lock = threading.Lock()
 
     def __init__(self) -> None:
@@ -29,13 +28,13 @@ class ContextMemory:
         self.__dict__ = self._shared_by_user.setdefault(users.current() or "", {})
 
     # --- Event memory ---
-    last_event_id: Optional[int] = None
-    last_event_title: Optional[str] = None
-    last_event_date: Optional[str] = None   # ISO date, for UI navigation
+    last_event_id: int | None = None
+    last_event_title: str | None = None
+    last_event_date: str | None = None   # ISO date, for UI navigation
 
     # --- Todo memory ---
-    last_todo_id: Optional[int] = None
-    last_todo_title: Optional[str] = None
+    last_todo_id: int | None = None
+    last_todo_title: str | None = None
 
     def update_event(self, event_id: int, title: str, date: str) -> None:
         with self._lock:
@@ -53,7 +52,7 @@ class ContextMemory:
     # so a command's review can show what an edit replaced and put back what
     # a delete removed (2026-09-24). `touched_seq` moves on every note, so the
     # commit step can tell THIS action touched something without comparing rows.
-    touched: Optional[tuple] = None
+    touched: tuple | None = None
     touched_seq: int = 0
 
     def note_touched(self, kind: str, row: dict) -> None:

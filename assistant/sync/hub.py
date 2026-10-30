@@ -23,7 +23,7 @@ REPLICAS = "_sync_replicas"
 REPLICA_FRESH_DAYS = 7
 
 
-def note_replica(conn: sqlite3.Connection, name: str, urls: "list[str]") -> None:
+def note_replica(conn: sqlite3.Connection, name: str, urls: list[str]) -> None:
     """Remember where `name` is, from its own pull (DEVQA Q96): a phone asks
     the hub for this while the hub is up, and uses that address while it is
     not. A pull with no addresses (an older replica) leaves the record alone."""
@@ -35,7 +35,7 @@ def note_replica(conn: sqlite3.Connection, name: str, urls: "list[str]") -> None
                      (name, json.dumps(urls), time.time()))
 
 
-def replicas(conn: sqlite3.Connection, now: "float | None" = None) -> "list[dict]":
+def replicas(conn: sqlite3.Connection, now: float | None = None) -> list[dict]:
     """Replicas heard from lately, most recent first."""
     conn.execute(f"CREATE TABLE IF NOT EXISTS {REPLICAS} ("
                  "name TEXT PRIMARY KEY, urls TEXT NOT NULL, seen REAL NOT NULL)")
@@ -44,7 +44,7 @@ def replicas(conn: sqlite3.Connection, now: "float | None" = None) -> "list[dict
             for r in conn.execute(f"SELECT * FROM {REPLICAS} WHERE seen >= ? ORDER BY seen DESC", (cutoff,))]
 
 
-def pull(conn: sqlite3.Connection, since: "int | None", replica: str) -> dict:
+def pull(conn: sqlite3.Connection, since: int | None, replica: str) -> dict:
     """Changes after `since`, newest state of each row, minus the replica's own.
 
     `since` None (a first sync) or older than the log reaches → a SNAPSHOT:
@@ -83,7 +83,7 @@ def apply_push(conn: sqlite3.Connection, replica: str, changes: list) -> dict:
     an earlier push was lost), not a collision."""
     cl.install(conn)
     tabs = cl.tables(conn)
-    remap: "dict[str, dict]" = {}
+    remap: dict[str, dict] = {}
     rejected = []
     conn.execute("BEGIN IMMEDIATE")
     try:
@@ -126,7 +126,7 @@ def apply_push(conn: sqlite3.Connection, replica: str, changes: list) -> dict:
     return {"remap": remap, "rejected": rejected}
 
 
-def _parents(table: str) -> "list[tuple[str, str]]":
+def _parents(table: str) -> list[tuple[str, str]]:
     """(column, parent table) for every id column of `table` that points at a parent."""
     return [(col, parent) for parent, kids in cl.FKS.items() for child, col in kids if child == table]
 

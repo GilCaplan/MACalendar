@@ -47,8 +47,8 @@ def main() -> int:
     ap.add_argument("--relax", type=float, nargs="*", default=[0.25])
     a = ap.parse_args()
 
-    from scripts.vocab_repair_bench import in_sentence, real_pairs
     from assistant.stt import vocab as V
+    from scripts.vocab_repair_bench import in_sentence, real_pairs
 
     cases = in_sentence(0)
     terms, chosen = [], set()

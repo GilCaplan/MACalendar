@@ -74,7 +74,7 @@ def _passes(row: dict, f: dict) -> bool:
         return False
 
 
-def _percentiles(values: "list[float]") -> "list[float]":
+def _percentiles(values: list[float]) -> list[float]:
     """Each value's share of the others it beats, ties counted half; 0..1."""
     n = len(values)
     if n == 1:
@@ -93,14 +93,14 @@ def _percentiles(values: "list[float]") -> "list[float]":
     return out
 
 
-def fit(table: Table, recipe: dict) -> "tuple[dict, list[str]]":
+def fit(table: Table, recipe: dict) -> tuple[dict, list[str]]:
     """The recipe, minus whatever names a column this table does not have —
     and a sentence for each thing left out. A saved recipe is a starting
     point, not a contract: a new export with different columns must still
     rank by what it CAN, instead of refusing outright (Gil, 2026-10-11: "i
     dont want it stuck on the example i gave you")."""
     have = set(table.names)
-    notes: "list[str]" = []
+    notes: list[str] = []
     derived = []
     for d in recipe.get("derived", []):
         gone = [c for c in d.get("sum", []) if c not in have]
@@ -125,7 +125,7 @@ def fit(table: Table, recipe: dict) -> "tuple[dict, list[str]]":
     return out, notes
 
 
-def best_key(table: Table, numbers: "list", preferred: str = "") -> str:
+def best_key(table: Table, numbers: list, preferred: str = "") -> str:
     """The column the picture's numbers belong to: the one whose values match
     the most of them. Asking the person to name it was one more thing to get
     wrong; the data answers it."""
@@ -138,7 +138,7 @@ def best_key(table: Table, numbers: "list", preferred: str = "") -> str:
     return best
 
 
-def rank(table: Table, recipe: dict, numbers: "list | None" = None) -> dict:
+def rank(table: Table, recipe: dict, numbers: list | None = None) -> dict:
     """{'rows': ranked rows (each with score and per-criterion percentiles),
         'columns': what to show, 'kept': n, 'total': n, 'missing': picture
         numbers with no row in the table}."""
@@ -151,7 +151,7 @@ def rank(table: Table, recipe: dict, numbers: "list | None" = None) -> dict:
 
     key = (best_key(table, numbers, recipe.get("key") or "") if numbers
            else recipe.get("key") or table.names[0])
-    missing: "list[str]" = []
+    missing: list[str] = []
     if numbers:
         wanted = {_key(n) for n in numbers}
         present = {_key(r.get(key)) for r in rows}

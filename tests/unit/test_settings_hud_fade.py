@@ -11,15 +11,15 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-import yaml                                                          # noqa: E402
-from PyQt6.QtCore import Qt                                          # noqa: E402
-from PyQt6.QtTest import QTest                                       # noqa: E402
-from PyQt6.QtWidgets import QApplication, QDoubleSpinBox                   # noqa: E402
+import yaml  # noqa: E402
+from PyQt6.QtCore import Qt  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import QApplication, QDoubleSpinBox  # noqa: E402
 
-from assistant import config_store                                   # noqa: E402
-from assistant.calendar_ui.settings_dialog import open_settings      # noqa: E402
-from tests.unit._settings_driver import drive_settings               # noqa: E402
-from tests.unit.test_settings_notifications import _Window           # noqa: E402
+from assistant import config_store  # noqa: E402
+from assistant.calendar_ui.settings_dialog import open_settings  # noqa: E402
+from tests.unit._settings_driver import drive_settings  # noqa: E402
+from tests.unit.test_settings_notifications import _Window  # noqa: E402
 
 SAMPLE = """\
 theme: "dark"

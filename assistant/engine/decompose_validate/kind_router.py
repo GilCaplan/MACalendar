@@ -68,7 +68,7 @@ def _fs():
 # rules
 # ---------------------------------------------------------------------------
 
-def rule_fired(text: str, time_str: str) -> "tuple[str, str] | None":
+def rule_fired(text: str, time_str: str) -> tuple[str, str] | None:
     """`(kind, path)` when a rule decided this item's kind, else None.
 
     The tagger's own path first: anything but "default" is a reader that
@@ -96,7 +96,7 @@ def rule_fired(text: str, time_str: str) -> "tuple[str, str] | None":
 
 
 @functools.lru_cache(maxsize=1)
-def _list_dest() -> "re.Pattern":
+def _list_dest() -> re.Pattern:
     """The tagger's own to-do-destination pattern (`kind._LIST_DEST`)."""
     from assistant.engine.segmentation.fastseg import kind as K
     return re.compile(K._LIST_DEST, re.I)
@@ -174,7 +174,7 @@ def shape_features(text: str, time_str: str) -> dict:
     return f
 
 
-def vectorise(rows, heads: dict) -> "np.ndarray":
+def vectorise(rows, heads: dict) -> np.ndarray:
     """rows: [(text, time, tagger_kind)] -> X. `heads` maps a head word to a
     column (fitted on TRAIN); anything else is the one `<other>` column."""
     out = []
@@ -199,7 +199,7 @@ def feature_names(heads: dict) -> list:
 _MODEL: dict = {}
 
 
-def load(path: "pathlib.Path | None" = None) -> "dict | None":
+def load(path: pathlib.Path | None = None) -> dict | None:
     """The fitted artefact, or None (missing, unreadable, or another feature
     layout). Read once per process."""
     key = str(path or MODEL_PATH)
@@ -222,7 +222,7 @@ def reset() -> None:
     _MODEL.clear()
 
 
-def route(text: str, time_str: str, model: "dict | None" = None) -> "tuple[str, str]":
+def route(text: str, time_str: str, model: dict | None = None) -> tuple[str, str]:
     """`(kind, why)` for one item: `why` is `rule:<path>` or `model:<p_event>`,
     or `tagger:no-model` when no artefact is present (the tagger stands)."""
     got = rule_fired(text, time_str)

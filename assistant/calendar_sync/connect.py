@@ -28,7 +28,6 @@ import secrets
 import threading
 import time
 import urllib.parse
-from typing import Optional
 
 from assistant.calendar_sync import google_oauth, scheduler
 from assistant.db import _utcnow_iso
@@ -71,7 +70,7 @@ def _public(flow: dict) -> dict:
     return {k: flow[k] for k in keys if k in flow}
 
 
-def flow_status(flow_id: str) -> Optional[dict]:
+def flow_status(flow_id: str) -> dict | None:
     with _flows_lock:
         flow = _flows.get(flow_id)
     return _public(flow) if flow else None
@@ -221,7 +220,7 @@ def google_complete(db, flow_id: str = "", state: str = "", code: str = "",
     return _complete(db, flow, code, state, session=session)
 
 
-def _find_google_flow(flow_id: str, state: str) -> Optional[dict]:
+def _find_google_flow(flow_id: str, state: str) -> dict | None:
     with _flows_lock:
         if flow_id and flow_id in _flows:
             return _flows[flow_id]
@@ -276,12 +275,13 @@ def save_google_desktop_client(config, raw) -> str:
     return path
 
 
-def save_client_ids(outlook_client_id: Optional[str] = None,
-                    google_ios_client_id: Optional[str] = None) -> list[str]:
+def save_client_ids(outlook_client_id: str | None = None,
+                    google_ios_client_id: str | None = None) -> list[str]:
     """Write client ids into config.yaml, preserving the rest of the file."""
+    import yaml
+
     from assistant.features import yaml_text
     from assistant.features.settings import config_path
-    import yaml
 
     path = config_path()
     with open(path) as f:
@@ -301,7 +301,7 @@ def save_client_ids(outlook_client_id: Optional[str] = None,
     return written
 
 
-def _pending_flow(provider: str) -> Optional[dict]:
+def _pending_flow(provider: str) -> dict | None:
     with _flows_lock:
         pending = [f for f in _flows.values() if f["provider"] == provider and f["state"] == "pending"]
     return _public(pending[-1]) if pending else None

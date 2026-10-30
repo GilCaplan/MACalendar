@@ -253,8 +253,8 @@ def replay(rows: list, scratch: pathlib.Path, resume: bool = False) -> list:
             shutil.copyfile(real, dst)
         os.environ[var] = str(dst)
 
-    from assistant.checkpoint import Checkpoint
     from assistant.api.server import create_app
+    from assistant.checkpoint import Checkpoint
 
     app = create_app()
     app.config["TESTING"] = True
@@ -317,6 +317,7 @@ def replay(rows: list, scratch: pathlib.Path, resume: bool = False) -> list:
             _rp.analyze("book gym tomorrow at 7am", current_view="month")
 
     import datetime as _dt
+
     from freezegun import freeze_time
 
     # FRESH BY DEFAULT (2026-09-22). `Checkpoint` resumes by default, and this
@@ -551,7 +552,7 @@ def score(replayed: list, rows: list, taxonomy: dict) -> dict:
     return res
 
 
-def _title_ok(title: str, want) -> "tuple[bool, str]":
+def _title_ok(title: str, want) -> tuple[bool, str]:
     """Right when the title carries one of the subject phrases the words held,
     or — when the words held none (`title_has: null`) — when it is a BARE kind
     word, which Q41 (Gil, 2026-09-22) makes the right answer."""
@@ -684,7 +685,7 @@ def pct(k: int, n: int) -> str:
 
 
 def report(res: dict, rows: list, taxonomy: dict, guard: tuple,
-           appeared: "dict | None" = None) -> str:
+           appeared: dict | None = None) -> str:
     before, after = guard
     moved = [k for k in before if before.get(k) != after.get(k)]
     new_rows = [x for v in (appeared or {}).values() for x in v]

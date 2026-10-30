@@ -9,14 +9,13 @@ from __future__ import annotations
 import datetime
 
 from assistant.hebrew_calendar import (
+    _shift_yom_hashoah,
+    _shift_yom_hazikaron_atzmaut,
     enumerate_holidays,
     hebrew_date_string,
     hebrew_day_label,
     hebrew_month_year_string,
-    _shift_yom_hashoah,
-    _shift_yom_hazikaron_atzmaut,
 )
-
 
 # ---------------------------------------------------------------------------
 # Date formatting

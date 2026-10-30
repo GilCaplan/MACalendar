@@ -11,9 +11,8 @@ from unittest.mock import MagicMock
 import pytest
 
 import assistant.engine as engine
-import assistant.engine.llmjudge.llmjudge as crosscheck
-import assistant.engine.fastrule.stage as generate
 import assistant.engine.llm as engine_llm
+import assistant.engine.llmjudge.llmjudge as crosscheck
 from assistant.engine.state import EngineState, ExecutedAction, Item
 
 

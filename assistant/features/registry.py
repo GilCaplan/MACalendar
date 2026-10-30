@@ -16,10 +16,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-_cache: "dict[str, object]" = {}
+_cache: dict[str, object] = {}
 
 
-def all_features() -> "list":
+def all_features() -> list:
     """Every feature, in display order.
 
     Imported lazily and defensively: one feature whose module fails to import
@@ -54,7 +54,7 @@ def get(name: str):
     return _cache.get((name or "").strip().lower())
 
 
-def visible() -> "list":
+def visible() -> list:
     return [f for f in all_features() if f.visible()]
 
 

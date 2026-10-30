@@ -46,15 +46,20 @@ import re
 # The STT operations are IMPORTED, not re-implemented: two copies of a damage
 # shape is how a bench and the rule it measures drift apart. A rename in that
 # file breaks this import loudly, which is the intended failure.
-from scripts.vocab_repair_bench import (      # noqa: E402
-    _boundary_shift, _corrupt, _join, _sound_swap, _syllable_split, mash,
+from scripts.vocab_repair_bench import (  # noqa: E402
+    _boundary_shift,
+    _corrupt,
+    _join,
+    _sound_swap,
+    _syllable_split,
+    mash,
 )
 
 _STOP = frozenset("the a an of for to with at on in by from my our your and "
                   "is are be do i me it that this".split())
 
 
-def _head(subject: str) -> "str | None":
+def _head(subject: str) -> str | None:
     """The word a recogniser is most likely to mangle: the longest content
     word. `vocab_repair_bench` damages the HEAD and leaves the tail intact
     because that is what the observed pairs do."""

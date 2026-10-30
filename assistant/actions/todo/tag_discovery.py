@@ -35,12 +35,12 @@ _STOP = frozenset(
     "some more please remember don't dont have has was were will would".split())
 
 
-def _words(title: str) -> "set[str]":
+def _words(title: str) -> set[str]:
     return {w for w in re.findall(r"[a-z][a-z']{3,}", (title or "").lower())
             if w not in _STOP}
 
 
-def candidate() -> "dict | None":
+def candidate() -> dict | None:
     """The one suggestion worth asking about right now, or None.
 
     None whenever: the cooldown hasn't elapsed, no theme reaches
@@ -92,7 +92,7 @@ def record_ask() -> None:
                                    keep_status=True)
 
 
-def answer(name: str, accept: bool) -> "dict | None":
+def answer(name: str, accept: bool) -> dict | None:
     """Record the verdict. Yes → the class joins the registry (and is returned);
     no → the name is never proposed again."""
     from assistant.db import get_db
@@ -104,7 +104,7 @@ def answer(name: str, accept: bool) -> "dict | None":
     return None
 
 
-def change_answer(name: str, accept: bool) -> "dict | None":
+def change_answer(name: str, accept: bool) -> dict | None:
     """Reverse or change a past verdict from the history view (Gil,
     2026-09-05): un-refusing creates the class after all; un-accepting removes
     it from the registry again (delete_tag also strips it from todos — the

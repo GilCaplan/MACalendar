@@ -14,11 +14,10 @@ without stopping a real server or writing the real config.yaml.
 from __future__ import annotations
 
 import threading
-from typing import Callable
+from collections.abc import Callable
 
 from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import (QDialog, QHBoxLayout, QLabel, QPushButton,
-                             QSpinBox, QVBoxLayout)
+from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QSpinBox, QVBoxLayout
 
 DEFAULT_PORT = 8080
 

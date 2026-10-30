@@ -9,8 +9,7 @@ instead of hand-marking whole rows (2026-09-22).
 from __future__ import annotations
 
 from assistant.intent import correction as C
-from assistant.intent.memory import CommandMemory, FEEDBACK_CORRECTED
-
+from assistant.intent.memory import FEEDBACK_CORRECTED, CommandMemory
 
 THEN = [{"action": "create_event",
          "parameters": {"title": "meeting", "date": "2026-08-27",

@@ -5,10 +5,9 @@ from __future__ import annotations
 import calendar
 import datetime
 import logging
-from typing import List, Optional
 
-from PyQt6.QtCore import Qt, QMimeData, QByteArray, pyqtSignal
-from PyQt6.QtGui import QColor, QDrag, QPainter, QPen, QPixmap, QBrush
+from PyQt6.QtCore import QByteArray, QMimeData, Qt, pyqtSignal
+from PyQt6.QtGui import QBrush, QColor, QDrag, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
@@ -252,9 +251,9 @@ class DayCell(QWidget):
         self.is_today         = date == datetime.date.today()
         self._selected        = False
         self._drag_hover      = False
-        self._events: List[dict] = []
-        self._todos: List[dict]  = []
-        self._holidays: List[dict] = []
+        self._events: list[dict] = []
+        self._todos: list[dict]  = []
+        self._holidays: list[dict] = []
         self._ui_config       = None
 
         self.setMinimumHeight(88)
@@ -312,15 +311,15 @@ class DayCell(QWidget):
             f"font-size: {self._hebrew_font_size}px; color: {color}; background: transparent;"
         )
 
-    def load_events(self, events: List[dict]) -> None:
+    def load_events(self, events: list[dict]) -> None:
         self._events = events
         self._render_pills()
 
-    def load_todos(self, todos: List[dict]) -> None:
+    def load_todos(self, todos: list[dict]) -> None:
         self._todos = todos
         self._render_pills()
 
-    def load_holidays(self, holidays: List[dict]) -> None:
+    def load_holidays(self, holidays: list[dict]) -> None:
         self._holidays = holidays
         self._render_pills()
 
@@ -558,8 +557,8 @@ class MonthView(QWidget):
         self._db    = db
         self._year  = datetime.date.today().year
         self._month = datetime.date.today().month
-        self._cells: List[DayCell]       = []
-        self._selected_date: Optional[datetime.date] = datetime.date.today()
+        self._cells: list[DayCell]       = []
+        self._selected_date: datetime.date | None = datetime.date.today()
         self._ui_config = None
         self._hebrew_config = None
 
@@ -570,7 +569,7 @@ class MonthView(QWidget):
         # Day-of-week header row
         self._header = QWidget()
         self._header.setFixedHeight(30)
-        self._header_labels: List[QLabel] = []
+        self._header_labels: list[QLabel] = []
         self._header_grid = QGridLayout(self._header)
         self._header_grid.setContentsMargins(0, 0, 0, 0)
         self._header_grid.setSpacing(0)

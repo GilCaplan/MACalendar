@@ -66,6 +66,7 @@ from __future__ import annotations
 import contextlib
 import contextvars
 import errno
+
 try:                                   # POSIX: macOS, Linux
     import fcntl
     msvcrt = None
@@ -322,14 +323,14 @@ def local_device_id() -> str:
 #: A `ContextVar` rather than a global: Flask serves each request on its own
 #: thread and each gets its own context, so two concurrent requests cannot read
 #: each other's priority.
-_request_priority: "contextvars.ContextVar[str | None]" = contextvars.ContextVar(
+_request_priority: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "macalendar_request_priority", default=None)
 
 #: Sources that are a PERSON waiting for an answer.
 _REAL_SOURCES = frozenset({"ios", "mac"})
 
 
-def priority_for(source: "str | None") -> str:
+def priority_for(source: str | None) -> str:
     """LIVE for a real device, BACKGROUND for a test.
 
     Deliberately keyed on SOURCE and not on trust: an old iOS client that sends
@@ -343,7 +344,7 @@ def priority_for(source: "str | None") -> str:
 
 
 @contextlib.contextmanager
-def serving(source: "str | None"):
+def serving(source: str | None):
     """Mark this request's priority for every model call made under it."""
     token = _request_priority.set(priority_for(source))
     try:
@@ -395,8 +396,8 @@ def seed_options() -> dict:
         return {}
 
 
-def stream_key(source: "str | None", device: "str | None" = None,
-               trusted: bool = False, anon: "str | None" = None) -> str:
+def stream_key(source: str | None, device: str | None = None,
+               trusted: bool = False, anon: str | None = None) -> str:
     """The identity whose requests may be spoken in one breath.
 
     Two requests share a stream when they came from the SAME DEVICE. The source
@@ -441,7 +442,7 @@ def stream_key(source: "str | None", device: "str | None" = None,
     return f"{src}:anon:{(anon or '').strip() or local_device_id()}"
 
 
-def may_merge(a: "tuple", b: "tuple") -> bool:
+def may_merge(a: tuple, b: tuple) -> bool:
     """May these two requests be concatenated into one prompt?
 
     Each argument is `(source, device)` or `(source, device, trusted)`. True
@@ -513,7 +514,7 @@ def _open_lock():
 
 
 @contextlib.contextmanager
-def hold(kind: "str | None" = None):
+def hold(kind: str | None = None):
     """Serialise ONE model call against every other process on this machine.
 
     Yields the milliseconds spent waiting, so a caller can subtract it from its

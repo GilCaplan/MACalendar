@@ -15,7 +15,7 @@ a tag whose own name appears in the title matches without any keyword list.
 from __future__ import annotations
 
 import re
-from typing import Iterable, Optional
+from collections.abc import Iterable
 
 # tag name → keywords (lower-case; multi-word entries are matched as phrases and
 # score higher, the way categories.classify weights them).
@@ -119,7 +119,7 @@ def _score(text: str, keywords: Iterable[str]) -> float:
     return score
 
 
-def infer_tag(title: str, palette: Optional[Iterable[str]] = None) -> Optional[str]:
+def infer_tag(title: str, palette: Iterable[str] | None = None) -> str | None:
     """Best tag name for a task title, or None when nothing matches.
 
     `palette` is the list of tag names that exist; only those can be returned.
@@ -167,7 +167,7 @@ def infer_tag(title: str, palette: Optional[Iterable[str]] = None) -> Optional[s
     return best
 
 
-def suggest_tags(title: str, palette: Optional[Iterable[str]] = None) -> list[str]:
+def suggest_tags(title: str, palette: Iterable[str] | None = None) -> list[str]:
     """`infer_tag` as a tags list, reading the palette from the DB if not given."""
     if palette is None:
         try:
@@ -179,7 +179,7 @@ def suggest_tags(title: str, palette: Optional[Iterable[str]] = None) -> list[st
     return [tag] if tag else []
 
 
-def auto_tags(title: str, palette: Optional[Iterable[str]] = None, cfg=None) -> list[str]:
+def auto_tags(title: str, palette: Iterable[str] | None = None, cfg=None) -> list[str]:
     """What a task nobody tagged gets: these keyword rules, then the learned
     tagger stacked behind them (`engine/label/model.py::tags_for`).
 
@@ -203,7 +203,7 @@ def auto_tags(title: str, palette: Optional[Iterable[str]] = None, cfg=None) -> 
         return rules
 
 
-def resolve_tags(names: Iterable[str], palette: Optional[Iterable[str]] = None) -> list[str]:
+def resolve_tags(names: Iterable[str], palette: Iterable[str] | None = None) -> list[str]:
     """Keep only names that exist in the palette, corrected to its casing.
 
     The parser and the LLM both propose tag names off the user's own words

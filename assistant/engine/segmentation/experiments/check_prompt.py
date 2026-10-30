@@ -37,8 +37,8 @@ scratch_env("seg_check_prompt_", keep=("LOCATION", "MODELS", "LABEL_FEEDBACK",
                                        "DEVICE_SECRET", "DEVICES"))
 
 from assistant.engine.segmentation.fastseg import invariant
-from assistant.engine.segmentation.llmseg import llmseg                # noqa: E402
 from assistant.engine.segmentation.fastseg.fastseg import fastseg, find_time_refs  # noqa: E402
+from assistant.engine.segmentation.llmseg import llmseg  # noqa: E402
 
 _DAY = re.compile(
     r"\b(today|tomorrow|tonight|yesterday|monday|tuesday|wednesday|thursday|"
@@ -47,7 +47,7 @@ _DAY = re.compile(
     r"week|month|morning|afternoon|evening|the \d)", re.I)
 
 
-def examples() -> "list[tuple[str, list]]":
+def examples() -> list[tuple[str, list]]:
     """Pull (command, items) pairs straight out of the shipped prompt text."""
     out, pending = [], None
     for line in llmseg._EXAMPLES.splitlines():

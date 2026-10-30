@@ -103,7 +103,7 @@ TRAILING_MARKER = re.compile(
     re.I)
 
 
-def trailing_marker(piece: str) -> "re.Match | None":
+def trailing_marker(piece: str) -> re.Match | None:
     """The postposed sequence marker ending `piece`, when something precedes it."""
     m = TRAILING_MARKER.search(piece or "")
     if m and _has_content(piece[:m.start()]):
@@ -137,7 +137,7 @@ _VERB_LED = re.compile(
     r"|(?P<list>(?:\s*,\s*(?:and|plus)|\s+plus)\s+)(?=[a-z])", re.I)
 
 
-def verb_led_seams(text: str) -> "list[tuple[re.Match, str]]":
+def verb_led_seams(text: str) -> list[tuple[re.Match, str]]:
     """(match, "sequence" | "list") for every seam word that an action verb
     follows. The verb stays in the right-hand part."""
     verbs = _verbs()
@@ -155,7 +155,7 @@ def verb_led_seams(text: str) -> "list[tuple[re.Match, str]]":
 _COMMA_FINALLY = re.compile(r"\s*,\s*(?:and\s+)?(?:finally|lastly)\b[,\s]*", re.I)
 
 
-def closing_seams(text: str) -> "list[re.Match]":
+def closing_seams(text: str) -> list[re.Match]:
     """", finally" / ", lastly" seams — only where a sequence came before."""
     out = []
     for m in _COMMA_FINALLY.finditer(text or ""):
@@ -173,8 +173,8 @@ _A_NAME = re.compile(r"(?<!^)(?<![.!?]\s)\b[A-Z][a-z]+")
 def names_someone(text: str) -> bool:
     """Is a person named anywhere in the words AS SAID (Q47 B places those on
     the calendar)? Read by DEVQA Q63's "nothing to infer" test."""
-    from assistant.intent.encounter import is_encounter
     from assistant.engine.segmentation.fastseg.fastseg import _has_person_argument
+    from assistant.intent.encounter import is_encounter
     t = (text or "").strip()
     return bool(_A_NAME.search(t) or _has_person_argument(t) or is_encounter(t))
 

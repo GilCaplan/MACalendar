@@ -30,13 +30,13 @@ import pytest
 pytest.importorskip("PyQt6")
 
 from PyQt6.QtCore import QByteArray, QMimeData, QPointF  # noqa: E402
-from PyQt6.QtGui import QDropEvent, QDragMoveEvent  # noqa: E402
 from PyQt6.QtCore import Qt as QtCore_Qt  # noqa: E402
+from PyQt6.QtGui import QDropEvent  # noqa: E402
 from PyQt6.QtWidgets import QApplication  # noqa: E402
 
 from assistant.calendar_ui.day_view import DayTimeline  # noqa: E402
-from assistant.calendar_ui.week_view import DayColumn  # noqa: E402
 from assistant.calendar_ui.month_view import DayCell  # noqa: E402
+from assistant.calendar_ui.week_view import DayColumn  # noqa: E402
 
 TODAY = datetime.date.today()
 
@@ -46,7 +46,8 @@ def qapp():
     return QApplication.instance() or QApplication([])
 
 
-def _drop_event(payload: bytes, pos=QPointF(10, 10)) -> QDropEvent:
+def _drop_event(payload: bytes, pos: QPointF | None = None) -> QDropEvent:
+    pos = pos if pos is not None else QPointF(10, 10)
     mime = QMimeData()
     mime.setData("application/x-event-id", QByteArray(payload))
     ev = QDropEvent(

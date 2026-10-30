@@ -52,7 +52,7 @@ OPTIONAL = {"scripts.plot_loop": "matplotlib"}
 RUNS_ON_IMPORT = {"assistant.engine.decompose_validate.eval_metrics.end_to_end"}
 
 
-def modules() -> "list[str]":
+def modules() -> list[str]:
     out = []
     for glob in GLOBS:
         for p in sorted(REPO.glob(glob)):

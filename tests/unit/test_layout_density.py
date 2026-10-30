@@ -24,8 +24,9 @@ def app():
 def _cell(app, n_events, height, dense, font_month=19):
     from PyQt6.QtCore import QEvent, Qt
     from PyQt6.QtWidgets import QApplication
-    from assistant.config import UIConfig
+
     from assistant.calendar_ui.month_view import DayCell
+    from assistant.config import UIConfig
     ui = UIConfig()
     ui.compact_ui, ui.font_month = dense, font_month
     cell = DayCell(datetime.date(2026, 10, 6), True)

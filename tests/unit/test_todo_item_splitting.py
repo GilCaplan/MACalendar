@@ -10,22 +10,31 @@ from __future__ import annotations
 
 import pytest
 
-from assistant.intent.list_split import split_items
 from assistant.actions.todo.tagging import infer_tag, resolve_tags
+from assistant.intent.list_split import split_items
 
 
 @pytest.fixture
 def parser(isolated_registry):
     """RuleBasedParser with the real actions, same shape as test_rule_parser's."""
-    from assistant.intent.rule_parser import RuleBasedParser
     from assistant.actions.calendar.action import (
-        CreateEventAction, UpdateEventAction, DeleteEventAction, QueryScheduleAction,
-    )
-    from assistant.actions.todo.action import (
-        CreateTodoAction, CompleteTodoAction, DeleteTodoAction, UpdateTodoAction,
-        QueryTodoAction, AddSubtaskAction, CompleteSubtaskAction, DeleteSubtaskAction,
+        CreateEventAction,
+        DeleteEventAction,
+        QueryScheduleAction,
+        UpdateEventAction,
     )
     from assistant.actions.clarify import ClarifyAction
+    from assistant.actions.todo.action import (
+        AddSubtaskAction,
+        CompleteSubtaskAction,
+        CompleteTodoAction,
+        CreateTodoAction,
+        DeleteSubtaskAction,
+        DeleteTodoAction,
+        QueryTodoAction,
+        UpdateTodoAction,
+    )
+    from assistant.intent.rule_parser import RuleBasedParser
 
     for cls in (CreateEventAction, UpdateEventAction, DeleteEventAction,
                 QueryScheduleAction, CreateTodoAction, CompleteTodoAction,
@@ -199,25 +208,6 @@ def test_multi_item_subtasks_become_one_subtask_each(db, sample_config):
 # The rule parser, on the phrasings that reported the bug
 # ---------------------------------------------------------------------------
 
-@pytest.fixture
-def parser(isolated_registry):
-    from assistant.actions.calendar.action import (
-        CreateEventAction, UpdateEventAction, DeleteEventAction, QueryScheduleAction,
-    )
-    from assistant.actions.todo.action import (
-        CreateTodoAction, CompleteTodoAction, DeleteTodoAction, UpdateTodoAction,
-        QueryTodoAction, AddSubtaskAction, CompleteSubtaskAction, DeleteSubtaskAction,
-    )
-    from assistant.intent.rule_parser import RuleBasedParser
-
-    for cls in [CreateEventAction, UpdateEventAction, DeleteEventAction,
-                QueryScheduleAction, CreateTodoAction, CompleteTodoAction,
-                DeleteTodoAction, UpdateTodoAction, QueryTodoAction,
-                AddSubtaskAction, CompleteSubtaskAction, DeleteSubtaskAction]:
-        isolated_registry._actions[cls.action_name] = cls
-    return RuleBasedParser(isolated_registry)
-
-
 def _titles(parser, text):
     from assistant.intent.rule_parser import RULE_THRESHOLD
     result = parser.analyze(text, current_view="todo")
@@ -344,7 +334,7 @@ def test_post_todos_leaves_an_explicit_tag_alone(client):
 
 def test_mac_panel_tag_precedence(db):
     pytest.importorskip("PyQt6.QtWidgets")   # QtGui/QtWidgets need system GL libs
-    from assistant.calendar_ui.todo_view import TodoListWidget, UNTAGGED_KEY
+    from assistant.calendar_ui.todo_view import UNTAGGED_KEY, TodoListWidget
 
     class Panel:            # only the three attributes _new_task_tags reads
         _auto_tag = ""
@@ -383,6 +373,7 @@ def test_mac_quick_add_asks_the_full_labeller_off_the_gui_thread(db, monkeypatch
     from PyQt6.QtCore import Qt, QThread
     from PyQt6.QtTest import QTest
     from PyQt6.QtWidgets import QApplication
+
     from assistant.actions.todo import tagging
     from assistant.calendar_ui.todo_view import TodoListWidget
 

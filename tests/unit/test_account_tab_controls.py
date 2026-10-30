@@ -19,13 +19,12 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-from PyQt6.QtCore import QPoint, Qt                              # noqa: E402
-from PyQt6.QtTest import QTest                                   # noqa: E402
-from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox,  # noqa: E402
-                             QMainWindow, QPushButton)
+from PyQt6.QtCore import QPoint, Qt  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import QApplication, QComboBox, QMainWindow  # noqa: E402
 
-from assistant import users                                      # noqa: E402
-from assistant.users import local_session, registry, sessions    # noqa: E402
+from assistant import users  # noqa: E402
+from assistant.users import local_session, registry, sessions  # noqa: E402
 
 
 @pytest.fixture(scope="module")

@@ -12,8 +12,16 @@ different from the tooltip.
 from __future__ import annotations
 
 from PyQt6.QtCore import QPoint, Qt
-from PyQt6.QtWidgets import (QAbstractSpinBox, QCheckBox, QComboBox, QHBoxLayout,
-                             QLineEdit, QToolButton, QToolTip, QWidget)
+from PyQt6.QtWidgets import (
+    QAbstractSpinBox,
+    QCheckBox,
+    QComboBox,
+    QHBoxLayout,
+    QLineEdit,
+    QToolButton,
+    QToolTip,
+    QWidget,
+)
 
 _KINDS = (QCheckBox, QComboBox, QLineEdit, QAbstractSpinBox)
 

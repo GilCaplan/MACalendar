@@ -130,7 +130,7 @@ def _objects_parts(state) -> list:
 _PARTS = {"X2": _items_parts, "X3": _resolved_parts, "X4": _objects_parts}
 
 
-def _parts(label: str, state) -> "list | None":
+def _parts(label: str, state) -> list | None:
     fn = _PARTS.get(label)
     if fn is None:
         return None

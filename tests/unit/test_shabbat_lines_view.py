@@ -19,13 +19,13 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-from PyQt6.QtCore import QPoint, Qt                                  # noqa: E402
-from PyQt6.QtTest import QTest                                       # noqa: E402
-from PyQt6.QtWidgets import QApplication                             # noqa: E402
+from PyQt6.QtCore import QPoint, Qt  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import QApplication  # noqa: E402
 
-from assistant import observance as ob                               # noqa: E402
-from assistant.calendar_ui import holy_times                         # noqa: E402
-from assistant.config import HebrewCalendarConfig                    # noqa: E402
+from assistant import observance as ob  # noqa: E402
+from assistant.calendar_ui import holy_times  # noqa: E402
+from assistant.config import HebrewCalendarConfig  # noqa: E402
 
 JERUSALEM = ob.ObservanceSettings(latitude=31.7683, longitude=35.2137,
                                   timezone="Asia/Jerusalem", city="Jerusalem",
@@ -176,11 +176,11 @@ def test_where_observance_cannot_be_computed_nothing_is_drawn(qapp, monkeypatch,
 
 def test_the_settings_switch_is_on_by_default_and_saves_off(qapp, tmp_path, monkeypatch):
     """Settings → Hebrew Calendar, clicked and saved like a person would."""
-    from PyQt6.QtWidgets import QCheckBox, QPushButton
+    from PyQt6.QtWidgets import QCheckBox
 
     from assistant import config_store
     from assistant.calendar_ui.settings_dialog import open_settings
-    from tests.unit.test_settings_observance import SAMPLE, _Window, _click, _drive
+    from tests.unit.test_settings_observance import SAMPLE, _click, _drive, _Window
 
     cfg = tmp_path / "config.yaml"
     cfg.write_text(SAMPLE + "hebrew_calendar:\n  show_holidays: true\n")

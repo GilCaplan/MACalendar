@@ -16,9 +16,6 @@ two people in a house, a command nothing can parse.
 """
 from __future__ import annotations
 
-
-import pytest
-
 from assistant.api.server import retry_pending_once
 
 

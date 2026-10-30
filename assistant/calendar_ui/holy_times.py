@@ -43,8 +43,8 @@ from __future__ import annotations
 
 import datetime
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable, List
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
@@ -101,7 +101,7 @@ def _local(dt: datetime.datetime) -> datetime.datetime:
 
 
 def windows_for(start: datetime.date, end: datetime.date,
-                israel: bool = True) -> List[LocalWindow]:
+                israel: bool = True) -> list[LocalWindow]:
     """The holy windows touching [start, end], in wall-clock time. Empty on any failure."""
     try:
         from assistant import observance as ob
@@ -129,7 +129,7 @@ def enabled(hebrew_config) -> bool:
     return bool(getattr(hebrew_config, "show_shabbat_times", True)) if hebrew_config else True
 
 
-def for_day(windows: Iterable[LocalWindow], date: datetime.date) -> List[LocalWindow]:
+def for_day(windows: Iterable[LocalWindow], date: datetime.date) -> list[LocalWindow]:
     """The windows that overlap *date*'s 24 hours."""
     day0 = datetime.datetime.combine(date, datetime.time())
     day1 = day0 + datetime.timedelta(days=1)
@@ -165,7 +165,7 @@ class HolyTimesOverlay(QWidget):
         self._date = date
         self._hour_height = hour_height
         self._font_px = font_px
-        self._windows: List[LocalWindow] = []
+        self._windows: list[LocalWindow] = []
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
         self.setAutoFillBackground(False)
@@ -181,7 +181,7 @@ class HolyTimesOverlay(QWidget):
         self._hour_height = hour_height
         self.update()
 
-    def lines(self) -> List[tuple]:
+    def lines(self) -> list[tuple]:
         """[(y, label, is_start), ...] this overlay draws — what a test asserts against."""
         out = []
         day0 = datetime.datetime.combine(self._date, datetime.time())

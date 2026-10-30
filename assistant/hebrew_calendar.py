@@ -19,7 +19,7 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import functools
-from typing import Dict, List, Literal, Tuple
+from typing import Literal
 
 from pyluach.dates import HebrewDate
 from pyluach.hebrewcal import to_hebrew_numeral
@@ -44,7 +44,7 @@ _MODERN_ISRAELI = {
     "Yom HaShoah", "Yom HaZikaron", "Yom Ha'atzmaut", "Yom Yerushalayim", "Sigd",
 }
 
-_MODERN_HEBREW_NAMES: Dict[str, str] = {
+_MODERN_HEBREW_NAMES: dict[str, str] = {
     "Yom HaShoah": "יום השואה",
     "Yom HaZikaron": "יום הזיכרון",
     "Yom Ha'atzmaut": "יום העצמאות",
@@ -122,12 +122,12 @@ def _category_for(name_en: str, is_fast: bool) -> HolidayCategory:
 
 def _classical_holidays(
     start: datetime.date, end: datetime.date, israel: bool
-) -> List[Holiday]:
+) -> list[Holiday]:
     """Enumerate pyluach's classical/rabbinic holiday cycle touching [start, end]."""
     scan_start = start - datetime.timedelta(days=1)
     scan_end = end + datetime.timedelta(days=1)
 
-    occurrences: List[Tuple[str, str, bool, datetime.date]] = []
+    occurrences: list[tuple[str, str, bool, datetime.date]] = []
     cur = scan_start
     while cur <= scan_end:
         hd = HebrewDate.from_pydate(cur)
@@ -137,7 +137,7 @@ def _classical_holidays(
             occurrences.append((name_en, name_he, bool(hd.fast_day()), cur))
         cur += datetime.timedelta(days=1)
 
-    holidays: List[Holiday] = []
+    holidays: list[Holiday] = []
     i = 0
     while i < len(occurrences):
         name_en, name_he, is_fast, first_day = occurrences[i]
@@ -174,7 +174,7 @@ def _shift_yom_hashoah(year: int) -> datetime.date:
     return HebrewDate(year, _NISSAN, day).to_pydate()
 
 
-def _shift_yom_hazikaron_atzmaut(year: int) -> Tuple[datetime.date, datetime.date]:
+def _shift_yom_hazikaron_atzmaut(year: int) -> tuple[datetime.date, datetime.date]:
     """Returns (Yom HaZikaron, Yom Ha'atzmaut). Base = 5 Iyar (Ha'atzmaut).
 
     Knesset-legislated shifts: 5 Iyar on Saturday -> Thursday (3 Iyar); on
@@ -195,11 +195,11 @@ def _shift_yom_hazikaron_atzmaut(year: int) -> Tuple[datetime.date, datetime.dat
     return zikaron, atzmaut
 
 
-def _modern_israeli_holidays(start: datetime.date, end: datetime.date) -> List[Holiday]:
+def _modern_israeli_holidays(start: datetime.date, end: datetime.date) -> list[Holiday]:
     lo_year = HebrewDate.from_pydate(start).year
     hi_year = HebrewDate.from_pydate(end).year
 
-    holidays: List[Holiday] = []
+    holidays: list[Holiday] = []
     for year in range(lo_year, hi_year + 1):
         zikaron, atzmaut = _shift_yom_hazikaron_atzmaut(year)
         candidates = (
@@ -225,7 +225,7 @@ def _modern_israeli_holidays(start: datetime.date, end: datetime.date) -> List[H
 @functools.lru_cache(maxsize=256)
 def enumerate_holidays(
     start: datetime.date, end: datetime.date, israel: bool = True
-) -> List[Holiday]:
+) -> list[Holiday]:
     """Return all holidays whose display span touches [start, end] (inclusive).
 
     `gregorian_erev_start` is the evening-before civil date (when the holiday

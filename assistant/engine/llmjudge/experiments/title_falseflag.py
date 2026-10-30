@@ -46,7 +46,6 @@ import json
 import os
 import pathlib
 import random
-import re
 import time
 
 from assistant.common.scratch_env import scratch_env
@@ -87,7 +86,8 @@ def main() -> int:
     ap.add_argument("-n", type=int, default=3000, help="0 = every row")
     ap.add_argument("--seed", type=int, default=11)
     ap.add_argument("--show", type=int, default=12)
-    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    from scripts.dataset_tiers import add_argument as _add_tier
+    from scripts.dataset_tiers import resolve as _resolve
     _add_tier(ap)
     a = ap.parse_args()
     global CORPORA

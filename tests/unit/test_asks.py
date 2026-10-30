@@ -4,7 +4,7 @@ Every pinned case here was a real cut refusal: `every_part_is_an_ask` rejects
 the WHOLE split when one part fails, so a wrong "not an ask" merges a
 three-ask command back into one item.
 """
-from assistant.intent.asks import is_an_ask, every_part_is_an_ask
+from assistant.intent.asks import every_part_is_an_ask, is_an_ask
 
 
 def test_an_imperative_opening_with_do_is_an_ask():

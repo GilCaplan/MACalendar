@@ -66,6 +66,7 @@ def _honour_refusal(got, res, item: Item, state: EngineState):
     if not (res.reason or "").startswith("generic-target"):
         return got          # the other refusals stand as parsed
     from assistant.engine.llmjudge.gatekeeper import _GENERIC_TARGET_RE
+
     # `_friendly` stays in `fastrule.objects` — it has eight other callers
     # there. Imported lazily, like the trace constant above, so neither module
     # resolves the other at import time and no cycle is possible. When phase B

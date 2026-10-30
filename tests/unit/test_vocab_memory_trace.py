@@ -3,13 +3,11 @@ vocab/memory/pending API endpoints (Flask test client, no LLM needed)."""
 
 from __future__ import annotations
 
-
 import pytest
 
-from assistant.stt.vocab import VocabStore
 from assistant.intent.memory import CommandMemory
-from assistant.trace import Trace, STT, LLM
-
+from assistant.stt.vocab import VocabStore
+from assistant.trace import LLM, STT, Trace
 
 # --------------------------------------------------------------------- vocab
 
@@ -260,8 +258,8 @@ def test_trace_steps_and_listener():
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("MACALENDAR_NO_WARMUP", "1")
-    import assistant.stt.vocab as vocab_mod
     import assistant.intent.memory as mem_mod
+    import assistant.stt.vocab as vocab_mod
     monkeypatch.setattr(vocab_mod, "_store", VocabStore(str(tmp_path / "vocab.json")))
     monkeypatch.setattr(mem_mod, "_memory", CommandMemory(str(tmp_path / "mem.db")))
     from assistant.api.server import create_app

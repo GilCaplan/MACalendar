@@ -2,25 +2,26 @@
 
 from __future__ import annotations
 
-from assistant import users
-from assistant.users import local_session as _local_session
 import datetime
 import logging
 import os
 import queue
 import threading
-from typing import Optional
 
+from assistant import users
+from assistant.users import local_session as _local_session
 
 logger = logging.getLogger(__name__)
 from PyQt6.QtCore import QSize, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QFont, QCloseEvent, QColor, QKeySequence, QShortcut
+from PyQt6.QtGui import QCloseEvent, QColor, QFont, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
+    QDialog,
+    QFileDialog,
     QFrame,
     QGraphicsDropShadowEffect,
-    QFileDialog,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -29,24 +30,23 @@ from PyQt6.QtWidgets import (
     QStackedWidget,
     QVBoxLayout,
     QWidget,
-    QDialog,
-    QLineEdit,
 )
 
+import assistant.calendar_ui.styles as _styles
 from assistant.calendar_ui import icons
 from assistant.calendar_ui import view_prefs as _vp
-from assistant.calendar_ui.agenda_view import AgendaView, DAYS_AHEAD as _AGENDA_DAYS
+from assistant.calendar_ui.agenda_view import DAYS_AHEAD as _AGENDA_DAYS
+from assistant.calendar_ui.agenda_view import AgendaView
 from assistant.calendar_ui.day_view import DayView
 from assistant.calendar_ui.event_dialog import EventDialog, repeat_rule_changed
+from assistant.calendar_ui.importer import import_events, parse_ics, scan_macos_calendar
 from assistant.calendar_ui.month_view import MonthView
 from assistant.calendar_ui.sidebar import Sidebar
+from assistant.calendar_ui.styles import BLUE, GRAY_BG, GRAY_BORDER, GRAY_DARK, GRAY_TEXT, get_app_style
 from assistant.calendar_ui.undo import UndoManager
-import assistant.calendar_ui.styles as _styles
-from assistant.calendar_ui.styles import get_app_style, BLUE, GRAY_BORDER, GRAY_DARK, GRAY_TEXT, GRAY_BG
 from assistant.calendar_ui.week_view import WeekView
-from assistant.features import registry as _features
-from assistant.calendar_ui.importer import parse_ics, scan_macos_calendar, import_events
 from assistant.db import CalendarDB
+from assistant.features import registry as _features
 from assistant.pipeline import (
     STATUS_CONFIRM,
     STATUS_DONE,
@@ -280,7 +280,7 @@ class ReviewBar(QFrame):
         )
 
 
-def ask_transcript_edit(parent, payload_json: str) -> "str | None":
+def ask_transcript_edit(parent, payload_json: str) -> str | None:
     """The gate's dialog, on its own so a test can drive it with real clicks.
 
     Shows the doubted transcript in an editable field. Returns the text to run
@@ -289,7 +289,11 @@ def ask_transcript_edit(parent, payload_json: str) -> "str | None":
     import json as _json
 
     from PyQt6.QtWidgets import (
-        QDialog, QDialogButtonBox, QLabel, QLineEdit, QVBoxLayout,
+        QDialog,
+        QDialogButtonBox,
+        QLabel,
+        QLineEdit,
+        QVBoxLayout,
     )
 
     try:
@@ -338,7 +342,10 @@ def ask_create_confirm(parent, payload_json: str) -> bool:
     import json as _json
 
     from PyQt6.QtWidgets import (
-        QDialog, QDialogButtonBox, QLabel, QVBoxLayout,
+        QDialog,
+        QDialogButtonBox,
+        QLabel,
+        QVBoxLayout,
     )
 
     from assistant.calendar_ui.dialog_utils import install_enter_confirms
@@ -742,6 +749,7 @@ class CalendarWindow(QMainWindow):
         self._mic_btn = QPushButton("")
         self._mic_btn.setObjectName("mic_idle")
         from PyQt6.QtCore import QSize as _QSize
+
         from assistant.calendar_ui.toolbar_icons import mic_icon as _mic_icon
         self._mic_btn.setIcon(_mic_icon(_styles.ON_ACCENT))
         self._mic_btn.setIconSize(_QSize(18, 18))
@@ -882,6 +890,7 @@ class CalendarWindow(QMainWindow):
         # Show the icon for what the mode will switch TO — drawn, like the gear
         # and the mic (toolbar_icons), so the row reads as one set.
         from PyQt6.QtCore import QSize
+
         from assistant.calendar_ui.toolbar_icons import mic_icon
         ink = _styles.D_GRAY_TEXT if self._dark else GRAY_TEXT
         self._theme_btn.setText("")
@@ -950,7 +959,7 @@ class CalendarWindow(QMainWindow):
     # ── Toolbar search: find events/tasks, or jump straight to a date ────
 
     @staticmethod
-    def _parse_jump_date(q: str) -> "datetime.date | None":
+    def _parse_jump_date(q: str) -> datetime.date | None:
         """'2026-10-14', '14/10' or '14/10/2026' → that date; else None."""
         try:
             return datetime.date.fromisoformat(q)
@@ -1027,7 +1036,7 @@ class CalendarWindow(QMainWindow):
             self._day_view.navigate(self._current_date)
         self._update_title()
 
-    def _toolbar_modes(self) -> "list[tuple[str, str]]":
+    def _toolbar_modes(self) -> list[tuple[str, str]]:
         """The view row: the calendar's four modes, then one per feature panel.
 
         Built from the registry so the row, the stack, `_set_view` and the
@@ -1182,7 +1191,7 @@ class CalendarWindow(QMainWindow):
         self._undo_manager.push(f'Create "{title}"', undo, redo)
         self.refresh_calendar()
 
-    def _on_new_event(self, default_date: Optional[datetime.date] = None) -> None:
+    def _on_new_event(self, default_date: datetime.date | None = None) -> None:
         dialog = EventDialog(self, default_date=default_date or self._current_date, db=self._db)
         if dialog.exec() and dialog.event_data:
             self._create_event_and_refresh(dialog)

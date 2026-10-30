@@ -19,7 +19,8 @@ from __future__ import annotations
 
 import pytest
 
-from assistant.engine.decompose_validate.text_helpers import named_weekdays as _named_weekdays, unsupported_cadence as _unsupported_cadence
+from assistant.engine.decompose_validate.text_helpers import named_weekdays as _named_weekdays
+from assistant.engine.decompose_validate.text_helpers import unsupported_cadence as _unsupported_cadence
 
 
 @pytest.mark.parametrize("text, expected", [

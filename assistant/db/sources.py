@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import datetime
-from typing import List, Optional
 
 from assistant.db.common import _utcnow_iso
 from assistant.db.schema import TWO_WAY_SOURCES
@@ -22,21 +21,21 @@ class SourcesMixin:
     # Connected calendars (ICS subscriptions + Outlook two-way sync)
     # ------------------------------------------------------------------
 
-    def get_calendar_sources(self) -> List[dict]:
+    def get_calendar_sources(self) -> list[dict]:
         with self._conn() as conn:
             rows = conn.execute(
                 "SELECT * FROM calendar_sources ORDER BY created_at"
             ).fetchall()
         return [dict(r) for r in rows]
 
-    def get_calendar_source(self, source_id: int) -> Optional[dict]:
+    def get_calendar_source(self, source_id: int) -> dict | None:
         with self._conn() as conn:
             row = conn.execute(
                 "SELECT * FROM calendar_sources WHERE id = ?", (source_id,)
             ).fetchone()
         return dict(row) if row else None
 
-    def get_calendar_source_by_kind(self, kind: str) -> Optional[dict]:
+    def get_calendar_source_by_kind(self, kind: str) -> dict | None:
         """There's only ever one 'outlook' source (a single account) —
         this avoids callers fetching the whole table just to find it."""
         with self._conn() as conn:
@@ -90,7 +89,7 @@ class SourcesMixin:
                 )
             conn.execute("DELETE FROM calendar_sources WHERE id = ?", (source_id,))
 
-    def get_events_by_external_source(self, external_source: str) -> List[dict]:
+    def get_events_by_external_source(self, external_source: str) -> list[dict]:
         with self._conn() as conn:
             rows = conn.execute(
                 "SELECT * FROM events WHERE external_source = ?", (external_source,)
@@ -145,7 +144,7 @@ class SourcesMixin:
             )
             return cur.lastrowid
 
-    def delete_events_not_in(self, external_source: str, keep_external_ids: List[str]) -> int:
+    def delete_events_not_in(self, external_source: str, keep_external_ids: list[str]) -> int:
         """Remove previously-synced events whose external_id no longer appears upstream.
 
         Only ever touches rows already tagged with *external_source* — never
@@ -165,11 +164,11 @@ class SourcesMixin:
                 )
             return cur.rowcount
 
-    def get_dirty_outlook_events(self) -> List[dict]:
+    def get_dirty_outlook_events(self) -> list[dict]:
         """Non-recurring local events pending push to Outlook (created or edited)."""
         return self.get_dirty_synced_events("outlook")
 
-    def get_dirty_synced_events(self, source: str) -> List[dict]:
+    def get_dirty_synced_events(self, source: str) -> list[dict]:
         """Non-recurring events pending push to *source* ('outlook' | 'google').
         A row with an empty external_id has never reached the service — the
         push CREATES it there."""
@@ -180,7 +179,7 @@ class SourcesMixin:
             ).fetchall()
         return [dict(r) for r in rows]
 
-    def clear_sync_dirty(self, event_id: int, if_updated_at: Optional[str] = None) -> None:
+    def clear_sync_dirty(self, event_id: int, if_updated_at: str | None = None) -> None:
         """Mark a row pushed. With *if_updated_at*, only when nobody edited it
         while the push was in flight — otherwise that edit would never go out."""
         with self._conn() as conn:
@@ -265,7 +264,7 @@ class SourcesMixin:
                  external_source, external_id, event_id),
             )
 
-    def pop_sync_deletes(self, external_source: Optional[str] = None) -> List[dict]:
+    def pop_sync_deletes(self, external_source: str | None = None) -> list[dict]:
         """Return and clear queued tombstones for the sync worker to push —
         only *external_source*'s when given. Each provider pops its OWN: popping
         all of them meant the first provider to drain the queue silently

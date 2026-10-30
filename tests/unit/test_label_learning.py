@@ -152,10 +152,10 @@ def test_the_gate_refuses_a_model_that_forgot_general_english(tmp_path, monkeypa
     pipeline, because nobody is watching it. The generic set is the regression
     floor; a drop past the tolerance means the fit has been pulled so far toward
     one person's vocabulary that it has stopped being a general classifier."""
-    from assistant.engine.label import train as T
-    from assistant.engine.label import feedback as fb
-    from assistant.engine.label.model import LabelModel
     import assistant.engine.label.model as M
+    from assistant.engine.label import feedback as fb
+    from assistant.engine.label import train as T
+    from assistant.engine.label.model import LabelModel
 
     monkeypatch.setattr(M, "MODELS_DIR", tmp_path)
     monkeypatch.setattr(fb, "FEEDBACK_PATH", tmp_path / "fb.jsonl")
@@ -184,10 +184,10 @@ def test_the_gate_refuses_a_model_that_got_worse_on_the_user(tmp_path, monkeypat
     """The personal set is the PROMOTION criterion — the generic one only stops
     catastrophe. A retrain that holds general English but regresses on the
     user's own corrections is not an improvement to ship."""
-    from assistant.engine.label import train as T
-    from assistant.engine.label import feedback as fb
-    from assistant.engine.label.model import LabelModel
     import assistant.engine.label.model as M
+    from assistant.engine.label import feedback as fb
+    from assistant.engine.label import train as T
+    from assistant.engine.label.model import LabelModel
 
     monkeypatch.setattr(M, "MODELS_DIR", tmp_path)
     monkeypatch.setattr(fb, "FEEDBACK_PATH", tmp_path / "fb.jsonl")
@@ -216,8 +216,9 @@ def test_the_personal_split_is_by_TIME_not_random(store, monkeypatch):
     sitting. A random split puts near-duplicates on both sides and every
     retrain scores as a win. Holding out the most RECENT slice also asks the
     deployment question: will this help tomorrow?"""
-    from assistant.engine.label import train as T
     import time as _t
+
+    from assistant.engine.label import train as T
 
     base = _t.time()
     for i in range(80):
@@ -263,8 +264,8 @@ def test_a_brand_new_user_gets_the_base_model_not_the_rules(tmp_path, monkeypatc
     anyone who had not run the trainer by hand, so a new user silently got the
     keyword rules FOR EVER and "the model" was a property of one machine rather
     than of the product."""
-    from assistant.engine.label.model import LabelModel
     import assistant.engine.label.model as m
+    from assistant.engine.label.model import LabelModel
 
     monkeypatch.setattr(m, "MODELS_DIR", tmp_path / "nobody-has-corrected-anything")
     m.reset()
@@ -277,8 +278,8 @@ def test_a_brand_new_user_gets_the_base_model_not_the_rules(tmp_path, monkeypatc
 def test_a_personal_model_takes_precedence_over_the_base(tmp_path, monkeypatch):
     """The tiers degrade in the right order: your model, then everyone's model,
     then the rules."""
-    from assistant.engine.label.model import LabelModel
     import assistant.engine.label.model as m
+    from assistant.engine.label.model import LabelModel
 
     monkeypatch.setattr(m, "MODELS_DIR", tmp_path)
     m.reset()

@@ -78,11 +78,11 @@ WINDOW = 6
 
 
 def _now() -> str:
-    return _dt.datetime.now(_dt.timezone.utc).isoformat()
+    return _dt.datetime.now(_dt.UTC).isoformat()
 
 
 class JudeHistory:
-    def __init__(self, path: "str | None" = None) -> None:
+    def __init__(self, path: str | None = None) -> None:
         if path is None:
             from assistant.users import paths as _paths
             path = _paths.resolve(os.environ.get("MACALENDAR_JUDE_CHATS") or DEFAULT_PATH)
@@ -113,8 +113,8 @@ class JudeHistory:
     # -- writing -------------------------------------------------------------
 
     def record(self, chat_id: str, question: str, answer: str = "", *,
-               sources: "list | None" = None, mode: str = "qa",
-               kind: str = "answer", by: str = "mac", extra: "dict | None" = None) -> int:
+               sources: list | None = None, mode: str = "qa",
+               kind: str = "answer", by: str = "mac", extra: dict | None = None) -> int:
         """One turn. Creates the chat on its first turn, titled by the question."""
         if not chat_id:
             raise ValueError("a turn needs the chat it belongs to")
@@ -131,7 +131,7 @@ class JudeHistory:
             return int(cur.lastrowid)
 
     def fill_answer(self, chat_id: str, question: str, answer: str, by: str = "phone", *,
-                    sources: "list | None" = None, mode: str = "qa", kind: str = "answer") -> bool:
+                    sources: list | None = None, mode: str = "qa", kind: str = "answer") -> bool:
         """The answer a client wrote ITSELF, onto the turn that fetched its sources.
 
         The phone asks the Mac for sources only and writes the answer with its

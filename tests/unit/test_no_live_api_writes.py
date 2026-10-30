@@ -30,7 +30,6 @@ import pytest
 
 from tests.conftest import LiveAPIBlocked
 
-
 # ---------------------------------------------------------------------------
 # A stand-in for the running API, so an escape is caught rather than inferred
 # ---------------------------------------------------------------------------

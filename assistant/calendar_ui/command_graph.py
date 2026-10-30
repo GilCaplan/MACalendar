@@ -67,7 +67,7 @@ class Graph:
     lanes: list = field(default_factory=list)
     loops: int = 0                  # judge loop-backs
     check: str = ""                 # the cross-check's line
-    check_ok: "bool | None" = None
+    check_ok: bool | None = None
     total: str = ""                 # the done step's line
     message: str = ""               # the reply the speaker got
     running: bool = False
@@ -85,7 +85,7 @@ def _ms(step: dict) -> int:
         return 0
 
 
-def _last(boundaries: list, label: str) -> "dict | None":
+def _last(boundaries: list, label: str) -> dict | None:
     """The LAST value of a boundary — after a judge loop-back the chain runs
     again and the second pass is the one that was committed."""
     for b in reversed(boundaries or []):
@@ -366,7 +366,7 @@ _FOOT_H = 30
 _LOADER: dict = {"dir": None, "pix": [], "fps": 15.0, "checked": -1e9}
 
 
-def _loader_frames() -> "tuple[list, float]":
+def _loader_frames() -> tuple[list, float]:
     import os
     import time
     now = time.monotonic()
@@ -656,7 +656,7 @@ class CommandGraphView(QWidget):
 
     # -- interaction ------------------------------------------------------
 
-    def _hit(self, pos) -> "tuple | None":
+    def _hit(self, pos) -> tuple | None:
         # later entries sit on top (the chip over its edge), so search backwards
         for rect, kind, i in reversed(self._hits):
             if rect.contains(QPointF(pos)):
@@ -686,14 +686,14 @@ class CommandGraphView(QWidget):
             self.picked.emit(*self.describe(*hit))
         self.update()
 
-    def node_center(self, kind: str, lane: "int | None" = None) -> "QPointF | None":
+    def node_center(self, kind: str, lane: int | None = None) -> QPointF | None:
         """Where a node is on screen — for a test to click it, and nothing else."""
         for rect, k, i in self._hits:
             if k == kind and i == lane:
                 return rect.center()
         return None
 
-    def describe(self, kind: str, i: "int | None") -> tuple:
+    def describe(self, kind: str, i: int | None) -> tuple:
         """(heading, text) for the detail line under the graph."""
         g = self._g
         if kind == "root":

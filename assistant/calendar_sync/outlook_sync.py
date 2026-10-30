@@ -111,7 +111,7 @@ _parse_iso = parse_iso
 
 def pull(db: CalendarDB, client: GraphClient) -> int:
     """Fetch Outlook events into the local DB. Returns the number upserted."""
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now(datetime.UTC)
     start = (now - datetime.timedelta(days=_PULL_WINDOW_PAST_DAYS)).isoformat()
     end = (now + datetime.timedelta(days=_PULL_WINDOW_FUTURE_DAYS)).isoformat()
 

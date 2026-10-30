@@ -22,7 +22,8 @@ from __future__ import annotations
 
 import threading
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 #: How long an answer is kept for a late resend. The phone revives a command
 #: stranded in `.running` after 900 s (LocalStore.reviveStalledVoice), so an
@@ -34,7 +35,7 @@ TTL_SEC = 3600
 WAIT_SEC = 110
 
 _lock = threading.Lock()
-_runs: dict[str, "_Run"] = {}
+_runs: dict[str, _Run] = {}
 
 
 class _Run:
@@ -42,7 +43,7 @@ class _Run:
 
     def __init__(self) -> None:
         self.done = threading.Event()
-        self.result: "dict[str, Any] | None" = None
+        self.result: dict[str, Any] | None = None
         self.at = time.monotonic()
 
 
@@ -51,12 +52,12 @@ def _sweep(now: float) -> None:
         del _runs[cid]
 
 
-def clean(client_id: "str | None") -> str:
+def clean(client_id: str | None) -> str:
     """Bounded and stripped like `device_id` — it keys a dict and a log line."""
     return "".join(ch for ch in (client_id or "") if ch.isalnum() or ch in "-_")[:64]
 
 
-def run_once(client_id: "str | None", fn: Callable[[], Any]) -> Any:
+def run_once(client_id: str | None, fn: Callable[[], Any]) -> Any:
     """Run `fn` once per `client_id`. Without an id it simply runs.
 
     Only a successful answer (a dict) is kept; an error response or an

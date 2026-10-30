@@ -2,7 +2,7 @@
 
 import logging
 import threading
-from typing import Callable, List, Optional
+from collections.abc import Callable
 
 import numpy as np
 
@@ -15,7 +15,7 @@ except Exception as _exc:   # OSError: no PortAudio; PortAudioError: no audio ho
     # pipeline, the calendar window included. No audio is no microphone, not
     # no calendar: recording says why instead.
     sd = None
-    _SD_ERROR: Optional[BaseException] = _exc
+    _SD_ERROR: BaseException | None = _exc
 else:
     _SD_ERROR = None
 
@@ -69,9 +69,9 @@ class AudioCapture:
 
     def record_until_silence(
         self,
-        streaming_callback: Optional[Callable[[np.ndarray], None]] = None,
+        streaming_callback: Callable[[np.ndarray], None] | None = None,
         streaming_interval_sec: float = 2.0,
-        level_callback: Optional[Callable[[float], None]] = None,
+        level_callback: Callable[[float], None] | None = None,
     ) -> np.ndarray:
         """
         Open the mic and accumulate audio chunks.
@@ -101,7 +101,7 @@ class AudioCapture:
         dtype = self._profile.dtype
         channels = self._profile.channels
 
-        frames: List[np.ndarray] = []
+        frames: list[np.ndarray] = []
         silence_counter = [0.0]
 
         chunk_size = int(rate * 0.1)                        # 100 ms chunks
@@ -111,7 +111,7 @@ class AudioCapture:
         chunk_count = [0]
 
         adaptive_threshold = [self.config.silence_threshold]
-        calibration_rms: List[float] = []
+        calibration_rms: list[float] = []
 
         def callback(indata: np.ndarray, _frames_count: int, _time_info, _status) -> None:  # noqa: ARG001
             # Normalise int16 → float32 so RMS maths is always consistent

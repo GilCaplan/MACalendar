@@ -13,10 +13,25 @@ import logging
 
 from PyQt6.QtCore import QDate, Qt, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QPainter
-from PyQt6.QtWidgets import (QCheckBox, QColorDialog, QComboBox, QDateEdit, QDialog,
-                             QFormLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
-                             QListWidgetItem, QMessageBox, QPushButton, QSizePolicy,
-                             QSpinBox, QVBoxLayout, QWidget)
+from PyQt6.QtWidgets import (
+    QCheckBox,
+    QColorDialog,
+    QComboBox,
+    QDateEdit,
+    QDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QSizePolicy,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -115,10 +130,10 @@ class OccasionBanner(QLabel):
 class OccasionDialog(QDialog):
     """Add or edit one occasion."""
 
-    def __init__(self, parent=None, rec: "dict | None" = None, kind: str = "birthday"):
+    def __init__(self, parent=None, rec: dict | None = None, kind: str = "birthday"):
         super().__init__(parent)
         self.rec = dict(rec or {})
-        self.result_rec: "dict | None" = None
+        self.result_rec: dict | None = None
         self.deleted = False
         self.setWindowTitle("Edit occasion" if rec else "Add an occasion")
         self.setMinimumWidth(440)
@@ -296,7 +311,7 @@ class OccasionDialog(QDialog):
         self.accept()
 
 
-def next_date(rec: dict, today: "datetime.date | None" = None) -> "datetime.date | None":
+def next_date(rec: dict, today: datetime.date | None = None) -> datetime.date | None:
     """When an occasion next falls (for sorting the list)."""
     from assistant.occasions.dates import occurrences
     today = today or datetime.date.today()
@@ -355,7 +370,7 @@ class OccasionsList(QWidget):
             self.list.addItem(item)
         self._buttons()
 
-    def _selected_id(self) -> "str | None":
+    def _selected_id(self) -> str | None:
         item = self.list.currentItem() if hasattr(self, "list") else None
         return item.data(Qt.ItemDataRole.UserRole) if item else None
 

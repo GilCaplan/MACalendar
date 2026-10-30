@@ -149,6 +149,7 @@ def test_the_demo_voice_talks_and_pauses():
 @pytest.mark.parametrize("style", ["bars", "rings", "sunburst", "dots"])
 def test_each_demo_tile_moves_and_ignores_the_mouse(app, style):
     from PyQt6.QtCore import Qt
+
     from assistant.calendar_ui.mic_meter import MicStyleTile
     tile = MicStyleTile(style)
     tile.show()

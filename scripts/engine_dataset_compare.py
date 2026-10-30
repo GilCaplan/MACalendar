@@ -51,12 +51,12 @@ from __future__ import annotations
 import argparse
 import contextlib
 import datetime as _dt
-import subprocess as _sp
 import importlib.util
 import json
 import os
 import pathlib
 import sqlite3
+import subprocess as _sp
 import sys
 import tempfile
 import time
@@ -87,6 +87,7 @@ _TMP = scratch_env("engine_compare_", observance=False,
                         "DEVICES"))
 ENGINE_DB = os.environ["MACALENDAR_MEMORY_DB"]
 import shutil as _sh
+
 for _var, _real, _name in (
         ("MACALENDAR_VOCAB", os.path.expanduser("~/.assistant_tools/vocab.json"), "vocab.json"),
         ("MACALENDAR_CATEGORIES", os.path.expanduser("~/.assistant_tools/categories.json"), "categories.json")):
@@ -207,7 +208,7 @@ def _prf(scored, prov, keep=lambda r: True):
 
 
 
-def _log_run(args, scored, rows, started_at, duration_s) -> "str | None":
+def _log_run(args, scored, rows, started_at, duration_s) -> str | None:
     """Append this run's row to dataset/loop_log.csv.
 
     THIS USED TO BE A REMINDER. The script printed "rename with the loop run
@@ -324,6 +325,7 @@ def main() -> int:
         _, _alias, _qdir = args.llm.split(":", 2)
         _q = pathlib.Path(_qdir); _q.mkdir(parents=True, exist_ok=True)
         import uuid as _uuid
+
         import assistant.intent.parser as _pmod
         from assistant.exceptions import LLMTimeoutError
 
@@ -353,6 +355,7 @@ def main() -> int:
         # this only exists behind the harness flag.
         _cli_model = args.llm.split(":", 1)[1]
         import subprocess as _sp
+
         import assistant.intent.parser as _pmod
         from assistant.exceptions import LLMTimeoutError, LLMUnavailableError
         _empty_cwd = tempfile.mkdtemp(prefix="cli_bridge_")

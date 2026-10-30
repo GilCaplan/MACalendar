@@ -160,7 +160,6 @@ def test_the_command_that_started_this_makes_one_task(sample_config):
     real one refuses to open from a test at all.
     """
     import assistant.db as dbmod
-
     from assistant.actions.todo.action import CreateTodoAction
     from assistant.actions.todo.intent import CreateTodoIntent
 

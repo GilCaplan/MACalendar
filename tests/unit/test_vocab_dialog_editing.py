@@ -16,9 +16,9 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
-from PyQt6.QtCore import Qt, QTimer                                 # noqa: E402
-from PyQt6.QtTest import QTest                                      # noqa: E402
-from PyQt6.QtWidgets import QApplication, QDialog, QLineEdit        # noqa: E402
+from PyQt6.QtCore import Qt, QTimer  # noqa: E402
+from PyQt6.QtTest import QTest  # noqa: E402
+from PyQt6.QtWidgets import QApplication, QDialog, QLineEdit  # noqa: E402
 
 
 def _double_click(dlg, prefix: str) -> None:
@@ -42,7 +42,7 @@ def _double_click(dlg, prefix: str) -> None:
     QTest.mouseDClick(viewport, Qt.MouseButton.LeftButton,
                       Qt.KeyboardModifier.NoModifier, centre)
 
-from assistant.stt.vocab import VocabStore                          # noqa: E402
+from assistant.stt.vocab import VocabStore  # noqa: E402
 
 
 @pytest.fixture(scope="module")

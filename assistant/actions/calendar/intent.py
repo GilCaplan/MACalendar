@@ -1,11 +1,10 @@
 import json
-from typing import Any, List, Optional
+from typing import Any
 
 from pydantic import field_validator, model_validator
 
-from assistant.actions.base import BaseIntent
 from assistant import clock as _clock  # the moment the command was SAID
-
+from assistant.actions.base import BaseIntent
 
 #: A meal names its own hour (Gil, 2026-09-20). Word-boundary matched on the
 #: TITLE only, so "dinner reservations", "team lunch" and "breakfast with Sam"
@@ -33,29 +32,29 @@ def meal_hour(title: "str | None") -> "str | None":
 
 class CalendarIntent(BaseIntent):
     title: str
-    date: Optional[str] = None            # ISO 8601 date, e.g. "2026-04-01"
-    start_time: Optional[str] = None      # 24-hour "HH:MM"
-    end_time: Optional[str] = None        # 24-hour "HH:MM"
+    date: str | None = None            # ISO 8601 date, e.g. "2026-04-01"
+    start_time: str | None = None      # 24-hour "HH:MM"
+    end_time: str | None = None        # 24-hour "HH:MM"
     #: File a to-do linked to this event as well (DEVQA Q51: a to-do chained
     #: into a sequence is both). Set by decompose_validate, never by a model.
     linked_todo: bool = False
     #: The series' end is the DEFAULT for its cadence, not something the
     #: speaker said (DEVQA Q57) — the reply says so. Set by decompose_validate.
     series_end_defaulted: bool = False
-    attendees: List[str] = []             # names or email addresses
-    location: Optional[str] = None
-    description: Optional[str] = None
-    recurrence: Optional[str] = None      # 'daily' | 'weekly' | 'monthly' | 'yearly'
+    attendees: list[str] = []             # names or email addresses
+    location: str | None = None
+    description: str | None = None
+    recurrence: str | None = None      # 'daily' | 'weekly' | 'monthly' | 'yearly'
     # WEEKLY ONLY: the weekdays a series lands on, lowercase, when the speaker
     # named more than one ("every tuesday and thursday"). Empty means the same
     # weekday as the first instance, which is how every series behaved before
     # 2026-09-08. The cadence stays daily|weekly|monthly -- this says WHICH
     # days a weekly one uses, it does not add a fourth cadence.
-    recur_days: List[str] = []
-    recur_until: Optional[str] = None     # ISO 8601 date, e.g. "2026-12-31"
+    recur_days: list[str] = []
+    recur_until: str | None = None     # ISO 8601 date, e.g. "2026-12-31"
     # Spoken lead time ("…and give me a heads-up half an hour before"):
     # minutes before start_time; None = inherit category/global default.
-    reminder_minutes: Optional[int] = None
+    reminder_minutes: int | None = None
 
     @field_validator("title", mode="before")
     @classmethod
@@ -226,7 +225,7 @@ class CalendarIntent(BaseIntent):
 
     @field_validator("attendees", mode="before")
     @classmethod
-    def parse_attendees(cls, v: Any) -> List[str]:
+    def parse_attendees(cls, v: Any) -> list[str]:
         if isinstance(v, str):
             try:
                 parsed = json.loads(v)
@@ -240,15 +239,15 @@ class CalendarIntent(BaseIntent):
 
 class UpdateEventIntent(BaseIntent):
     """Intent for updating an existing event — match by title and/or date/time, then patch fields."""
-    match_title: Optional[str] = None    # event name; may be omitted when time uniquely identifies it
-    match_date: Optional[str] = None     # narrow by date if provided
-    match_start_time: Optional[str] = None  # narrow by time if provided
-    new_title: Optional[str] = None
-    new_date: Optional[str] = None
-    new_start_time: Optional[str] = None
-    new_end_time: Optional[str] = None
-    new_location: Optional[str] = None
-    new_description: Optional[str] = None
+    match_title: str | None = None    # event name; may be omitted when time uniquely identifies it
+    match_date: str | None = None     # narrow by date if provided
+    match_start_time: str | None = None  # narrow by time if provided
+    new_title: str | None = None
+    new_date: str | None = None
+    new_start_time: str | None = None
+    new_end_time: str | None = None
+    new_location: str | None = None
+    new_description: str | None = None
 
     @model_validator(mode="after")
     def require_title_or_time(self) -> "UpdateEventIntent":
@@ -259,9 +258,9 @@ class UpdateEventIntent(BaseIntent):
 
 class DeleteEventIntent(BaseIntent):
     """Intent for deleting an existing event — match by title and/or date/time."""
-    match_title: Optional[str] = None    # event name; may be omitted when time uniquely identifies it
-    match_date: Optional[str] = None     # narrow by date if provided
-    match_start_time: Optional[str] = None  # narrow by time if provided
+    match_title: str | None = None    # event name; may be omitted when time uniquely identifies it
+    match_date: str | None = None     # narrow by date if provided
+    match_start_time: str | None = None  # narrow by time if provided
 
     @model_validator(mode="after")
     def require_title_or_time(self) -> "DeleteEventIntent":
@@ -278,4 +277,4 @@ class QueryScheduleIntent(BaseIntent):
     # or week, so "what do I have on friday" had nowhere to put "friday" and
     # fell back to the default — answering confidently about the wrong day.
     # When this is set it wins over scope.
-    date: Optional[str] = None  # YYYY-MM-DD
+    date: str | None = None  # YYYY-MM-DD

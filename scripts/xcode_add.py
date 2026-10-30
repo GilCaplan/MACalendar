@@ -44,7 +44,7 @@ _START = re.compile(r"^\t+([0-9A-F]{24,32})(?: /\* (.*?) \*/)? = \{", re.M)
 class Project:
     def __init__(self, text: str) -> None:
         self.text = text
-        self.objects: "dict[str, tuple[str, str]]" = {}     # id -> (comment, body)
+        self.objects: dict[str, tuple[str, str]] = {}     # id -> (comment, body)
         for m in _START.finditer(text):
             if m.group(1) in self.objects:
                 # PBXProject's TargetAttributes re-use target ids as keys,
@@ -64,18 +64,18 @@ class Project:
         m = re.search(r"isa = (\w+);", self.objects[oid][1])
         return m.group(1) if m else ""
 
-    def field(self, oid: str, name: str) -> "str | None":
+    def field(self, oid: str, name: str) -> str | None:
         m = re.search(rf"\b{name} = (\"[^\"]*\"|[^;]+);", self.objects[oid][1])
         return m.group(1).strip('"') if m else None
 
-    def children(self, oid: str) -> "list[str]":
+    def children(self, oid: str) -> list[str]:
         m = re.search(r"children = \((.*?)\);", self.objects[oid][1], re.S)
         return re.findall(r"([0-9A-F]{24,32})", m.group(1)) if m else []
 
     def main_group(self) -> str:
         return re.search(r"mainGroup = ([0-9A-F]{24,32});", self.text).group(1)
 
-    def child_named(self, group: str, name: str) -> "str | None":
+    def child_named(self, group: str, name: str) -> str | None:
         for c in self.children(group):
             if c in self.objects and (self.field(c, "path") or self.field(c, "name")) == name:
                 return c
@@ -90,11 +90,11 @@ class Project:
                         return ph
         raise SystemExit(f"no Sources phase for target {target!r}")
 
-    def phase_files(self, phase: str) -> "list[str]":
+    def phase_files(self, phase: str) -> list[str]:
         m = re.search(r"files = \((.*?)\);", self.objects[phase][1], re.S)
         return re.findall(r"([0-9A-F]{24,32})", m.group(1)) if m else []
 
-    def compiled(self) -> "dict[str, set[str]]":
+    def compiled(self) -> dict[str, set[str]]:
         """target -> every source path (relative to MACalendar-iOS/) it compiles."""
         paths: dict = {}
 
@@ -137,7 +137,7 @@ class Project:
         self.text = self.text[:mm.end(2)] + f"\t\t\t\t{entry},\n" + self.text[mm.end(2):]
         self.__init__(self.text)
 
-    def add(self, rel: str, target: "str | None" = None) -> bool:
+    def add(self, rel: str, target: str | None = None) -> bool:
         rel = os.path.normpath(rel)
         parts = rel.split(os.sep)
         target = target or TARGETS.get(parts[0])
@@ -178,7 +178,7 @@ class Project:
         return changed
 
 
-def missing(project: Project) -> "list[str]":
+def missing(project: Project) -> list[str]:
     compiled = project.compiled()
     out = []
     for folder, target in TARGETS.items():

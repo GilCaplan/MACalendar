@@ -63,6 +63,7 @@ def test_the_mac_guide_opens_on_the_first_unconnected_and_ticks(monkeypatch):
     from PyQt6.QtCore import Qt, QTimer
     from PyQt6.QtTest import QTest
     from PyQt6.QtWidgets import QApplication, QCheckBox, QPushButton
+
     import assistant.calendar_ui.connected_calendars as cc
 
     app = QApplication.instance() or QApplication([])

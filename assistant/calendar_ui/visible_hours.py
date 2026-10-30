@@ -59,7 +59,7 @@ def widen(first: int, last: int, events) -> tuple[int, int]:
     return first, last
 
 
-def _hm(value) -> "int | None":
+def _hm(value) -> int | None:
     try:
         h, m = str(value).split(":")[:2]
         return int(h) * 60 + int(m)

@@ -106,8 +106,9 @@ def test_the_same_recording_uploaded_again_runs_once_even_without_an_id(monkeypa
     """An app too old to send `client_id` resent the same 493.3 KB recording a
     fourth time; the recording's own bytes are the id."""
     import io
-    from assistant.api import server
+
     import assistant.engine as eng
+    from assistant.api import server
     runs = []
     monkeypatch.setattr(eng, "run_transcript",
                         lambda t, trace=None, **kw: runs.append(t) or

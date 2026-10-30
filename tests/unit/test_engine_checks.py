@@ -13,7 +13,6 @@ import pytest
 
 from assistant.engine.decompose_validate import checks
 
-
 ANCHOR = dt.date(2026, 9, 8)          # a Tuesday
 
 
@@ -227,7 +226,7 @@ def perturb_applicable(kind, item):
 # worked and the bare one shared just as eagerly. What is pinned here is the
 # narrowing, and the three ways it must keep its hands off.
 
-from assistant.engine.decompose_validate import stage as _stage   # noqa: E402
+from assistant.engine.decompose_validate import stage as _stage  # noqa: E402
 
 FRIDAY = "2026-09-11"                 # the friday after ANCHOR (Tue 2026-09-08)
 
@@ -323,7 +322,7 @@ def test_one_ask_alone_is_never_touched():
 # this is the same rule for the half that can destroy something.
 
 from assistant.engine.decompose_validate import object_rules as _obj  # noqa: E402
-from assistant.engine.state import EngineState, Item                  # noqa: E402
+from assistant.engine.state import EngineState, Item  # noqa: E402
 
 
 class _Intent:

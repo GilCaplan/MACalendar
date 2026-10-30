@@ -130,7 +130,7 @@ class Claim:
     label: str
     rendered: str
     raw: str
-    slot_key: "str | None" = None
+    slot_key: str | None = None
     kind: str = "text"
 
     @property
@@ -242,7 +242,7 @@ def _is_derived_end(attr: str, intent) -> bool:
     return end_min - start_min == length
 
 
-def claims(action: str, intent, slots: "dict | None" = None) -> "list[Claim]":
+def claims(action: str, intent, slots: dict | None = None) -> list[Claim]:
     """The object's atomic claims, fixed order.
 
     `titles` expands to one claim PER title — "buy milk, eggs and bread" is
@@ -255,7 +255,7 @@ def claims(action: str, intent, slots: "dict | None" = None) -> "list[Claim]":
     if intent is None:
         return []
     backing = SLOT_BACKED.get(action or "", {})
-    out: "list[Claim]" = []
+    out: list[Claim] = []
 
     titles = list(getattr(intent, "titles", None) or [])
     quantities = list(getattr(intent, "quantities", None) or [])
@@ -279,7 +279,7 @@ def claims(action: str, intent, slots: "dict | None" = None) -> "list[Claim]":
     return out
 
 
-def unsupported_by_slots(action: str, intent, slots: "dict | None") -> "list[Claim]":
+def unsupported_by_slots(action: str, intent, slots: dict | None) -> list[Claim]:
     """The slot-backed claims the words never said — a pydantic default wearing
     a resolved value's clothes. Deterministic; no model is consulted."""
     have = slots or {}
@@ -288,7 +288,7 @@ def unsupported_by_slots(action: str, intent, slots: "dict | None") -> "list[Cla
             and have.get(c.slot_key) in (None, "", [], {})]
 
 
-def render_line(action: str, intent, slots: "dict | None" = None) -> str:
+def render_line(action: str, intent, slots: dict | None = None) -> str:
     """The human one-liner — the panel's string and the judge block's header, so
     the two cannot disagree about what the object contains."""
     parts = [str(action or "unknown").replace("_", " ")]
@@ -296,7 +296,7 @@ def render_line(action: str, intent, slots: "dict | None" = None) -> str:
     return " · ".join(parts)
 
 
-def render_block(oid: str, action: str, intent, slots: "dict | None" = None) -> str:
+def render_block(oid: str, action: str, intent, slots: dict | None = None) -> str:
     """The judge's view of one object: the line, then ONLY the word-claims as
     the exact keys the model must answer under. Slot-backed claims are not shown
     — they are already decided, and listing them would invite the model to

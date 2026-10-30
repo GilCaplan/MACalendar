@@ -138,7 +138,7 @@ class Bucket:
         self.t_ok_a = self.t_n_a = 0      # spelled-out — convention-confounded
         self.invent = self.invent_n = 0
 
-    def add(self, o: "Bucket") -> "Bucket":
+    def add(self, o: Bucket) -> Bucket:
         for k, v in vars(o).items():
             setattr(self, k, getattr(self, k) + v)
         return self
@@ -225,6 +225,7 @@ def pc(x):
 def score(rows, examples: int):
     """Run FastRule over every row once; bucket by (persona, structure)."""
     from freezegun import freeze_time
+
     from assistant.engine.fastrule.fastrule import FastRule
     from assistant.intent.rule_parser import RULE_THRESHOLD
 
@@ -410,7 +411,8 @@ def main() -> int:
                     help="jsonl to score (default the persona set; pass "
                          "dataset/personas/personas_ablation.jsonl for the "
                          "vocabulary-vs-phrasing ablation)")
-    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    from scripts.dataset_tiers import add_argument as _add_tier
+    from scripts.dataset_tiers import resolve as _resolve
     _add_tier(ap)
     a = ap.parse_args()
 

@@ -37,7 +37,7 @@ class OCRError(RuntimeError):
     """No way to read text on this machine, or the picture could not be read."""
 
 
-def numbers_in(lines: "list[str]") -> "list[int]":
+def numbers_in(lines: list[str]) -> list[int]:
     """Unique numbers, first-seen order, from recognised pieces of text."""
     hashed, bare = [], []
     for line in lines:
@@ -55,7 +55,7 @@ def numbers_in(lines: "list[str]") -> "list[int]":
     return out
 
 
-def _reading_order(rows: "list[list[str]]") -> "list[str]":
+def _reading_order(rows: list[list[str]]) -> list[str]:
     """Vision returns pieces in no particular order; a list should read like the
     screen. Rows are pieces whose tops are within half a line of each other,
     then left to right; pictures in the order given."""
@@ -82,7 +82,7 @@ def _cache_dir() -> str:
         return tempfile.gettempdir()
 
 
-def _vision_binary() -> "str | None":
+def _vision_binary() -> str | None:
     """The compiled helper, built on first use; None where Vision is not available."""
     if sys.platform != "darwin" or not shutil.which("swiftc"):
         return None
@@ -106,7 +106,7 @@ def engine() -> str:
     return "none"
 
 
-def read_lines(paths: "list[str]") -> "list[str]":
+def read_lines(paths: list[str]) -> list[str]:
     """Every piece of text Vision (or Tesseract) recognises in the pictures."""
     if not paths:
         return []
@@ -128,7 +128,7 @@ def read_lines(paths: "list[str]") -> "list[str]":
                    "installed. You can type the numbers instead.")
 
 
-def numbers_from_images(images: "list[tuple[str, bytes]]") -> "list[int]":
+def numbers_from_images(images: list[tuple[str, bytes]]) -> list[int]:
     """(filename, bytes) pictures -> their unique numbers, all pictures together."""
     with tempfile.TemporaryDirectory(prefix="ranker-") as d:
         paths = []

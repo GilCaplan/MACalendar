@@ -18,14 +18,12 @@ import re
 import subprocess
 import sys
 
-import pytest
-
 from assistant.features import registry
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
-def _store_vars_in(folder: pathlib.Path) -> "set[str]":
+def _store_vars_in(folder: pathlib.Path) -> set[str]:
     out = set()
     for p in folder.rglob("*.py"):
         out |= set(re.findall(r"""environ(?:\.get\(|\[)\s*["'](MACALENDAR_[A-Z_]+)["']""", p.read_text()))

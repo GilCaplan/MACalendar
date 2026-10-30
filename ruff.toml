@@ -1,0 +1,42 @@
+# Lint rules for the whole repo (python-clean-code standard, rule 12).
+# Run `ruff check .` before committing; `ruff check --fix .` applies the safe fixes.
+# Formatting is NOT enforced here: reformatting every file at once would bury
+# real changes in a one-off diff. Format the files you touch.
+
+line-length = 120
+target-version = "py311"
+extend-exclude = [
+    "retired",      # superseded brains, kept verbatim for comparison (CLAUDE.md)
+    ".venv",
+]
+
+[lint]
+select = ["E", "W", "F", "I", "UP", "B"]
+ignore = [
+    # Scripts and tests set their scratch environment BEFORE importing
+    # `assistant`, because the stores read their paths at import time
+    # (CLAUDE.md "Personal data lives outside the repo"). That ordering is
+    # the point, so an import below code is deliberate.
+    "E402",
+    # House style the codebase already writes in, not defects. Each is ignored
+    # rather than mass-rewritten, so a lint diff never buries a real change;
+    # new code should still avoid them.
+    "E501",   # long lines: mostly prose comments and test sentences
+    "E701",   # `if x: return` on one line
+    "E702",   # `con.commit(); con.close()`
+    "E731",   # small named lambdas used as local helpers
+    "E741",   # `l` for a line in short loops
+    "B007",   # unpacked loop names kept for readability
+    "B905",   # zip(strict=): adding it changes behaviour, so per call site, not en masse
+    "UP031",  # %-formatting in a few older scripts
+]
+
+[lint.per-file-ignores]
+# These import shared pytest fixtures from another test module and take them as
+# test parameters, which is how pytest injects a fixture; ruff reads that as a
+# redefinition.
+"tests/unit/test_mic_visual_setting.py" = ["F811"]
+"tests/unit/test_observance_settings_ui.py" = ["F811"]
+
+[lint.isort]
+known-first-party = ["assistant", "scripts", "tests"]

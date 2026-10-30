@@ -76,7 +76,7 @@ _SOUND_SWAPS = [
 ]
 
 
-def _sound_swap(word: str, which: int) -> "str | None":
+def _sound_swap(word: str, which: int) -> str | None:
     """Apply ONE sound-preserving letter swap, chosen deterministically."""
     tried = 0
     for a, b in _SOUND_SWAPS:
@@ -91,7 +91,7 @@ def _sound_swap(word: str, which: int) -> "str | None":
 _VOWEL_RUN = re.compile(r"[aeiouy]+", re.I)
 
 
-def _syllables(word: str) -> "list[str]":
+def _syllables(word: str) -> list[str]:
     """Rough syllable chunks — a split after each vowel run, which is where a
     listener's ear puts a boundary and where the real damaged forms break
     ("kom | boot | cha", "pill | lattes")."""
@@ -105,7 +105,7 @@ def _syllables(word: str) -> "list[str]":
     return [c for c in cuts if c] or [word]
 
 
-def _boundary_shift(head: str) -> "str | None":
+def _boundary_shift(head: str) -> str | None:
     """'barista' -> 'bar ista'. One space inserted at a syllable edge."""
     parts = _syllables(head)
     if len(parts) < 2:
@@ -113,18 +113,18 @@ def _boundary_shift(head: str) -> "str | None":
     return parts[0] + " " + "".join(parts[1:])
 
 
-def _syllable_split(head: str) -> "str | None":
+def _syllable_split(head: str) -> str | None:
     """'kombucha' -> 'kom boo cha'. Every syllable spaced."""
     parts = _syllables(head)
     return " ".join(parts) if len(parts) >= 3 else None
 
 
-def _join(term: str) -> "str | None":
+def _join(term: str) -> str | None:
     """'ice cream' -> 'icecream'. Only meaningful for a compound."""
     return term.replace(" ", "") if " " in term else None
 
 
-def _corrupt(word: str) -> "str | None":
+def _corrupt(word: str) -> str | None:
     """'club' -> 'lub', 'group' -> 'grip'. One letter dropped, never the last
     and never from a word short enough for the loss to erase it."""
     if len(word) < 4:
@@ -132,9 +132,9 @@ def _corrupt(word: str) -> "str | None":
     return word[0] + word[2:]
 
 
-def pairs() -> "list[tuple[str, str]]":
+def pairs() -> list[tuple[str, str]]:
     """[(damaged, intended)] — distinct, deterministic, no randomness."""
-    out: "list[tuple[str, str]]" = []
+    out: list[tuple[str, str]] = []
     seen = set()
 
     def add(damaged, intended):
@@ -190,7 +190,7 @@ def pairs() -> "list[tuple[str, str]]":
 _SHIFTS = (-2, -1, 1, 2)
 
 
-def mash(a: str, b: str) -> "list[str]":
+def mash(a: str, b: str) -> list[str]:
     """Two adjacent words, re-segmented so they SOUND the same and READ wrong.
 
     Gil's construction, 2026-09-19: *"take clean sentences, then every so often
@@ -214,7 +214,7 @@ def mash(a: str, b: str) -> "list[str]":
 _WORD = re.compile(r"^[a-z]+$")
 
 
-def in_sentence(limit: int = 0) -> "list[dict]":
+def in_sentence(limit: int = 0) -> list[dict]:
     """[{damaged, clean, term, heard}] — a DISTINCTIVE term in a real sentence
     template, mashed.
 
@@ -252,7 +252,7 @@ def in_sentence(limit: int = 0) -> "list[dict]":
             out = out.replace(slot, value)
         return re.sub(r"\{[a-z_]+\}", "thing", out).strip()
 
-    rows: "list[dict]" = []
+    rows: list[dict] = []
     every = pairs()
     for i, (damaged, intended) in enumerate(every):
         tpl = templates[i % len(templates)]
@@ -263,7 +263,7 @@ def in_sentence(limit: int = 0) -> "list[dict]":
     return rows
 
 
-def local_aliases() -> "list[tuple[str, str]]":
+def local_aliases() -> list[tuple[str, str]]:
     """Mishearings the USER has confirmed, read from their vocabulary.
 
     These are the realest pairs that exist — each one is a wrong form the
@@ -295,7 +295,7 @@ def local_aliases() -> "list[tuple[str, str]]":
     return out
 
 
-def real_pairs() -> "list[tuple[str, str]]":
+def real_pairs() -> list[tuple[str, str]]:
     """The REAL ones: the realspeech corpus gold, plus the user's confirmed
     aliases when this machine has them. The primary number, and it is SMALL —
     about a hundred. It can never be the tuning signal; it is the check that

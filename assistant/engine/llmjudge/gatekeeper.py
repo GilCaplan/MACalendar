@@ -107,7 +107,7 @@ _INTERROGATIVE_RE = re.compile(
     re.I)
 
 
-def _which_store_holds(title: str) -> "str | None":
+def _which_store_holds(title: str) -> str | None:
     """"event", "task", or None — where the user's own data says this lives.
 
     This is the question the rename gate was created because FastRule could
@@ -161,7 +161,7 @@ class Gatekeeper:
     """Intent-level vetoes, v1 order: interrogative (with the polite
     exemption), rename-misroute, generic-target."""
 
-    def judge(self, text: str, intents) -> "str | None":
+    def judge(self, text: str, intents) -> str | None:
         if (_INTERROGATIVE_RE.search(text)
                 and not _POLITE_IMPERATIVE_RE.search(text)
                 and any(n.startswith("create_") for n, _ in intents)):

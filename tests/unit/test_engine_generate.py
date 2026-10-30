@@ -24,8 +24,8 @@ import pytest
 
 import assistant.engine.fastrule.fast_track as fast_track
 import assistant.engine.fastrule.stage as stage
-import assistant.engine.llmjudge.rescue as rescue
 import assistant.engine.llmjudge.llm_fallback as guards
+import assistant.engine.llmjudge.rescue as rescue
 from assistant.engine import load_config
 from assistant.engine.state import EngineState, Item
 

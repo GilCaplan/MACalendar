@@ -30,7 +30,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "DOCUMENTATION", "API_REFERENCE.md")
 
 
-def _sources() -> "list[str]":
+def _sources() -> list[str]:
     """server.py, then every integration's and every feature's routes.py.
 
     TWO globs, not one: an integration's routes.py sits at
@@ -91,7 +91,7 @@ def _write_architecture_count() -> None:
 
 
 def main() -> None:
-    groups: "OrderedDict[str, list[tuple[str, str, str]]]" = OrderedDict()
+    groups: OrderedDict[str, list[tuple[str, str, str]]] = OrderedDict()
     for src in _sources():
         _collect(ast.parse(open(src, encoding="utf-8").read()), groups)
     _write(groups)
