@@ -1608,6 +1608,19 @@ under every toolbar widget and hid the mic's accent.
 `calendar_ui/account_panel.py`. Tests: `test_mac_layout_cleanup.py`,
 `test_account_tab_controls.py`.
 
+### Search in Settings (phone)
+**What:** A search bar at the top of Settings, always shown. Type a word for a
+control ("dark", "backup", "candle lighting", "timer") and it lists the
+matching controls, each with the page it is on; tap one to open that page.
+Works with every section folded. Gil, 2026-10-29.
+**Where:** iOS `Views/SettingsView.swift` — `SettingsSearch.index` (every
+control by its name and other words for it), `searchResults`, `destination`.
+**How:** every word typed must appear in an entry; matches on the control's
+own name come first. Tabs are found by name from `FeatureRegistry`.
+`tests/unit/test_ios_settings_search.py` holds the index to the Settings
+root (every row findable, every entry opens a page);
+`SettingsSearchUITests` types and taps in the simulator.
+
 ### Foldable settings sections
 
 > **Inside the long pages too, 2026-10-01** (Gil: *"minimize the sections …

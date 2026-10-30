@@ -156,6 +156,7 @@
 		C86065A97F713243BBF384D3 /* RankerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28A383E0B96550A2588CC847 /* RankerUITests.swift */; };
 		A5167AC0EEA5BBA184D38C2D /* RankerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0769C750C0D30943A11D674 /* RankerEngine.swift */; };
 		0BD1A50E08BF047389CF1F14 /* RankerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 190C3AFD04537462C0379672 /* RankerStore.swift */; };
+		97A5E0A7F278B8A043BD277E /* SettingsSearchUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96CB121460B1ADD89CEBF3BD /* SettingsSearchUITests.swift */; };
 		/* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -314,6 +315,7 @@
 		28A383E0B96550A2588CC847 /* RankerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankerUITests.swift; sourceTree = "<group>"; };
 		F0769C750C0D30943A11D674 /* RankerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankerEngine.swift; sourceTree = "<group>"; };
 		190C3AFD04537462C0379672 /* RankerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankerStore.swift; sourceTree = "<group>"; };
+		96CB121460B1ADD89CEBF3BD /* SettingsSearchUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSearchUITests.swift; sourceTree = "<group>"; };
 		/* End PBXFileReference section */
 
 /* Begin PBXContainerItemProxy section */
@@ -682,6 +684,7 @@
 				AB000014000000000000001B /* EventEditorUITests.swift */,
 				AB00000E000000000000001B /* Info.plist */,
 				28A383E0B96550A2588CC847 /* RankerUITests.swift */,
+				96CB121460B1ADD89CEBF3BD /* SettingsSearchUITests.swift */,
 			);
 			path = MACalendarUITests;
 			sourceTree = "<group>";
@@ -999,6 +1002,7 @@
 				AB00001F000000000000001A /* EasterEggUITests.swift in Sources */,
 				AB000015000000000000001A /* EventEditorUITests.swift in Sources */,
 				C86065A97F713243BBF384D3 /* RankerUITests.swift in Sources */,
+				97A5E0A7F278B8A043BD277E /* SettingsSearchUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
