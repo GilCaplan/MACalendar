@@ -72,14 +72,19 @@ and re-enters segmentation; see CLAUDE.md.
 
 ---
 
-## Database — `assistant/db.py`
+## Database — `assistant/db/`
 
-One class, `CalendarDB`, plus a `get_db()` singleton. Find a method by name.
+One class, `CalendarDB`, plus a `get_db()` singleton, both from `assistant.db`.
+Since 2026-10-30 the class is split by area into mixins, one module each, over
+the same file and tables (the package docstring has the map):
+`schema.py` (every table and migration), `base.py` (opening, migrations),
+`events.py`, `links.py`, `todos.py`, `timers.py`, `coursework.py`,
+`workout.py`, `sources.py`. Find a method by name; its module is its area.
 
 | What | Symbol |
 |------|--------|
-| Table creation, migrations | `CalendarDB.__init__`, `_migrate_todos`, `_TODO_MIGRATIONS`, `_CREATE_SUBTASKS_TABLE` |
-| Connection context manager | `CalendarDB._conn` |
+| Table creation, migrations | `base.StoreBase.__init__`, `_migrate_todos`; tables in `schema.py` |
+| Connection context manager | `CalendarDB._conn` (`base.py`) |
 | **Events** | `create_event`, `create_event_from_dict`, `update_event`, `delete_event` |
 | Series | `update_series`, `delete_series_from` |
 | **Todos** | `create_todo`, `get_todos`, `update_todo` (allowed-fields set), `toggle_todo_complete` |
