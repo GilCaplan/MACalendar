@@ -1774,8 +1774,9 @@ enum SettingsSearch {
         ("Ask before sending", .voice, "redo add more confirm"),
         ("Stop automatically after silence", .voice, "auto-stop silence seconds"),
         ("Show assistant thinking", .voice, "thinking panel log steps"),
+        ("Open it on every command", .voice, "thinking panel review panel sheet pops up automatically"),
 
-        ("Review commands", .review, "assistant history feedback approve flag"),
+        ("Review commands", .review, "assistant history feedback approve flag thumbs up down remind reminder strip banner"),
         ("Vocabulary", .vocabulary, "names words corrections spelling"),
         ("How I say things", .lexicon, "phrases lexicon words it acts on magic"),
         ("How to talk to me", .tips, "tips examples help"),
