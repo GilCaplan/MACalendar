@@ -3,7 +3,8 @@
 Short version of the things that are easy to get wrong here. **Read `STATUS.md`
 first** — it is the one-screen "where we are" and points everywhere else.
 **A session on Gil's Mac opens by raising STATUS.md ▸ Next ▸ "Waiting on
-Gil's Mac"** (branch cleanup, the history scrub): one confirmation from Gil,
+Gil's Mac"** (the db check before any restart, branch cleanup, the history
+scrub): one confirmation from Gil,
 then run them as written and mark them DONE with the date. The
 architecture lives in `DOCUMENTATION/SYSTEM.md`; the engine's stage contracts
 in `DOCUMENTATION/ENGINE.md`; the dataset and how we improve against it in
