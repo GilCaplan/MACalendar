@@ -25,6 +25,7 @@ import os
 import re
 import threading
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -848,12 +849,14 @@ class VocabStore:
         return True
 
     def correct(self, transcript: str, *, learn: bool | None = None,
-                read_only: bool = False) -> tuple[str, list[Correction]]:
+                read_only: bool = False, keep: Iterable[str] = ()) -> tuple[str, list[Correction]]:
         """Apply alias + fuzzy + phonetic corrections. Returns (fixed, corrections).
 
         A vocab entry is matched against token windows AROUND its own word
         count, widest first, and only a window with actual damage in it may be
-        merged. See `_is_damaged` and `_match_window`.
+        merged. See `_is_damaged` and `_match_window`. Words that already
+        spell an entry are left alone, and so are the phrases in `keep` —
+        another list's words, which that list has already settled.
         """
         self._load()
         if not transcript or not self._entries:
@@ -916,8 +919,34 @@ class VocabStore:
         corrections: list[Correction] = []
         dirty = False
 
+        def claim_exact(phrases) -> None:
+            """Words that already spell a known phrase are settled: no shorter
+            entry may rewrite a piece of one. "Tel Aviv" — itself an entry —
+            came back "Tal Aviva": an alias took "Tel" and a fuzzy match took
+            "Aviv", because a span that was already right was only skipped,
+            never claimed (2026-10-31)."""
+            for phrase in phrases:
+                k = len(phrase.split())
+                for i in range(len(tokens) - k + 1):
+                    if not any(replaced[i:i + k]) and " ".join(norms[i:i + k]).strip() == phrase:
+                        for j in range(i, i + k):
+                            replaced[j] = True
+
+        # Another list's words were settled by that list, which ran first.
+        claim_exact({_norm(k) for k in keep if _norm(k)})
+        claimed_n = None
+
         for p in pre:
             entry = p.entry
+            # Claimed per length, as each length's turn comes: a LONGER entry
+            # has had its chance by then ("Tel Aviv universty" can still become
+            # a three-word entry), and nothing shorter has run yet. Phrases
+            # only: a single word that is an entry may still be half of a
+            # two-word mishearing of another ("tal ya" for "Talia").
+            if p.n != claimed_n:
+                claimed_n = p.n
+                if p.n >= 2:
+                    claim_exact({q.target for q in pre if q.n == p.n})
             # WIDER WINDOW FIRST (Gil, 2026-09-19: "you have to run n equals
             # two before you run n equals one"), and never below one token.
             sizes = [m for m in range(p.n + self.WINDOW_SLACK, 0, -1)
@@ -1165,9 +1194,14 @@ def apply_vocab(transcript: str, source: str = "mac") -> tuple[str, list[Correct
             # …then any vocabulary SHARED with this speaker (the admin decides
             # whether his is shared, and with whom — DEVQA Q65). Read-only:
             # learn=False, so one person's speech never teaches another's list.
+            # And it leaves alone what the speaker's own list has settled: a
+            # name of theirs, already right or just put right, is not another
+            # list's to rewrite.
+            settled = [e.word for e in store.entries]
             for other in _shared_vocab_stores():
-                fixed, more = other.correct(fixed, learn=False, read_only=True)
+                fixed, more = other.correct(fixed, learn=False, read_only=True, keep=settled)
                 corrections = list(corrections) + list(more)
+                settled += [e.word for e in other.entries]
         else:
             fixed, corrections = transcript, []
         store.record_recent(transcript, fixed, corrections, source)
