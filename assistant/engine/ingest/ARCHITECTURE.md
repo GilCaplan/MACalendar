@@ -83,7 +83,11 @@ Reads `state.raw_text`, `state.source`, `state.supports_edit`; writes
   recording one teaches the model that junk is normal. A stop word or false
   start alone is caught even earlier, by `is_ignorable`, which `Engine.run`
   calls before taking the run lock
-- the personal vocabulary repairs what it is confident about (aim (b))
+- the personal vocabulary repairs what it is confident about (aim (b)).
+  Words that already spell one of its phrases are left whole: "Tel Aviv",
+  itself an entry, came back "Tal Aviva" when an alias took "Tel" and a
+  sound-alike took "Aviv" (2026-10-31). A shared list, which runs after the
+  speaker's, leaves the speaker's settled words alone too (`correct(keep=)`)
 - what it is **not** confident about is surfaced: as `needs_edit` when the
   client can show an editor and the setting asks for one, as advisory
   `uncertain_words` otherwise
