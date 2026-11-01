@@ -2273,7 +2273,7 @@ class APIClient: ObservableObject {
             let items = try decode(CountersResponse.self,
                                    from: try await request("/counters" + (archived ? "?archived=1" : ""))).counters
             LocalStore.shared.cacheCounters(items, listed: archived ? .all : .active)
-            return items
+            return LocalStore.shared.preferQueued(items)
         } catch APIError.offline, APIError.badURL {
             return LocalStore.shared.allCounters(includeArchived: archived)
         }

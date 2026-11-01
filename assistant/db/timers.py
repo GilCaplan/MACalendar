@@ -39,26 +39,44 @@ def instant(iso: str) -> datetime.datetime:
     return dt.astimezone() if dt.tzinfo is None else dt
 
 
-def presses_in_cycle(presses: list[dict], cycle_start: str | None) -> list[dict]:
-    """The presses in a counter's open cycle: those strictly AFTER the last
-    cash-out (a press at the cash-out's own instant was part of what it
-    banked). No cash-out yet means the whole history. A press whose time
-    cannot be read is kept, since dropping it would hide money owed."""
-    if not cycle_start:
-        return list(presses)
-    try:
-        start = instant(cycle_start)
-    except ValueError:
-        return list(presses)
-    kept = []
-    for p in presses:
+def open_presses(presses: list[dict]) -> list[dict]:
+    """The presses still owed: those no cash-out has paid (`payout_id` NULL).
+
+    A press records the cash-out that paid it, so the open cycle does not
+    depend on clocks. It used to be "every press after the last cash-out's
+    time", and that lost money: a press made offline at 10:00 and synced after
+    an 11:00 cash-out was before the cash-out, so it was not in the new
+    cycle, and it was not in the payout either. Now it is simply unpaid.
+    """
+    return [p for p in presses if p.get("payout_id") is None]
+
+
+def link_presses_to_payouts(conn) -> None:
+    """One-time backfill when `payout_id` is added: give each press the
+    cash-out that, by the old time rule, paid it, so every count reads the
+    same before and after. Presses after the last cash-out stay open."""
+    counters = [r[0] for r in conn.execute("SELECT DISTINCT counter_id FROM counter_payouts")]
+    for cid in counters:
+        payouts = conn.execute("SELECT id, payout_at FROM counter_payouts WHERE counter_id = ?", (cid,)).fetchall()
+        presses = conn.execute("SELECT id, pressed_at FROM counter_presses WHERE counter_id = ?", (cid,)).fetchall()
         try:
-            if instant(p.get("pressed_at") or "") <= start:
-                continue
+            payouts = sorted(payouts, key=lambda r: instant(r[1]))
         except ValueError:
-            pass
-        kept.append(p)
-    return kept
+            payouts = sorted(payouts, key=lambda r: r[1])
+        unpaid = list(presses)
+        for pid, payout_at in payouts:
+            paid = [r for r in unpaid if _at_or_before(r[1], payout_at)]
+            conn.executemany("UPDATE counter_presses SET payout_id = ? WHERE id = ?", [(pid, r[0]) for r in paid])
+            unpaid = [r for r in unpaid if r not in paid]
+
+
+def _at_or_before(when: str, limit: str) -> bool:
+    """`when` is at or before `limit`; an unreadable time counts as before, so
+    the backfill matches what the old rule showed."""
+    try:
+        return instant(when) <= instant(limit)
+    except ValueError:
+        return when <= limit
 
 
 class TimersMixin:
@@ -379,9 +397,65 @@ class TimersMixin:
                 (*fields.values(), payout_id),
             )
 
-    def delete_counter_payout(self, payout_id: int) -> None:
-        """Delete a single payout record. Does not touch the underlying press log."""
+    def cash_out_counter(
+        self,
+        counter_id: int,
+        payout_at: str,
+        *,
+        bank_until: str | None = None,
+        count: int | None = None,
+        amount: float | None = None,
+        note: str = "",
+    ) -> dict | None:
+        """Pay the presses still owed, up to `bank_until` (default `payout_at`),
+        in ONE write: the payout row and each press's link to it.
+
+        Returns None, and writes nothing, when nothing is owed. That is what
+        makes a second tap, or a queued request replayed after its reply was
+        lost, harmless: the first paid everything, the second finds nothing.
+        A press stamped later (another device, while this request waited)
+        stays open and lands on top of the new cycle.
+
+        `count` and `amount` override the computed ones (the Mac's dialog lets
+        you correct them); both are snapshots, never recomputed later.
+        """
+        limit = bank_until or payout_at
+        now = datetime.datetime.now().astimezone().isoformat()
         with self._conn() as conn:
+            counter = conn.execute("SELECT * FROM counters WHERE id = ?", (counter_id,)).fetchone()
+            if counter is None:
+                return None
+            unpaid = [dict(r) for r in conn.execute(
+                "SELECT * FROM counter_presses WHERE counter_id = ? AND payout_id IS NULL", (counter_id,))]
+            paid = [p for p in unpaid if _at_or_before(p["pressed_at"], limit)]
+            if not paid:
+                return None
+            price = float(counter["price_per_unit"] or 0)
+            first = min(paid, key=lambda p: p["pressed_at"])["pressed_at"]
+            row = {
+                "counter_id": counter_id,
+                "cycle_started_at": first,
+                "payout_at": payout_at,
+                "count": sum(int(p["delta"]) for p in paid) if count is None else count,
+                "amount": round(sum(counter_press_amount(p, price) for p in paid), 2) if amount is None else amount,
+                "currency": counter["currency"],
+                "note": note,
+                "created_at": now,
+            }
+            cur = conn.execute(
+                "INSERT INTO counter_payouts (counter_id, cycle_started_at, payout_at, count, amount, currency, "
+                "note, created_at) VALUES (:counter_id, :cycle_started_at, :payout_at, :count, :amount, "
+                ":currency, :note, :created_at)", row)
+            row["id"] = cur.lastrowid
+            conn.executemany("UPDATE counter_presses SET payout_id = ? WHERE id = ?",
+                             [(row["id"], p["id"]) for p in paid])
+            return row
+
+    def delete_counter_payout(self, payout_id: int) -> None:
+        """Delete a payout. Its presses become owed again: deleting a cash-out
+        says it did not happen. The press log itself is untouched."""
+        with self._conn() as conn:
+            conn.execute("UPDATE counter_presses SET payout_id = NULL WHERE payout_id = ?", (payout_id,))
             conn.execute("DELETE FROM counter_payouts WHERE id = ?", (payout_id,))
 
     def get_counter_cycle_start(self, counter_id: int) -> str | None:

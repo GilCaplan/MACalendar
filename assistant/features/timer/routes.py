@@ -30,7 +30,7 @@ import datetime
 
 from flask import Blueprint, jsonify, request
 
-from assistant.db import DIRECTIONS, counter_press_amount, presses_in_cycle
+from assistant.db import DIRECTIONS, counter_press_amount, open_presses
 from assistant.features.idempotency import idempotent_create
 
 blueprint = Blueprint("timer", __name__)
@@ -254,7 +254,7 @@ def timer_session_delete(sid: int):
 def _counter_out(db, c: dict) -> dict:
     presses = db.get_counter_presses(c["id"])
     cycle = db.get_counter_cycle_start(c["id"])
-    in_cycle = presses_in_cycle(presses, cycle)
+    in_cycle = open_presses(presses)
     today = datetime.date.today().isoformat()
     out = dict(c)
     out["count"] = sum(int(p["delta"]) for p in in_cycle)
@@ -344,26 +344,20 @@ def counters_cashout(cid: int):
     c = next((x for x in db.get_counters(include_archived=True) if x["id"] == cid), None)
     if not c:
         return jsonify({"error": "Not found", "code": 404}), 404
-    info = _counter_out(db, c)
     # `cashed_at` optional, for the same reason as `pressed_at`: a cash-out the
-    # phone queued names the moment it was asked for. The COUNT is still this
-    # Mac's, computed from the presses it holds — and the phone's queue replays
-    # in order, so every press made before the cash-out has already landed.
+    # phone queued names the moment it was asked for, and pays the presses
+    # owed up to then. Anything stamped later stays owed, on top of the new
+    # cycle. Nothing owed means nothing written, so a second tap, or a replay
+    # whose first reply was lost, is harmless: 200 instead of 201.
     now = str(b.get("cashed_at") or "").strip() or datetime.datetime.now().astimezone().isoformat()
-    presses = db.get_counter_presses(cid)
-    cycle_start = info["cycle_started_at"] or (presses or [{"pressed_at": c["created_at"]}])[0]["pressed_at"]
-    # Bank exactly the presses up to the cash-out's own moment. The next cycle
-    # starts there, so a press stamped later (another device, while this one
-    # waited in a queue) belongs to it. Banking every press the Mac held put
-    # that press in BOTH the payout and the new cycle, and it was owed twice.
-    open_now = presses_in_cycle(presses, info["cycle_started_at"])
-    banked = [p for p in open_now if p not in presses_in_cycle(open_now, now)]
-    count = sum(int(p["delta"]) for p in banked)
     amount = b.get("amount")
-    price = float(c.get("price_per_unit") or 0)
-    amount = float(amount) if amount is not None else round(sum(counter_press_amount(p, price) for p in banked), 2)
-    db.create_counter_payout(cid, cycle_start, now, count, amount, c["currency"], note=str(b.get("note") or ""))
-    return jsonify(_counter_out(db, c)), 201
+    paid = db.cash_out_counter(cid, now, amount=float(amount) if amount is not None else None,
+                               note=str(b.get("note") or ""))
+    out = _counter_out(db, c)
+    if paid is None:
+        out["nothing_owed"] = True
+        return jsonify(out), 200
+    return jsonify(out), 201
 
 
 @blueprint.get("/counters/<int:cid>/payouts")

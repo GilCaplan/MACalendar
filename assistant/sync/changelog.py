@@ -35,6 +35,7 @@ FKS: dict[str, list[tuple[str, str]]] = {
     "timers": [("timer_sessions", "timer_id")],
     "courses": [("assignments", "course_id")],
     "counters": [("counter_presses", "counter_id"), ("counter_payouts", "counter_id")],
+    "counter_payouts": [("counter_presses", "payout_id")],
 }
 
 

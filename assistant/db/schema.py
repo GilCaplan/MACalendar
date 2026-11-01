@@ -256,6 +256,9 @@ CREATE TABLE IF NOT EXISTS counter_presses (
 # rate still reprices every ordinary press as it always did.
 _COUNTER_PRESS_MIGRATIONS = [
     "ALTER TABLE counter_presses ADD COLUMN amount REAL",
+    # The cash-out that paid this press; NULL = still owed (see
+    # `timers.open_presses`). Backfilled once by `link_presses_to_payouts`.
+    "ALTER TABLE counter_presses ADD COLUMN payout_id INTEGER",
 ]
 
 # A "cash out" closes the counter's current tally cycle: it snapshots the
@@ -490,7 +493,8 @@ _TAG_SUGGESTION_MIGRATIONS = [
 #: warning: this code may not know a column the newer code relies on.
 #: 1 = the schema at the per-area split (2026-10-30), tag suggestions included.
 #: 2 = timers and counters say which way the money runs (`direction`).
-SCHEMA_VERSION = 2
+#: 3 = each counter press records the cash-out that paid it (`payout_id`).
+SCHEMA_VERSION = 3
 
 _CREATE_INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_events_date      ON events(date);

@@ -72,7 +72,7 @@ def test_a_file_from_before_reads_as_owed_to_me(tmp_path):
     (row,) = db.get_counters()
     assert (row["title"], row["direction"]) == ("Carpool", "owed_to_me")
     with sqlite3.connect(path) as c:
-        assert c.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 2
+        assert c.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION >= 2
 
 
 def test_the_mac_dialogs_offer_it_and_the_card_says_it(qapp, tmp_path):
