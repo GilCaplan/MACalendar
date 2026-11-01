@@ -53,7 +53,7 @@ from PyQt6.QtWidgets import (
 
 import assistant.calendar_ui.styles as _styles
 from assistant.calendar_ui.dialog_utils import install_enter_confirms
-from assistant.db import CalendarDB, counter_press_amount, presses_in_cycle
+from assistant.db import CalendarDB, counter_press_amount, open_presses
 
 # ---------------------------------------------------------------------------
 # Currency data  (code → (display name, symbol))
@@ -263,10 +263,10 @@ def _fmt_payout(presses: list[dict], price_per_unit: float, currency: str = "ILS
     return f"{symbol}{_presses_amount(presses, price_per_unit):,.2f}"
 
 
-def _presses_since(presses: list[dict], cycle_start_iso: str | None) -> list[dict]:
-    """Presses in the current (open) tally cycle. One rule, shared with the
-    API, so the Mac card and the phone show the same count."""
-    return presses_in_cycle(presses, cycle_start_iso)
+def _presses_since(presses: list[dict]) -> list[dict]:
+    """Presses in the current (open) tally cycle: those no cash-out has paid.
+    One rule, shared with the API, so the Mac card and the phone agree."""
+    return open_presses(presses)
 
 
 # ---------------------------------------------------------------------------
@@ -2185,7 +2185,7 @@ class CounterCard(QWidget):
         if self._cached_presses is None:
             self._cached_presses = self._db.get_counter_presses(self._counter["id"])
 
-        cycle_presses = _presses_since(self._cached_presses, self._cycle_start())
+        cycle_presses = _presses_since(self._cached_presses)
         count = _presses_total(cycle_presses)
         self._dot.setStyleSheet(f"color: {self._counter['color']};")
         self._title_lbl.setText(self._counter["title"])
@@ -2225,7 +2225,7 @@ class CounterCard(QWidget):
         """Net count for the counter's current (open) tally cycle."""
         if self._cached_presses is None:
             self._cached_presses = self._db.get_counter_presses(self._counter["id"])
-        return _presses_total(_presses_since(self._cached_presses, self._cycle_start()))
+        return _presses_total(_presses_since(self._cached_presses))
 
     # ------------------------------------------------------------------
     def _on_press(self, delta: int, amount: float | None = None) -> None:
@@ -2292,16 +2292,18 @@ class CounterCard(QWidget):
         currency = self._counter.get("currency", _DEFAULT_CURRENCY)
         if self._cached_presses is None:
             self._cached_presses = self._db.get_counter_presses(self._counter["id"])
-        amount = _presses_amount(_presses_since(self._cached_presses, self._cycle_start()), price)
+        amount = _presses_amount(_presses_since(self._cached_presses), price)
+        # The presses the dialog shows are the ones it pays: everything owed
+        # as of opening it. One the phone adds while it is open stays owed.
+        shown_at = datetime.datetime.now().astimezone().isoformat()
         dlg = CashOutDialog(self, count=count, amount=amount, currency=currency)
         if dlg.exec():
-            self._db.create_counter_payout(
+            self._db.cash_out_counter(
                 self._counter["id"],
-                cycle_started_at=self._cycle_start(),
-                payout_at=dlg.result_payout_at,
+                dlg.result_payout_at,
+                bank_until=shown_at,
                 count=dlg.result_count,
                 amount=dlg.result_amount,
-                currency=currency,
                 note=dlg.result_note,
             )
             self._invalidate_cache()

@@ -903,11 +903,21 @@ counter is logged as 5. The payout is the sum of each press's worth —
 `assistant.db.counter_press_amount` — not `count × price`; a press with no
 amount still follows the counter's current price.
 
-**Cash out** banks the open cycle and starts a new one. It moves on the phone
-at the tap (the cache is zeroed first, then the Mac is asked), and it banks
-exactly the presses up to its own moment, so no press is owed twice. Which
-presses are in the open cycle is ONE rule, `assistant.db.presses_in_cycle`,
-comparing moments rather than text, shared by the API and the Mac card.
+**Cash out** pays what is owed and starts a new cycle. Each press records the
+cash-out that paid it (`counter_presses.payout_id`); a press none has paid is
+owed (`assistant.db.open_presses`, the one rule the API and the Mac card
+share). A cash-out pays the owed presses up to its own moment
+(`CalendarDB.cash_out_counter`), so:
+- a second tap, or a queued one replayed, finds nothing owed and writes
+  nothing;
+- a plus stamped after it, on the Mac or the phone, lands on top of the new
+  cycle;
+- a plus made offline before it but synced after it is still owed, never
+  lost.
+
+Deleting a cash-out makes its presses owed again. On the phone it moves at
+the tap: the cache is zeroed first, then the Mac is asked, and the tapped
+row is kept until that write lands.
 
 **Which way the money runs** (2026-11-01): a counter or timer is
 `direction` `owed_to_me` (the default, and every older row) or `i_owe` —

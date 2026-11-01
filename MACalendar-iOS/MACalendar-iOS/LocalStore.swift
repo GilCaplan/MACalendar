@@ -502,7 +502,10 @@ class LocalStore: ObservableObject {
 
     func cacheCounters(_ fresh: [TallyCounter], listed: Listed? = nil) {
         var byID = Dictionary(counters.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        for c in fresh { byID[c.id] = c }
+        // A counter with a press or cash-out still waiting to replay keeps the
+        // row the tap made. The Mac's copy predates that write, so taking it
+        // put the count back to 12 under a cash-out that had not landed yet.
+        for c in fresh where byID[c.id] == nil || !hasQueuedWrite("/counters", c.id) { byID[c.id] = c }
         if let listed {
             let seen = Set(fresh.map(\.id))
             for (id, c) in byID where id > 0 && !seen.contains(id) && !hasQueuedWrite("/counters", id) {
@@ -514,6 +517,14 @@ class LocalStore: ObservableObject {
         }
         counters = byID.values.sorted { $0.id < $1.id }
         persist()
+    }
+
+    /// The Mac's row, unless a write to it is still queued: then the cached one
+    /// the tap made, which is newer. See `cacheCounters`.
+    func preferQueued(_ fresh: [TallyCounter]) -> [TallyCounter] {
+        fresh.map { f in
+            hasQueuedWrite("/counters", f.id) ? (counters.first(where: { $0.id == f.id }) ?? f) : f
+        }
     }
 
     /// A write for `<collection>/<id>` (or below it) still waiting to replay.

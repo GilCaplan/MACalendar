@@ -99,7 +99,7 @@ from assistant.db.sources import (
 from assistant.db.timers import (
     TimersMixin,
     counter_press_amount,  # noqa: F401
-    presses_in_cycle,  # noqa: F401
+    open_presses,  # noqa: F401
 )
 from assistant.db.todos import TodosMixin
 from assistant.db.workout import WorkoutMixin

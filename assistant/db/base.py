@@ -49,6 +49,7 @@ from assistant.db.schema import (
     DEFAULT_TODO_TAGS,
     SCHEMA_VERSION,
 )
+from assistant.db.timers import link_presses_to_payouts
 
 logger = logging.getLogger(__name__)
 
@@ -116,8 +117,11 @@ and the client-token lookups every area's creates share."""
             conn.execute(_CREATE_COUNTERS_TABLE)
             self._add_columns(conn, "counters", _COUNTER_MIGRATIONS)
             conn.execute(_CREATE_COUNTER_PRESSES_TABLE)
+            linked = "payout_id" in {r[1] for r in conn.execute("PRAGMA table_info(counter_presses)")}
             self._add_columns(conn, "counter_presses", _COUNTER_PRESS_MIGRATIONS)
             conn.execute(_CREATE_COUNTER_PAYOUTS_TABLE)
+            if not linked:
+                link_presses_to_payouts(conn)
             conn.execute(_CREATE_COURSES_TABLE)
             conn.execute(_CREATE_ASSIGNMENTS_TABLE)
             conn.execute(_CREATE_REMINDER_LOG_TABLE)
