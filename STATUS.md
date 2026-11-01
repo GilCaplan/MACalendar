@@ -221,15 +221,14 @@ the start, gets one yes, and then runs them through, 3 before 4.
    assistant.db.verify`: it copies the admin's `calendar.db`, opens the copy
    with the new code and compares every row. "OK" means restart the apps as
    usual; "NOT OK" means keep the old checkout running and report what it
-   lists. The original file is only read.
-3. **Old branches:** 57 are fully merged (re-checked 2026-10-29 against the
-   full history, `tips-on-ios` included; PRs #53 and #45 merged that day, so
-   their branches go too). The cloud session's git proxy refuses deletes.
-   Delete what is merged, then list what is left (an unmerged branch stays and
-   is reported): `git fetch --prune origin && git branch -r --merged
-   origin/main | grep -v -E 'origin/(main|HEAD)' | sed 's#origin/##' | xargs
-   git push origin --delete`, then `git fetch --prune origin && git branch -r
-   --no-merged origin/main`.
+   lists. The original file is only read. **Run 2026-10-31 (OK, 704 rows) and
+   2026-11-02 for schema 3** — it said NOT OK only because the `payout_id`
+   backfill queued 98 writes in `_sync_log`; the checker now expects outbox
+   growth (PR #67), and reads OK.
+3. **Old branches — DONE 2026-11-01** (Gil ran the delete; the remote holds
+   `main` only). Run the same line again after a batch of merges: `git fetch
+   --prune origin && git branch -r --merged origin/main | grep -v -E
+   'origin/(main|HEAD)' | sed 's#origin/##' | xargs git push origin --delete`.
 4. **Ranker: your real export into the app, out of GitHub's history** (Gil,
    2026-10-12: "my real data … shouldn't be uploaded to GitHub, but you can
    upload it to the phone app"). The repo's test file is invented numbers
