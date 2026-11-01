@@ -30,6 +30,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from assistant.calendar_ui.scrollbars import own_scrollbars
+
 Api = Callable[..., dict]
 
 
@@ -214,7 +216,7 @@ class ServersPanel(QWidget):
         log_title = QLabel("Server log")
         log_title.setFont(f)
         lay.addWidget(log_title)
-        self.log = QPlainTextEdit()
+        self.log = own_scrollbars(QPlainTextEdit())
         self.log.setReadOnly(True)
         self.log.setMaximumBlockCount(2000)
         self.log.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))

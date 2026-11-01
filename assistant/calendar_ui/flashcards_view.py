@@ -82,6 +82,7 @@ from PyQt6.QtWidgets import (
 
 from assistant.calendar_ui import styles as _styles
 from assistant.calendar_ui.feature_panel import FeaturePanel
+from assistant.calendar_ui.scrollbars import own_scrollbars
 from assistant.features.flashcards import cardformat, fsrs
 from assistant.features.flashcards.cardformat import CardError
 from assistant.features.flashcards.store import FlashcardError, FlashcardStore
@@ -766,7 +767,7 @@ class FlashcardsView(FeaturePanel):
         sel.addWidget(self._status, 1)
         v.addLayout(sel)
 
-        self._lib_scroll = QScrollArea()
+        self._lib_scroll = own_scrollbars(QScrollArea())
         self._lib_scroll.setWidgetResizable(True)
         self._lib_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._lib_body = QWidget()
@@ -860,7 +861,7 @@ class FlashcardsView(FeaturePanel):
         self._round_bar.setTextVisible(False)
         v.addWidget(self._round_bar)
 
-        self._face_scroll = QScrollArea()
+        self._face_scroll = own_scrollbars(QScrollArea())
         self._face_scroll.setWidgetResizable(True)
         self._face_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._face_scroll.viewport().installEventFilter(self)
