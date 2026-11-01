@@ -106,7 +106,7 @@ def test_a_trim_never_lands_inside_a_run(bus, monkeypatch):
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def hud(bus, tmp_path, monkeypatch):
+def hud(bus, tmp_path, monkeypatch, destroy_huds):
     # PyQt6 itself imports fine without the system GL libraries; QtWidgets is
     # what raises (libEGL.so.1 on a bare CI runner), so that is what to probe.
     pytest.importorskip("PyQt6.QtWidgets")

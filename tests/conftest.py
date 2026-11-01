@@ -585,3 +585,53 @@ def dummy_action_cls():
 # confirm gate, the judge loop and escalation; leaving them unrun on CI, or
 # deleting them, would both have been worse than finding out why they failed.
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Qt: the thinking card is destroyed by the test that made it
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def destroy_huds():
+    """Every ThinkingHUD a test opens is destroyed when that test ends.
+
+    The HUD tests used to only `close()` the card and leave the rest to the
+    garbage collector, which then freed it, with its timers and animations,
+    whenever it next ran. On CI that was sometimes inside pytest dropping the
+    last test's fixtures, and the process segfaulted after every test had
+    passed (TASKS 53; runs 285 and the first of #65). Here the card is stopped
+    and deleted at one known point, through Qt's own deferred delete, so the
+    collector has nothing of it left to free.
+
+    Only the cards this test made: a sweep over every leftover window in a
+    shared process made TASKS 53 worse (4 crashes in 4 runs).
+    """
+    try:
+        from PyQt6.QtCore import QAbstractAnimation, QCoreApplication, QEvent, QTimer
+        from PyQt6.QtWidgets import QApplication
+
+        from assistant.thinking_hud import ThinkingHUD
+    except ImportError:         # no Qt here: the test will skip on its own
+        yield
+        return
+
+    def cards() -> dict:
+        app = QApplication.instance()
+        return {id(w): w for w in (app.topLevelWidgets() if app else []) if isinstance(w, ThinkingHUD)}
+
+    before = set(cards())
+    yield
+    import gc
+    for key, card in cards().items():
+        if key in before:
+            continue
+        for timer in card.findChildren(QTimer):
+            timer.stop()
+        for anim in card.findChildren(QAbstractAnimation):
+            anim.stop()
+        timer = anim = None
+        card.close()
+        card.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+    QCoreApplication.processEvents()
+    gc.collect()
