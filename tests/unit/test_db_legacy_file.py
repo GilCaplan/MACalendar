@@ -133,3 +133,18 @@ def test_the_checker_does_not_cry_wolf_at_the_stores_own_rewrites():
     assert compare(before, after) == []
     after["events"][0]["title"] = "Lift!"                 # a real change still shows
     assert compare(before, after) == ["events row 1: title changed"]
+
+
+def test_the_checker_lets_a_backfill_queue_writes_for_the_hub():
+    """Schema 3 backfills `payout_id` on old counter presses, and the sync
+    triggers queue each write for the PC hub as they would any other. The
+    checker read the grown outbox as a loss and said NOT OK on a healthy
+    calendar (2026-11-02). Growth is expected; a queued row that changed or
+    vanished is still a loss."""
+    from assistant.db.verify import compare
+    queued = {"seq": 1, "tbl": "events", "rid": 3, "op": "u"}
+    before = {"_sync_log": [queued]}
+    after = {"_sync_log": [queued, {"seq": 2, "tbl": "counter_presses", "rid": 7, "op": "u"}]}
+    assert compare(before, after) == []
+    assert compare(before, {"_sync_log": []}) == ["_sync_log: 1 rows became 0"]
+    assert compare(before, {"_sync_log": [{**queued, "rid": 4}]}) == ["_sync_log row ?: rid changed"]
