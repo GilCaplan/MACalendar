@@ -89,7 +89,7 @@ def test_the_mac_button_asks_and_adds_that_amount(qapp, tmp_path, monkeypatch):
 
     assert asked["default"] == 7.5                  # opens on the usual price
     assert card.current_count() == 2
-    assert card._payout_lbl.text() == "₪12.50"
+    assert card._payout_lbl.text() == "owed to you ₪12.50"
     assert db.get_counter_presses(cid)[-1]["amount"] == 5.0
 
 

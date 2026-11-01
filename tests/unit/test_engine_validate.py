@@ -710,11 +710,15 @@ def test_a_series_with_no_end_gets_the_cadence_default(cfg):
 
 
 def test_a_stated_series_end_wins(cfg):
+    from freezegun import freeze_time
     it = _item("create_event", _event_intent(
         title="gym", date="2026-09-28", start_time="07:00", end_time="08:00",
         recurrence="weekly", recur_until="2026-10-31"), text="gym every monday through october 31")
     st = _state("gym every monday through october 31", [it])
-    validate.run_objects(st, cfg)
+    # Said on the day before the series starts. Unfrozen, this went red on
+    # 2026-11-01: "october 31" is then next year's, read against the real today.
+    with freeze_time("2026-09-27"):
+        validate.run_objects(st, cfg)
     assert it.intent.recur_until == "2026-10-31"
     assert "series_default_end" not in _rules_applied(st)
 

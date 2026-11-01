@@ -4,6 +4,16 @@ from __future__ import annotations
 
 import datetime
 
+from assistant.db.schema import DIRECTIONS
+
+
+def _direction(value: str) -> str:
+    """Which way the money runs; anything but a known value is refused, since
+    a typo stored here would silently read as the default."""
+    if value not in DIRECTIONS:
+        raise ValueError(f"direction must be one of {', '.join(DIRECTIONS)}, not {value!r}")
+    return value
+
 
 def counter_press_amount(press: dict, price_per_unit: float) -> float:
     """What one press adds to its counter's payout: its own `amount` when it
@@ -13,6 +23,42 @@ def counter_press_amount(press: dict, price_per_unit: float) -> float:
     if amount is not None:
         return float(amount) if delta >= 0 else -float(amount)
     return delta * float(price_per_unit or 0)
+
+
+def instant(iso: str) -> datetime.datetime:
+    """An ISO timestamp as a comparable moment. A naive one (a time typed into
+    a Mac dialog) is read as this machine's local time.
+
+    Presses and cash-outs arrive in three spellings: the Mac's own clock
+    writes microseconds, the phone writes whole seconds, and a dialog writes
+    no offset. Compared as TEXT, "12:00:00.5+02:00" sorts after
+    "12:00:00+02:00" because "." outranks "+", so a press made in the same
+    second as a cash-out survived it.
+    """
+    dt = datetime.datetime.fromisoformat(iso)
+    return dt.astimezone() if dt.tzinfo is None else dt
+
+
+def presses_in_cycle(presses: list[dict], cycle_start: str | None) -> list[dict]:
+    """The presses in a counter's open cycle: those strictly AFTER the last
+    cash-out (a press at the cash-out's own instant was part of what it
+    banked). No cash-out yet means the whole history. A press whose time
+    cannot be read is kept, since dropping it would hide money owed."""
+    if not cycle_start:
+        return list(presses)
+    try:
+        start = instant(cycle_start)
+    except ValueError:
+        return list(presses)
+    kept = []
+    for p in presses:
+        try:
+            if instant(p.get("pressed_at") or "") <= start:
+                continue
+        except ValueError:
+            pass
+        kept.append(p)
+    return kept
 
 
 class TimersMixin:
@@ -34,12 +80,16 @@ class TimersMixin:
         timer_type: str = "work",
         currency: str = "ILS",
         max_session_minutes: int = 0,
+        direction: str = "owed_to_me",
     ) -> int:
         """Create a new timer project. Returns new row id."""
+        direction = _direction(direction)
         with self._conn() as conn:
             cur = conn.execute(
-                "INSERT INTO timers (title, hourly_rate, color, created_at, timer_type, currency, max_session_minutes) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (title, hourly_rate, color, datetime.datetime.now().isoformat(), timer_type, currency, max_session_minutes),
+                "INSERT INTO timers (title, hourly_rate, color, created_at, timer_type, currency, "
+                "max_session_minutes, direction) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (title, hourly_rate, color, datetime.datetime.now().isoformat(), timer_type, currency,
+                 max_session_minutes, direction),
             )
             return cur.lastrowid
 
@@ -54,8 +104,11 @@ class TimersMixin:
 
     def update_timer(self, timer_id: int, **kwargs) -> None:
         """Update allowed fields on a timer."""
-        allowed = {"title", "hourly_rate", "color", "archived", "timer_type", "currency", "max_session_minutes"}
+        allowed = {"title", "hourly_rate", "color", "archived", "timer_type", "currency", "max_session_minutes",
+                   "direction"}
         fields = {k: v for k, v in kwargs.items() if k in allowed}
+        if "direction" in fields:
+            fields["direction"] = _direction(fields["direction"])
         if not fields:
             return
         sets = ", ".join(f"{k} = ?" for k in fields)
@@ -173,12 +226,15 @@ class TimersMixin:
         price_per_unit: float = 0.0,
         currency: str = "ILS",
         color: str = "#1a6fc4",
+        direction: str = "owed_to_me",
     ) -> int:
         """Create a new tally counter. Returns new row id."""
+        direction = _direction(direction)
         with self._conn() as conn:
             cur = conn.execute(
-                "INSERT INTO counters (title, price_per_unit, currency, color, created_at) VALUES (?, ?, ?, ?, ?)",
-                (title, price_per_unit, currency, color, datetime.datetime.now().isoformat()),
+                "INSERT INTO counters (title, price_per_unit, currency, color, created_at, direction) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (title, price_per_unit, currency, color, datetime.datetime.now().isoformat(), direction),
             )
             return cur.lastrowid
 
@@ -193,8 +249,10 @@ class TimersMixin:
 
     def update_counter(self, counter_id: int, **kwargs) -> None:
         """Update allowed fields on a counter."""
-        allowed = {"title", "price_per_unit", "currency", "color", "archived"}
+        allowed = {"title", "price_per_unit", "currency", "color", "archived", "direction"}
         fields = {k: v for k, v in kwargs.items() if k in allowed}
+        if "direction" in fields:
+            fields["direction"] = _direction(fields["direction"])
         if not fields:
             return
         sets = ", ".join(f"{k} = ?" for k in fields)
@@ -334,9 +392,16 @@ class TimersMixin:
         cycle spans the counter's entire press history.
         """
         with self._conn() as conn:
-            row = conn.execute(
-                "SELECT payout_at FROM counter_payouts WHERE counter_id = ? "
-                "ORDER BY payout_at DESC LIMIT 1",
+            rows = conn.execute(
+                "SELECT payout_at FROM counter_payouts WHERE counter_id = ?",
                 (counter_id,),
-            ).fetchone()
-            return row["payout_at"] if row else None
+            ).fetchall()
+        # Latest by MOMENT, not by text: the stamps come in mixed spellings
+        # (see `instant`).
+        stamps = [r["payout_at"] for r in rows]
+        if not stamps:
+            return None
+        try:
+            return max(stamps, key=instant)
+        except ValueError:
+            return max(stamps)

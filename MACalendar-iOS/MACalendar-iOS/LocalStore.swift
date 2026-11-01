@@ -571,20 +571,22 @@ class LocalStore: ObservableObject {
     /// queued create carries the placeholder as `_temp_id`, and the Mac's id
     /// replaces it when it replays (`remapTemporaryID`).
     func insertTimer(title: String, hourlyRate: Double, color: String, currency: String,
-                     maxSessionMinutes: Int) -> WorkTimer {
+                     maxSessionMinutes: Int, direction: String? = nil) -> WorkTimer {
         let t = WorkTimer(id: nextTemp, title: title, hourlyRate: hourlyRate, color: color,
                           currency: currency, timerType: "work", maxSessionMinutes: maxSessionMinutes,
                           archived: 0, running: nil, totalSeconds: 0, todaySeconds: 0,
-                          sessionCount: 0, earnings: 0)
+                          sessionCount: 0, earnings: 0, direction: direction)
         nextTemp -= 1
         timers.append(t)
         persist()
         return t
     }
 
-    func insertCounter(title: String, pricePerUnit: Double, currency: String, color: String) -> TallyCounter {
+    func insertCounter(title: String, pricePerUnit: Double, currency: String, color: String,
+                       direction: String? = nil) -> TallyCounter {
         let c = TallyCounter(id: nextTemp, title: title, pricePerUnit: pricePerUnit, currency: currency,
-                             color: color, archived: 0, count: 0, totalCount: 0, todayCount: 0, payout: 0)
+                             color: color, archived: 0, count: 0, totalCount: 0, todayCount: 0, payout: 0,
+                             direction: direction)
         nextTemp -= 1
         counters.append(c)
         persist()
@@ -641,6 +643,16 @@ class LocalStore: ObservableObject {
         counters[i].todayCount += delta
         let worth = amount.map { delta >= 0 ? $0 : -$0 } ?? Double(delta) * counters[i].pricePerUnit
         counters[i].payout = ((counters[i].payout + worth) * 100).rounded() / 100
+        persist()
+    }
+
+    /// Cash-out, on screen at the tap: the open cycle closes, so its count and
+    /// what it owes go to zero. Today's and all-time counts are history and
+    /// stay. The Mac's answer replaces this when it comes.
+    func cashOutCounter(_ id: Int) {
+        guard let i = counters.firstIndex(where: { $0.id == id }) else { return }
+        counters[i].count = 0
+        counters[i].payout = 0
         persist()
     }
 

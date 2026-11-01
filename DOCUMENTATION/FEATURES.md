@@ -903,6 +903,19 @@ counter is logged as 5. The payout is the sum of each press's worth —
 `assistant.db.counter_press_amount` — not `count × price`; a press with no
 amount still follows the counter's current price.
 
+**Cash out** banks the open cycle and starts a new one. It moves on the phone
+at the tap (the cache is zeroed first, then the Mac is asked), and it banks
+exactly the presses up to its own moment, so no press is owed twice. Which
+presses are in the open cycle is ONE rule, `assistant.db.presses_in_cycle`,
+comparing moments rather than text, shared by the API and the Mac card.
+
+**Which way the money runs** (2026-11-01): a counter or timer is
+`direction` `owed_to_me` (the default, and every older row) or `i_owe` —
+"Money: They owe me / I owe them" in the Mac dialogs and the phone's
+new/edit sheet. It changes the words ("owed to you ₪87.50" / "you owe
+₪87.50") and keeps money you owe out of "earned" in the Timer tab's totals;
+the sums are the same either way.
+
 ### Suggest words — more words for a magic word
 **What:** On a magic word's page (and for a new one made from a photo),
 "Suggest words…" opens a sheet: choose how many (5, 10, 15, 20), and the

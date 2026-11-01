@@ -28,6 +28,7 @@ from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import (
     QCheckBox,
     QColorDialog,
+    QComboBox,
     QDateTimeEdit,
     QDialog,
     QDialogButtonBox,
@@ -52,7 +53,7 @@ from PyQt6.QtWidgets import (
 
 import assistant.calendar_ui.styles as _styles
 from assistant.calendar_ui.dialog_utils import install_enter_confirms
-from assistant.db import CalendarDB, counter_press_amount
+from assistant.db import CalendarDB, counter_press_amount, presses_in_cycle
 
 # ---------------------------------------------------------------------------
 # Currency data  (code → (display name, symbol))
@@ -237,6 +238,23 @@ def _presses_amount(presses: list[dict], price_per_unit: float) -> float:
     return sum(counter_press_amount(p, price_per_unit) for p in presses)
 
 
+#: The two ways money runs on a timer or counter, as the dialogs offer them.
+_DIRECTION_CHOICES = (("owed_to_me", "They owe me"), ("i_owe", "I owe them"))
+
+
+def _money_phrase(amount: str, direction: str) -> str:
+    """ "owed to you ₪87.50" or "you owe ₪87.50" — the same words the phone uses."""
+    return f"you owe {amount}" if direction == "i_owe" else f"owed to you {amount}"
+
+
+def _direction_combo(direction: str) -> QComboBox:
+    combo = QComboBox()
+    for value, label in _DIRECTION_CHOICES:
+        combo.addItem(label, value)
+    combo.setCurrentIndex(max(0, combo.findData(direction)))
+    return combo
+
+
 def _fmt_payout(presses: list[dict], price_per_unit: float, currency: str = "ILS") -> str:
     """The payout label, or "" for a counter with no price and no priced press."""
     if price_per_unit <= 0 and not any(p.get("amount") is not None for p in presses):
@@ -245,38 +263,10 @@ def _fmt_payout(presses: list[dict], price_per_unit: float, currency: str = "ILS
     return f"{symbol}{_presses_amount(presses, price_per_unit):,.2f}"
 
 
-def _parse_dt_aware(iso: str) -> datetime.datetime:
-    """Parse an ISO datetime string, normalizing naive timestamps to the
-    system's current local offset (mirrors _duration_secs's approach) so
-    comparisons between naive (dialog-entered) and aware (live-tap) rows
-    stay consistent."""
-    dt = datetime.datetime.fromisoformat(iso)
-    if dt.tzinfo is None:
-        dt = dt.astimezone()
-    return dt
-
-
 def _presses_since(presses: list[dict], cycle_start_iso: str | None) -> list[dict]:
-    """Presses belonging to the current (open) tally cycle — those at or
-    after cycle_start_iso. cycle_start_iso is None for a counter that's
-    never been cashed out, meaning its entire press history is the current
-    cycle. Malformed timestamps are kept rather than silently dropped."""
-    if not cycle_start_iso:
-        return presses
-    try:
-        start_dt = _parse_dt_aware(cycle_start_iso)
-    except Exception:
-        return presses
-    kept = []
-    for p in presses:
-        try:
-            p_dt = _parse_dt_aware(p.get("pressed_at", ""))
-        except Exception:
-            kept.append(p)
-            continue
-        if p_dt >= start_dt:
-            kept.append(p)
-    return kept
+    """Presses in the current (open) tally cycle. One rule, shared with the
+    API, so the Mac card and the phone show the same count."""
+    return presses_in_cycle(presses, cycle_start_iso)
 
 
 # ---------------------------------------------------------------------------
@@ -355,6 +345,7 @@ class TimerDialog(QDialog):
         currency: str = _DEFAULT_CURRENCY,
         color: str = _styles.BLUE,
         max_session_minutes: int = 0,
+        direction: str = "owed_to_me",
     ):
         super().__init__(parent)
         self.setWindowTitle("Timer Settings")
@@ -444,6 +435,9 @@ class TimerDialog(QDialog):
         self._currency_picker = CurrencyPicker(currency, self)
         earn_form.addRow("Currency:", self._currency_picker)
 
+        self._direction_combo = _direction_combo(direction)
+        earn_form.addRow("Money:", self._direction_combo)
+
         root.addWidget(self._earnings_box)
 
         # Divider
@@ -517,6 +511,10 @@ class TimerDialog(QDialog):
     def result_max_session_minutes(self) -> int:
         return self._max_session_spin.value()
 
+    @property
+    def result_direction(self) -> str:
+        return self._direction_combo.currentData()
+
 
 # ---------------------------------------------------------------------------
 # New / Edit Counter dialog
@@ -533,6 +531,7 @@ class CounterDialog(QDialog):
         price_per_unit: float = 0.0,
         currency: str = _DEFAULT_CURRENCY,
         color: str = _styles.BLUE,
+        direction: str = "owed_to_me",
     ):
         super().__init__(parent)
         self.setWindowTitle("Counter Settings")
@@ -574,6 +573,9 @@ class CounterDialog(QDialog):
         self._currency_picker = CurrencyPicker(currency, self)
         form.addRow("Currency:", self._currency_picker)
 
+        self._direction_combo = _direction_combo(direction)
+        form.addRow("Money:", self._direction_combo)
+
         root.addLayout(form)
 
         line = QFrame()
@@ -614,6 +616,10 @@ class CounterDialog(QDialog):
     @property
     def result_color(self) -> str:
         return self._color
+
+    @property
+    def result_direction(self) -> str:
+        return self._direction_combo.currentData()
 
 
 # ---------------------------------------------------------------------------
@@ -1562,6 +1568,7 @@ class TimerCard(QWidget):
             currency=self._timer.get("currency", _DEFAULT_CURRENCY),
             color=self._timer.get("color", _styles.BLUE),
             max_session_minutes=self._timer.get("max_session_minutes", 0),
+            direction=self._timer.get("direction", "owed_to_me"),
         )
         if dlg.exec():
             self._db.update_timer(
@@ -1572,6 +1579,7 @@ class TimerCard(QWidget):
                 currency=dlg.result_currency,
                 color=dlg.result_color,
                 max_session_minutes=dlg.result_max_session_minutes,
+                direction=dlg.result_direction,
             )
             self.reload_timer()
 
@@ -2187,7 +2195,7 @@ class CounterCard(QWidget):
         self._plus_amount_btn.setText(f"+{_currency_symbol(currency)}")
         self._presses_panel._currency = currency
         payout = _fmt_payout(cycle_presses, self._counter.get("price_per_unit", 0), currency)
-        self._payout_lbl.setText(payout)
+        self._payout_lbl.setText(_money_phrase(payout, self._counter.get("direction", "owed_to_me")) if payout else "")
         self._payout_lbl.setVisible(bool(payout))
 
         if self._expanded:
@@ -2262,6 +2270,7 @@ class CounterCard(QWidget):
             price_per_unit=self._counter.get("price_per_unit", 0),
             currency=self._counter.get("currency", _DEFAULT_CURRENCY),
             color=self._counter.get("color", _styles.BLUE),
+            direction=self._counter.get("direction", "owed_to_me"),
         )
         if dlg.exec():
             self._db.update_counter(
@@ -2270,6 +2279,7 @@ class CounterCard(QWidget):
                 price_per_unit=dlg.result_rate,
                 currency=dlg.result_currency,
                 color=dlg.result_color,
+                direction=dlg.result_direction,
             )
             self.reload_counter()
 
@@ -2401,7 +2411,8 @@ class ArchivedTimerRow(QWidget):
                 total_secs, self._timer["hourly_rate"], self._timer.get("currency", _DEFAULT_CURRENCY)
             )
             if earn:
-                sub_parts.append(f"{earn} earned lifetime")
+                sub_parts.append(f"you owe {earn} lifetime" if self._timer.get("direction") == "i_owe"
+                                 else f"{earn} earned lifetime")
         sub_lbl = QLabel("  ·  ".join(sub_parts))
         sub_lbl.setObjectName("secondary")
         info.addWidget(sub_lbl)
@@ -2839,7 +2850,8 @@ class TimerView(FeaturePanel):
             session_count += 1
             is_work = t.get("timer_type", "work") == "work"
             rate = t.get("hourly_rate", 0)
-            if is_work and rate > 0:
+            # Hours you pay for are not earnings.
+            if is_work and rate > 0 and t.get("direction") != "i_owe":
                 currency = t.get("currency", _DEFAULT_CURRENCY)
                 earn_by_currency[currency] = earn_by_currency.get(currency, 0.0) + (secs / 3600) * rate
 
@@ -3000,6 +3012,7 @@ class TimerView(FeaturePanel):
         total_secs = 0.0
         # Accumulate earnings per currency separately (timers can use different currencies)
         earn_by_currency: dict[str, float] = {}
+        owe_by_currency: dict[str, float] = {}
         any_running = False
 
         for timer_id, card in self._cards.items():
@@ -3020,10 +3033,8 @@ class TimerView(FeaturePanel):
                     secs = _duration_secs(s["start_time"], s.get("end_time"))
                     total_secs += secs
                     if is_work and t.get("hourly_rate", 0) > 0:
-                        earn_by_currency[currency] = (
-                            earn_by_currency.get(currency, 0.0)
-                            + (secs / 3600) * t["hourly_rate"]
-                        )
+                        bucket = owe_by_currency if t.get("direction") == "i_owe" else earn_by_currency
+                        bucket[currency] = bucket.get(currency, 0.0) + (secs / 3600) * t["hourly_rate"]
                 if s.get("end_time") is None:
                     any_running = True
 
@@ -3044,9 +3055,8 @@ class TimerView(FeaturePanel):
                 if p_date == today:
                     total_count_today += p.get("delta", 0)
                     if price > 0 or p.get("amount") is not None:
-                        earn_by_currency[currency] = (
-                            earn_by_currency.get(currency, 0.0) + counter_press_amount(p, price)
-                        )
+                        bucket = owe_by_currency if c.get("direction") == "i_owe" else earn_by_currency
+                        bucket[currency] = bucket.get(currency, 0.0) + counter_press_amount(p, price)
 
         parts = [f"Today: {_fmt_duration(total_secs)}"]
         if total_count_today:
@@ -3054,6 +3064,10 @@ class TimerView(FeaturePanel):
         for cur, amount in earn_by_currency.items():
             sym = _currency_symbol(cur)
             parts.append(f"{sym}{amount:,.2f} earned")
+        # Money you owe is not earnings: it gets its own words, never a sum.
+        for cur, amount in owe_by_currency.items():
+            sym = _currency_symbol(cur)
+            parts.append(f"you owe {sym}{amount:,.2f}")
         if any_running:
             parts.append("● Running")
         self._summary_lbl.setText("  ·  ".join(parts))
@@ -3087,6 +3101,7 @@ class TimerView(FeaturePanel):
                 currency=dlg.result_currency,
                 color=dlg.result_color,
                 max_session_minutes=dlg.result_max_session_minutes,
+                direction=dlg.result_direction,
             )
             self.reload()
             if self._section == "stats":
@@ -3112,6 +3127,7 @@ class TimerView(FeaturePanel):
                 price_per_unit=dlg.result_rate,
                 currency=dlg.result_currency,
                 color=dlg.result_color,
+                direction=dlg.result_direction,
             )
             self.reload()
 

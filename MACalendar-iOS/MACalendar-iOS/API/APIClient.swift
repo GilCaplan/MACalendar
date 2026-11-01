@@ -2209,7 +2209,8 @@ class APIClient: ObservableObject {
                 hourlyRate: body["hourly_rate"] as? Double ?? 0,
                 color: body["color"] as? String ?? "#1a6fc4",
                 currency: body["currency"] as? String ?? "ILS",
-                maxSessionMinutes: body["max_session_minutes"] as? Int ?? 0)
+                maxSessionMinutes: body["max_session_minutes"] as? Int ?? 0,
+                direction: body["direction"] as? String)
             LocalStore.shared.enqueue(method: "POST", path: "/timers",
                                       body: body.merging(["_temp_id": local.id]) { a, _ in a })
             return true
@@ -2291,7 +2292,8 @@ class APIClient: ObservableObject {
                 title: (body["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Untitled Counter",
                 pricePerUnit: body["price_per_unit"] as? Double ?? 0,
                 currency: body["currency"] as? String ?? "ILS",
-                color: body["color"] as? String ?? "#1a6fc4")
+                color: body["color"] as? String ?? "#1a6fc4",
+                direction: body["direction"] as? String)
             LocalStore.shared.enqueue(method: "POST", path: "/counters",
                                       body: body.merging(["_temp_id": local.id]) { a, _ in a })
             return true
@@ -2326,6 +2328,11 @@ class APIClient: ObservableObject {
     /// right number, because the queue replays in order: every press made
     /// before the cash-out lands before it, and every later one after it.
     func cashOutCounter(_ id: Int) async {
+        // Optimistic FIRST, like `pressCounter`. Cash out used to wait for the
+        // Mac's reply and a full reload before anything moved, so it looked
+        // dead whenever the Mac was slow, and did nothing at all with the Mac
+        // away: the write was queued but the cached count was never touched.
+        LocalStore.shared.cashOutCounter(id)
         await mutateOrTell("/counters/\(id)/cashout", method: "POST", body: ["cashed_at": Self.stamp()])
     }
 

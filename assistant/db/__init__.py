@@ -55,6 +55,7 @@ from assistant.db.observance import _MEAL_WORDS, _is_meal, _skip_for_observance,
 # Every name the single-file module had stays importable from here.
 from assistant.db.schema import (  # noqa: F401
     _CALENDAR_SOURCE_MIGRATIONS,
+    _COUNTER_MIGRATIONS,
     _COUNTER_PRESS_MIGRATIONS,
     _CREATE_ASSIGNMENTS_TABLE,
     _CREATE_CALENDAR_SOURCES_TABLE,
@@ -86,6 +87,7 @@ from assistant.db.schema import (  # noqa: F401
     _TODO_MIGRATIONS,
     _WORKOUT_MIGRATIONS,
     DEFAULT_TODO_TAGS,
+    DIRECTIONS,  # noqa: F401
     SCHEMA_VERSION,  # noqa: F401
     TWO_WAY_SOURCES,
 )
@@ -97,6 +99,7 @@ from assistant.db.sources import (
 from assistant.db.timers import (
     TimersMixin,
     counter_press_amount,  # noqa: F401
+    presses_in_cycle,  # noqa: F401
 )
 from assistant.db.todos import TodosMixin
 from assistant.db.workout import WorkoutMixin
