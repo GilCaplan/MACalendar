@@ -26,6 +26,7 @@ from PyQt6.QtWidgets import (
 )
 
 from assistant.calendar_ui import icons as _icons
+from assistant.calendar_ui.scrollbars import own_scrollbars
 from assistant.jude.ui import markdown as _md
 from assistant.jude.ui.sources import SourcesView
 from assistant.jude.ui.trace import TracePanel
@@ -366,6 +367,7 @@ class Transcript(QScrollArea):
 
     def __init__(self, theme, parent=None) -> None:
         super().__init__(parent)
+        own_scrollbars(self)        # it reads its own scrollbar; see `scrollbars`
         self._theme = theme
         self.setWidgetResizable(True)
         self.setFrameShape(QFrame.Shape.NoFrame)

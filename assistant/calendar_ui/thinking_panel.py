@@ -52,6 +52,7 @@ from assistant import trace as _trace
 from assistant.calendar_ui import icons
 from assistant.calendar_ui import styles as _styles
 from assistant.calendar_ui.command_graph import CommandGraphView, build_graph
+from assistant.calendar_ui.scrollbars import own_scrollbars
 
 PANEL_WIDTH = 400
 PANEL_HEIGHT = 440
@@ -98,6 +99,11 @@ _SOURCE_LABELS = {
 
 def _source_label(source: str) -> str:
     return _SOURCE_LABELS.get((source or "").strip().lower(), source or "Mac")
+
+
+def _scroll_area() -> QScrollArea:
+    """A scroll area whose scrollbars PyQt can track; see `scrollbars`."""
+    return own_scrollbars(QScrollArea())
 
 
 class _Theme:
@@ -1573,7 +1579,7 @@ class ThinkingPanel(QFrame):
         root.addWidget(self._rule)
 
         # timeline
-        self._scroll = QScrollArea()
+        self._scroll = _scroll_area()
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -1648,7 +1654,7 @@ class ThinkingPanel(QFrame):
         self._hist_tools.hide()
         root.addWidget(self._hist_tools)
 
-        self._hist_scroll = QScrollArea()
+        self._hist_scroll = _scroll_area()
         self._hist_scroll.setWidgetResizable(True)
         self._hist_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._hist_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -1669,7 +1675,7 @@ class ThinkingPanel(QFrame):
         # -- the command graph ----------------------------------------------
         # Built here with the other views, for the same reason as the LLM
         # console below: the HUD's read-only sweep runs once over the tree.
-        self._graph_scroll = QScrollArea()
+        self._graph_scroll = _scroll_area()
         self._graph_scroll.setWidgetResizable(True)
         self._graph_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._graph_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -1748,7 +1754,7 @@ class ThinkingPanel(QFrame):
         self._llm_tools.hide()
         root.addWidget(self._llm_tools)
 
-        self._llm_scroll = QScrollArea()
+        self._llm_scroll = _scroll_area()
         self._llm_scroll.setWidgetResizable(True)
         self._llm_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._llm_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)

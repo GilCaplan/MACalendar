@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from assistant.calendar_ui.scrollbars import own_scrollbars
 from assistant.host import logs
 from assistant.pairing import codes
 
@@ -63,7 +64,7 @@ class HelperWindow(QDialog):
         lay.addLayout(row)
 
         lay.addWidget(QLabel("Log"))
-        self.log = QPlainTextEdit()
+        self.log = own_scrollbars(QPlainTextEdit())
         self.log.setReadOnly(True)
         self.log.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
         self.log.setMinimumHeight(160)

@@ -19,6 +19,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from assistant.calendar_ui.scrollbars import own_scrollbars
+
 logger = logging.getLogger(__name__)
 
 import assistant.calendar_ui.styles as _styles
@@ -693,7 +695,7 @@ class DayView(QWidget):
         self._window = HourWindow(body)
         scroll.setWidget(self._window)
         layout.addWidget(scroll, stretch=1)
-        self._scroll = scroll
+        self._scroll = own_scrollbars(scroll)
 
         # Compress hour rows to fit the available height instead of always
         # scrolling — recalculated whenever the scroll viewport is resized.

@@ -19,6 +19,9 @@ from PyQt6.QtWidgets import QApplication  # noqa: E402
 
 from assistant import trace_bus  # noqa: E402
 
+# Each test's card is destroyed when it ends, not by the garbage collector later.
+pytestmark = pytest.mark.usefixtures("destroy_huds")
+
 
 @pytest.fixture(scope="module")
 def qapp():
