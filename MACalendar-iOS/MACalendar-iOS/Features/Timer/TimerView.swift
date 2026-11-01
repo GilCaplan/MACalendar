@@ -16,9 +16,12 @@ struct WorkTimer: Codable, Identifiable, Equatable {
     var todaySeconds: Double
     var sessionCount: Int
     var earnings: Double
+    /// "owed_to_me" or "i_owe". Optional so a Mac that predates it still
+    /// decodes; nil reads as owed to me, which is what every row meant before.
+    var direction: String? = nil
 
     enum CodingKeys: String, CodingKey {
-        case id, title, color, currency, archived, running, earnings
+        case id, title, color, currency, archived, running, earnings, direction
         case hourlyRate = "hourly_rate", timerType = "timer_type", maxSessionMinutes = "max_session_minutes"
         case totalSeconds = "total_seconds", todaySeconds = "today_seconds", sessionCount = "session_count"
     }
@@ -67,9 +70,11 @@ struct TallyCounter: Codable, Identifiable, Equatable {
     var totalCount: Int
     var todayCount: Int
     var payout: Double
+    /// See `WorkTimer.direction`.
+    var direction: String? = nil
 
     enum CodingKeys: String, CodingKey {
-        case id, title, currency, color, archived, count, payout
+        case id, title, currency, color, archived, count, payout, direction
         case pricePerUnit = "price_per_unit", totalCount = "total_count", todayCount = "today_count"
     }
 }
@@ -123,6 +128,14 @@ enum TimerFormat {
     }
     static func money(_ v: Double, _ cur: String) -> String {
         symbol(cur) + String(format: v == v.rounded() ? "%.0f" : "%.2f", v)
+    }
+    /// The two ways money runs, as the new/edit sheet offers them. The Mac's
+    /// dialogs use the same values and words.
+    static let directions: [(value: String, label: String)] = [("owed_to_me", "They owe me"), ("i_owe", "I owe them")]
+    static func iOwe(_ direction: String?) -> Bool { direction == "i_owe" }
+    /// "owed to you ₪87.50" or "you owe ₪87.50", the same words as the Mac card.
+    static func owed(_ v: Double, _ cur: String, _ direction: String?) -> String {
+        (iOwe(direction) ? "you owe " : "owed to you ") + money(v, cur)
     }
     /// Parse a timestamp the Mac wrote. Harder than it looks, and getting it
     /// wrong is why the phone's timers did not tick.
@@ -451,7 +464,9 @@ private struct TimerRow: View {
                     }
                     Text("total \(TimerFormat.duration(totalNow))").font(.caption).foregroundColor(.secondary)
                     if timer.hourlyRate > 0 {
-                        Text("· \(TimerFormat.money(totalNow / 3600 * timer.hourlyRate, timer.currency))").font(.caption).foregroundColor(.secondary)
+                        Text("· " + (TimerFormat.iOwe(timer.direction) ? "you owe " : "")
+                             + TimerFormat.money(totalNow / 3600 * timer.hourlyRate, timer.currency))
+                            .font(.caption).foregroundColor(.secondary)
                     }
                 }
                 if timer.maxSessionMinutes > 0, timer.running != nil {
@@ -494,7 +509,7 @@ private struct CounterRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(counter.title).font(.headline)
                     Text("today \(counter.todayCount) · all time \(counter.totalCount)" +
-                         (priced ? " · owed \(TimerFormat.money(counter.payout, counter.currency))" : ""))
+                         (priced ? " · " + TimerFormat.owed(counter.payout, counter.currency, counter.direction) : ""))
                         .font(.caption).foregroundColor(.secondary)
                 }
                 Spacer()
@@ -561,7 +576,8 @@ struct TimerSessionsView: View {
                 LabeledContent("Today", value: TimerFormat.duration(timer.todaySeconds))
                 if timer.hourlyRate > 0 {
                     LabeledContent("Rate", value: TimerFormat.money(timer.hourlyRate, timer.currency) + "/h")
-                    LabeledContent("Earned", value: TimerFormat.money(timer.earnings, timer.currency))
+                    LabeledContent(TimerFormat.iOwe(timer.direction) ? "You owe" : "Earned",
+                                   value: TimerFormat.money(timer.earnings, timer.currency))
                 }
             }
             Section {
@@ -629,6 +645,7 @@ private struct NewTimerSheet: View {
     @State private var maxMinutes = ""
     @State private var maxMinutesChoice = 0
     @State private var color: Color = .blue
+    @State private var direction = "owed_to_me"
     @State private var saving = false
 
     private var isEditing: Bool { editingTimer != nil || editingCounter != nil }
@@ -645,6 +662,14 @@ private struct NewTimerSheet: View {
                         TextField(kind == 0 ? "Hourly rate" : "Price per unit", text: $rate).keyboardType(.decimalPad)
                         Picker("", selection: $currency) { ForEach(["ILS", "USD", "EUR", "GBP"], id: \.self) { Text($0) } }.labelsHidden()
                     }
+                    // Which way the money runs: a rider who owes you, or the
+                    // driver you owe. Only the words change, never the sums.
+                    Picker("Money", selection: $direction) {
+                        ForEach(TimerFormat.directions.indices, id: \.self) { i in
+                            Text(TimerFormat.directions[i].label).tag(TimerFormat.directions[i].value)
+                        }
+                    }
+                    .pickerStyle(.segmented)
                     if kind == 0 {
                         Picker("Auto-stop after", selection: $maxMinutesChoice) {
                             ForEach(AutoStop.presets, id: \.minutes) { Text($0.label).tag($0.minutes) }
@@ -682,6 +707,7 @@ private struct NewTimerSheet: View {
             title = t.title
             rate = t.hourlyRate == 0 ? "" : String(t.hourlyRate)
             currency = t.currency
+            direction = t.direction ?? "owed_to_me"
             maxMinutes = t.maxSessionMinutes == 0 ? "" : String(t.maxSessionMinutes)
             // A value that isn't one of the presets still has to survive editing.
             maxMinutesChoice = AutoStop.presets.contains { $0.minutes == t.maxSessionMinutes }
@@ -692,6 +718,7 @@ private struct NewTimerSheet: View {
             title = c.title
             rate = c.pricePerUnit == 0 ? "" : String(c.pricePerUnit)
             currency = c.currency
+            direction = c.direction ?? "owed_to_me"
             color = Color(hex: c.color) ?? settings.accentColor
         } else {
             color = settings.accentColor
@@ -704,20 +731,22 @@ private struct NewTimerSheet: View {
         let r = Double(rate.replacingOccurrences(of: ",", with: ".")) ?? 0
         if let t = editingTimer {
             await api.updateTimer(t.id, ["title": title, "hourly_rate": r, "currency": currency,
-                                         "color": hex, "max_session_minutes": resolvedMaxMinutes])
+                                         "color": hex, "max_session_minutes": resolvedMaxMinutes,
+                                         "direction": direction])
             await onSaved(); dismiss(); return
         }
         if let c = editingCounter {
             await api.updateCounter(c.id, ["title": title, "price_per_unit": r,
-                                           "currency": currency, "color": hex])
+                                           "currency": currency, "color": hex, "direction": direction])
             await onSaved(); dismiss(); return
         }
         let ok: Bool
         if kind == 0 {
             ok = await api.createTimer(["title": title, "hourly_rate": r, "currency": currency, "color": hex,
-                                        "max_session_minutes": resolvedMaxMinutes])
+                                        "max_session_minutes": resolvedMaxMinutes, "direction": direction])
         } else {
-            ok = await api.createCounter(["title": title, "price_per_unit": r, "currency": currency, "color": hex])
+            ok = await api.createCounter(["title": title, "price_per_unit": r, "currency": currency, "color": hex,
+                                          "direction": direction])
         }
         if ok { await onSaved(); dismiss() }
     }
@@ -819,7 +848,8 @@ struct CounterDetailSheet: View {
                         LabeledContent("Rate", value: TimerFormat.money(counter.pricePerUnit, counter.currency) + " each")
                     }
                     if counter.pricePerUnit > 0 || counter.payout != 0 {
-                        LabeledContent("Owed", value: TimerFormat.money(counter.payout, counter.currency))
+                        LabeledContent(TimerFormat.iOwe(counter.direction) ? "You owe" : "Owed to you",
+                                       value: TimerFormat.money(counter.payout, counter.currency))
                     }
                     LabeledContent("Today", value: "\(counter.todayCount)")
                     LabeledContent("All time", value: "\(counter.totalCount)")

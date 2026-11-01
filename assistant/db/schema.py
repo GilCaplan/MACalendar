@@ -187,7 +187,8 @@ CREATE TABLE IF NOT EXISTS timers (
     archived    INTEGER NOT NULL DEFAULT 0,
     timer_type  TEXT    NOT NULL DEFAULT 'work',
     currency    TEXT    NOT NULL DEFAULT 'ILS',
-    max_session_minutes INTEGER NOT NULL DEFAULT 0
+    max_session_minutes INTEGER NOT NULL DEFAULT 0,
+    direction   TEXT    NOT NULL DEFAULT 'owed_to_me'
 )
 """
 
@@ -195,6 +196,7 @@ _TIMER_MIGRATIONS = [
     "ALTER TABLE timers ADD COLUMN timer_type TEXT NOT NULL DEFAULT 'work'",
     "ALTER TABLE timers ADD COLUMN currency TEXT NOT NULL DEFAULT 'ILS'",
     "ALTER TABLE timers ADD COLUMN max_session_minutes INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE timers ADD COLUMN direction TEXT NOT NULL DEFAULT 'owed_to_me'",
 ]
 
 _CREATE_TIMER_SESSIONS_TABLE = """
@@ -217,9 +219,20 @@ CREATE TABLE IF NOT EXISTS counters (
     currency        TEXT    NOT NULL DEFAULT 'ILS',
     color           TEXT    NOT NULL DEFAULT '#1a6fc4',
     created_at      TEXT    NOT NULL,
-    archived        INTEGER NOT NULL DEFAULT 0
+    archived        INTEGER NOT NULL DEFAULT 0,
+    direction       TEXT    NOT NULL DEFAULT 'owed_to_me'
 )
 """
+
+# Which way the money runs on a timer or counter: 'owed_to_me' (the default,
+# and what every row meant before 2026-11-01: a carpool rider owes me, a client
+# pays my hours) or 'i_owe' (I pay the carpool driver, the babysitter's hours).
+# It changes the label, never the arithmetic.
+DIRECTIONS = ("owed_to_me", "i_owe")
+
+_COUNTER_MIGRATIONS = [
+    "ALTER TABLE counters ADD COLUMN direction TEXT NOT NULL DEFAULT 'owed_to_me'",
+]
 
 # Each tap of +/- is logged as its own row (mirrors timer_sessions) so the
 # running count is always derivable — never stored redundantly — and every
@@ -476,7 +489,8 @@ _TAG_SUGGESTION_MIGRATIONS = [
 #: stamped HIGHER was written by newer code than this, which is worth a
 #: warning: this code may not know a column the newer code relies on.
 #: 1 = the schema at the per-area split (2026-10-30), tag suggestions included.
-SCHEMA_VERSION = 1
+#: 2 = timers and counters say which way the money runs (`direction`).
+SCHEMA_VERSION = 2
 
 _CREATE_INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_events_date      ON events(date);

@@ -116,14 +116,17 @@ def test_a_press_is_counted_on_the_day_it_was_made(client):
 
 def test_a_cash_out_is_stamped_when_it_was_asked_for(client):
     cid = _counter(client)
-    client.post(f"/counters/{cid}/press", json={"delta": 4})
+    tapped = (datetime.datetime.now().astimezone() - datetime.timedelta(hours=6)).isoformat()
+    client.post(f"/counters/{cid}/press", json={"delta": 4, "pressed_at": tapped})
     asked = (datetime.datetime.now().astimezone() - datetime.timedelta(hours=5)).isoformat()
 
-    client.post(f"/counters/{cid}/cashout", json={"cashed_at": asked})
+    out = client.post(f"/counters/{cid}/cashout", json={"cashed_at": asked}).get_json()
 
     payouts = client.get(f"/counters/{cid}/payouts").get_json()["payouts"]
     assert len(payouts) == 1
     assert payouts[0]["payout_at"] == asked
-    # The count is still the Mac's, from the presses it holds — the phone's
-    # queue replays in order, so every press before the cash-out is already in.
+    # The count is the Mac's, from the presses it holds up to that moment —
+    # the phone's queue replays in order, and every press carries its own tap
+    # time, so every press made before the cash-out is in and stamped before it.
     assert payouts[0]["count"] == 4
+    assert out["count"] == 0          # and none of them is owed again

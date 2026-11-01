@@ -30,7 +30,7 @@ import datetime
 
 from flask import Blueprint, jsonify, request
 
-from assistant.db import counter_press_amount
+from assistant.db import DIRECTIONS, counter_press_amount, presses_in_cycle
 from assistant.features.idempotency import idempotent_create
 
 blueprint = Blueprint("timer", __name__)
@@ -120,9 +120,18 @@ def timers_list():
     return jsonify({"timers": [_timer_out(db, t) for t in db.get_timers(include_archived=inc)]})
 
 
+def _refuse_direction(b: dict):
+    """A 400 for a `direction` that is not one of DIRECTIONS, else None."""
+    if "direction" in b and b["direction"] not in DIRECTIONS:
+        return jsonify({"error": f"direction must be one of {', '.join(DIRECTIONS)}", "code": 400}), 400
+    return None
+
+
 @blueprint.post("/timers")
 def timers_create():
     b = request.get_json(silent=True) or {}
+    if refused := _refuse_direction(b):
+        return refused
     db = get_db()
     # Idempotent on `client_token` — the phone queues this while the Mac is
     # away and replays it, so a reply lost after the row was written would
@@ -131,7 +140,8 @@ def timers_create():
     body, status = idempotent_create("timers", b, lambda: db.create_timer(
         title=str(b.get("title") or "Untitled Timer"), hourly_rate=float(b.get("hourly_rate") or 0),
         color=str(b.get("color") or "#1a6fc4"), timer_type=str(b.get("timer_type") or "work"),
-        currency=str(b.get("currency") or "ILS"), max_session_minutes=int(b.get("max_session_minutes") or 0)), db=db)
+        currency=str(b.get("currency") or "ILS"), max_session_minutes=int(b.get("max_session_minutes") or 0),
+        direction=str(b.get("direction") or "owed_to_me")), db=db)
     t = next(x for x in db.get_timers(include_archived=True) if x["id"] == body["id"])
     out = _timer_out(db, t)
     if body.get("duplicate"):
@@ -142,6 +152,8 @@ def timers_create():
 @blueprint.patch("/timers/<int:tid>")
 def timers_update(tid: int):
     b = request.get_json(silent=True) or {}
+    if refused := _refuse_direction(b):
+        return refused
     db = get_db()
     db.update_timer(tid, **{k: v for k, v in b.items()})
     t = next((x for x in db.get_timers(include_archived=True) if x["id"] == tid), None)
@@ -242,7 +254,7 @@ def timer_session_delete(sid: int):
 def _counter_out(db, c: dict) -> dict:
     presses = db.get_counter_presses(c["id"])
     cycle = db.get_counter_cycle_start(c["id"])
-    in_cycle = [p for p in presses if not cycle or p["pressed_at"] > cycle]
+    in_cycle = presses_in_cycle(presses, cycle)
     today = datetime.date.today().isoformat()
     out = dict(c)
     out["count"] = sum(int(p["delta"]) for p in in_cycle)
@@ -264,10 +276,13 @@ def counters_list():
 @blueprint.post("/counters")
 def counters_create():
     b = request.get_json(silent=True) or {}
+    if refused := _refuse_direction(b):
+        return refused
     db = get_db()
     body, status = idempotent_create("counters", b, lambda: db.create_counter(
         title=str(b.get("title") or "Untitled Counter"), price_per_unit=float(b.get("price_per_unit") or 0),
-        currency=str(b.get("currency") or "ILS"), color=str(b.get("color") or "#1a6fc4")), db=db)
+        currency=str(b.get("currency") or "ILS"), color=str(b.get("color") or "#1a6fc4"),
+        direction=str(b.get("direction") or "owed_to_me")), db=db)
     out = _counter_out(db, next(x for x in db.get_counters(include_archived=True) if x["id"] == body["id"]))
     if body.get("duplicate"):
         out["duplicate"] = True
@@ -277,6 +292,8 @@ def counters_create():
 @blueprint.patch("/counters/<int:cid>")
 def counters_update(cid: int):
     b = request.get_json(silent=True) or {}
+    if refused := _refuse_direction(b):
+        return refused
     db = get_db()
     db.update_counter(cid, **b)
     c = next((x for x in db.get_counters(include_archived=True) if x["id"] == cid), None)
@@ -333,10 +350,19 @@ def counters_cashout(cid: int):
     # Mac's, computed from the presses it holds — and the phone's queue replays
     # in order, so every press made before the cash-out has already landed.
     now = str(b.get("cashed_at") or "").strip() or datetime.datetime.now().astimezone().isoformat()
-    cycle_start = info["cycle_started_at"] or (db.get_counter_presses(cid) or [{"pressed_at": c["created_at"]}])[0]["pressed_at"]
+    presses = db.get_counter_presses(cid)
+    cycle_start = info["cycle_started_at"] or (presses or [{"pressed_at": c["created_at"]}])[0]["pressed_at"]
+    # Bank exactly the presses up to the cash-out's own moment. The next cycle
+    # starts there, so a press stamped later (another device, while this one
+    # waited in a queue) belongs to it. Banking every press the Mac held put
+    # that press in BOTH the payout and the new cycle, and it was owed twice.
+    open_now = presses_in_cycle(presses, info["cycle_started_at"])
+    banked = [p for p in open_now if p not in presses_in_cycle(open_now, now)]
+    count = sum(int(p["delta"]) for p in banked)
     amount = b.get("amount")
-    amount = float(amount) if amount is not None else info["payout"]
-    db.create_counter_payout(cid, cycle_start, now, info["count"], amount, c["currency"], note=str(b.get("note") or ""))
+    price = float(c.get("price_per_unit") or 0)
+    amount = float(amount) if amount is not None else round(sum(counter_press_amount(p, price) for p in banked), 2)
+    db.create_counter_payout(cid, cycle_start, now, count, amount, c["currency"], note=str(b.get("note") or ""))
     return jsonify(_counter_out(db, c)), 201
 
 

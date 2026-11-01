@@ -13,6 +13,7 @@ from contextlib import contextmanager
 from assistant.db.common import _note_own_write
 from assistant.db.schema import (
     _CALENDAR_SOURCE_MIGRATIONS,
+    _COUNTER_MIGRATIONS,
     _COUNTER_PRESS_MIGRATIONS,
     _CREATE_ASSIGNMENTS_TABLE,
     _CREATE_CALENDAR_SOURCES_TABLE,
@@ -113,6 +114,7 @@ and the client-token lookups every area's creates share."""
             self._migrate_timers(conn)
             conn.execute(_CREATE_TIMER_SESSIONS_TABLE)
             conn.execute(_CREATE_COUNTERS_TABLE)
+            self._add_columns(conn, "counters", _COUNTER_MIGRATIONS)
             conn.execute(_CREATE_COUNTER_PRESSES_TABLE)
             self._add_columns(conn, "counter_presses", _COUNTER_PRESS_MIGRATIONS)
             conn.execute(_CREATE_COUNTER_PAYOUTS_TABLE)
